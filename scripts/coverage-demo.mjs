@@ -5,12 +5,13 @@ import {geometryForProject} from "../src/models/deployments.js";
 import {planBeacons,BEACON_PROFILES} from "../src/engines/beaconPlacement.js";
 import {analyzeCoverage} from "../src/engines/coverage.js";
 const graph=sampleMall.graph,floorGeometry=geometryForProject(sampleMall),profile=BEACON_PROFILES[0];
-const plan=planBeacons({graph,floorGeometry,profile});
+// Historical Milestone 5 centerline baseline; use topology-demo.mjs for the redesigned engine.
+const plan=planBeacons({graph,floorGeometry,profile,configuration:{placementStrategy:'centerline'}});
 const start=performance.now();
 const analyze=placement=>analyzeCoverage({graph,floorGeometry,beacons:placement.beacons,profile,placementQuality:placement.quality});
 const coverage=analyze(plan),elapsedMs=performance.now()-start;
 const disabled=plan.beacons.map(b=>b.edgeId==="atrium-lift"&&b.worldY>40&&b.worldY<56?{...b,enabled:false}:b);
-const gapPlan=planBeacons({graph,floorGeometry,profile,configuration:{mode:"hybrid",beacons:disabled}}),gapCoverage=analyze(gapPlan);
+const gapPlan=planBeacons({graph,floorGeometry,profile,configuration:{placementStrategy:'centerline',mode:"hybrid",beacons:disabled}}),gapCoverage=analyze(gapPlan);
 assert.equal(coverage.graphCoveragePercentage,100);assert.ok(coverage.deadZones.length);assert.ok(coverage.overlapArea>0);assert.ok(gapCoverage.gaps.length);assert.equal(gapPlan.statistics.disabledBeacons,3);
 const summarize=result=>{const {floorReports,...summary}=result;return {...summary,floorReports:floorReports.map(({cells,...floor})=>floor)};};
 const report={source:"Hand-modelled Milestone 2 sample mall, not a surveyed deployment",placement:plan.statistics,placementWarnings:plan.warnings,coverage:summarize(coverage),gapTest:{placement:gapPlan.statistics,coverage:summarize(gapCoverage)},elapsedMs};

@@ -1,5 +1,15 @@
 # Beacon placement and coverage algorithms
 
+## Milestone 8 topology-aware placement
+
+1. Cut perpendicular cross-sections at 10%, 50%, 90% of each same-floor edge. Measure only the connected geometry-valid interval containing its route reference. Record median width, samples, capped/unknown measurements, polygon references and nearby explicit entrance/POI semantics. Defaults 3/6/12 m are configurable classification assumptions, not RF specifications. The cross-section span is capped at 200 m.
+2. Retain graph-derived route stations and important-node anchors. Narrow corridors prefer one side; medium corridors prefer alternating sides; wide corridors test both sides and half-offsets. Junction/lift/escalator/stair locations add longitudinal corner/lobby offsets. Store entrances bias toward explicit entrance POIs. Atrium/food-court coverage also uses actual walkable polygon perimeters/corners. Geometry and visibility gate every candidate.
+3. Use floor-specific beacon bins and 81 local probes to choose marginal coverage gain, not overlapping footprint. Protect previously covered route samples (normally 0.25 m; bounded to approximately 100,000) with a half-step margin. This is sampled protection, not a continuous-coverage proof; final Coverage Engine validation is authoritative.
+4. Generate perimeter/corner candidates inset into valid geometry, never a beacon-coordinate grid. Greedily choose largest uncovered sample gain until the target or addition budget, then prune redundant supplemental beacons without losing sampled area coverage. Coverage uses bounded samples at least 1 m; 2,000 perimeter candidates and at most 200 additions bound optimization. Route stations/anchors remain. Unmet targets and caps are reported; global minimum count is not claimed.
+5. Valid off-center manual coordinates survive edits/recalculation. References are reprojected without moving valid records; invalid geometry uses the existing graph repair fallback or fails closed. Anchors require same-floor reliable-radius visibility. Route-station spacing differs from physical mounting distance; true area/graph coverage uses actual coordinates and per-beacon radii.
+
+`node scripts/topology-demo.mjs` writes the centerline, same-count and budget-expanded comparison plus vector diagrams. No RF, Bluetooth, SDK or live positioning is introduced. Historical milestone sections below describe their original centerline baselines; Milestone 8 supersedes mandatory centerline mounting.
+
 ```mermaid
 flowchart TD
   Graph[Navigation Graph] --> Placement[Beacon Placement Engine]
@@ -73,3 +83,15 @@ Run `node scripts/deployment-demo.mjs` for reproducible edit/version/export resu
 ## Reproducible sample
 
 Run `npm run check`, `node scripts/beacon-demo.mjs`, and `node scripts/coverage-demo.mjs`. The latter writes `reports/milestone-5-demo.json` and two SVG diagrams under `screenshots/`. The hand-modelled Milestone 2 sample has 17 beacons (5 anchors), average spacing 5.31 m, 38.2% walkable coverage, 100% graph coverage, 5 dead zones totalling 1493.5 m², and 669 m² overlap. Quality is 65.8/100; infeasible spacing and broad uncovered areas remain visible. A controlled three-disabled-beacon comparison exposes one 11.5 m graph gap and 86.5% graph coverage. This is a sample, not a surveyed/supplied mall deployment verification.
+# Milestone 7 simulation algorithms
+
+1. Validate graph/beacons/selected POIs, attach POIs to explicit same-floor graph nodes or nearest same-floor nodes, then reuse NavigationGraph A*/Dijkstra and routing constraints. Warn and exclude off-graph approaches, report their distance and mark end-to-end continuous coverage unverified. Same-floor edge length must equal physical distance; cross-floor connector cost is supplied by the graph.
+2. Precompute cumulative route lengths. Binary search finds the corridor and interpolates world/drawing coordinates; cross-floor travel remains unverified until the destination landing.
+3. Index enabled geometry-valid beacons in floor-specific bins sized by the largest marginal radius. Candidate score is `100 × (1 − distance/marginalRadius)`; valid same-floor line of sight is mandatory. Highest score wins, with lexical ID tie-breaks. This is a proximity score, not dBm. No RF calibration, propagation, scanning or positioning.
+4. Sample route positions every 0.25 m and at all graph vertices. Midpoint integration measures covered/reliable distance; exact geometry intervals conservatively reject every sample interval touching blocked geometry, including thin walls. Radius/visibility gaps remain sampled, with length uncertainty up to the sample step at each boundary. Large routes are capped at 250,000 samples. Increasing sample density is the upgrade when sub-25 cm coverage transitions matter.
+5. Record connect/switch/lost events and passed graph landmarks, sorted by simulated walking time. Direct beacon-to-beacon switches count as handovers; reconnecting after a gap is a connection, not a direct handover. Mean handover interval uses all connection positions. Maximum beacon separation measures successive same-floor active connections, including reconnections after a gap.
+6. Reliability/walking quality = reliable route length percentage. Coverage = reliable + marginal route length percentage. Navigation score = clamp(0.7 × reliability + 0.3 × coverage − min(30, 2 × longest gap metres), 0, 100). Scores are explicit planning heuristics; a high score cannot certify installation performance.
+7. Engine playback advances simulated time by elapsed wall-clock seconds × playback multiplier. Pause freezes time; stop resets; replay restarts; seek returns deterministic precomputed handover state. React requests updates at 10 Hz while the worker owns the state. Graph/beacon JSX stays cached.
+8. Compare two deployments on the identical route/geometry. Recommend the higher navigation score; ties explicitly defer to gaps/cost/site review. In the UI mismatched geometry versions are rejected rather than silently compared.
+
+Run `node scripts/simulation-demo.mjs`: reports contain sample route quality, full events, beacon sequence and comparison, plus engine-only preparation/seeking benchmarks. Large-scene browser rendering and field accuracy are not benchmark claims.

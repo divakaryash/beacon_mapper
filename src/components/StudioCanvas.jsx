@@ -1,3 +1,4 @@
+import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boundsOf, moveObject, resizeObject, rotationFromCenter } from "../engines/geometry.js";
 import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordinates.js";
@@ -67,7 +68,7 @@ function FloorPlan({ project, source }) {
   return <image className="floor-source" href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
-export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection }) {
+export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation }) {
   const svgRef = useRef(null);
   const viewRef = useRef({ x: 0, y: 0, width: 1200, height: 800 });
   const interaction = useRef(null);
@@ -148,7 +149,8 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
     }
     if (tool === "poi") { onAdd(makeObject("poi", { x: point.x, y: point.y, category: poiCategory, name: poiCategory })); return; }
     if (tool === "text") { onAdd(makeObject("text", { x: point.x, y: point.y })); return; }
-    if ((polygonTools.has(tool) || lineTools.has(tool)) && event.detail === 1) {
+    // Pointer events may report detail=0 (unlike mouse click events).
+    if ((polygonTools.has(tool) || lineTools.has(tool)) && event.detail <= 1) {
       setDraftPoints((points) => [...points, point]);
       setDraftCursor(point);
     }
@@ -259,7 +261,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
 
   const displayObjects = previewObject ? project.objects.map((object) => object.id === previewObject.id ? previewObject : object) : project.objects;
   const draftPath = [...draftPoints, ...(draftCursor ? [draftCursor] : [])];
-  handlers.current={handleObjectDown,nodeDown:(e,node)=>{
+  handlers.current={handleObjectDown,beaconAction:onBeaconAction,nodeDown:(e,node)=>{
     if(spacePressed||e.button===1||!["select","move","graphConnect"].includes(tool))return;e.stopPropagation();
     if(tool==="graphConnect"&&graphSelection?.kind==="node"&&graphSelection.id!==node.id){onGraphAction("connect",{source:graphSelection.id,target:node.id});setGraphSelection(null);return;}
     setGraphSelection({id:node.id,kind:"node"});
@@ -270,6 +272,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
     {project.graph.nodes.map(node=><g key={node.id} data-node-id={node.id} onPointerDown={e=>handlers.current.nodeDown(e,node)}><circle cx={node.x} cy={node.y} r={node.type==="Junction"?8:5} className={graphSelection?.id===node.id?"selected-node":""}/>{(node.metadata?.label||node.type!=="Corridor")&&<text x={node.x+10} y={node.y-10}>{node.metadata?.label||node.type} · {node.floorId}</text>}<title>{node.id} · {node.type} · {node.floorId}</title></g>)}
   </g>,[project.graph,project.layers.navigationGraph?.visible,graphNodes,graphSelection,route]);
 
+  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={b.type==="Anchor"?11:7} fill={b.enabled===false?"#94a3b8":b.type==="Anchor"?"#e39522":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
   return (
     <div className={`studio-canvas ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
@@ -305,11 +308,12 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         ))}
         {rectDraft && <rect className="drawing-preview" {...rectDraft} />}
         {graphDrawing}
-        {project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){onBeaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={b.type==="Anchor"?11:7} fill={b.enabled===false?"#94a3b8":b.type==="Anchor"?"#e39522":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>}
+        {beaconDrawing}
         {project.layers.warnings?.visible&&<g pointerEvents="none">{(project.beaconPlan?.warnings||[]).filter(w=>Number.isFinite(w.x)).slice(0,100).map((w,i)=><circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2"><title>{w.message}</title></circle>)}</g>}
         {draftPath.length > 1 && (polygonTools.has(tool)
           ? <polygon className="drawing-preview" points={pointString(draftPath)} />
           : <polyline className="drawing-preview" points={pointString(draftPath)} />)}
+        <SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons||[]}/>
         <SelectionHandles object={previewObject || selected} onHandleDown={handleHandleDown} />
       </svg>
       <div className="canvas-hint">Wheel to zoom · Space-drag to pan · Double-click or Enter to finish paths</div>

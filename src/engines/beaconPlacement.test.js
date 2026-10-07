@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { planBeacons as generate, BEACON_PROFILES, snapBeaconToGraph } from "./beaconPlacement.js";
 const box=(x,y,width,height)=>[{x,y},{x:x+width,y},{x:x+width,y:y+height},{x,y:y+height}];
-function planBeacons(input){const nodes=input.graph.nodes;const maxX=nodes.reduce((m,n)=>Math.max(m,n.worldX),0),maxY=nodes.reduce((m,n)=>Math.max(m,n.worldY),0);return generate({...input,floorGeometry:{floors:[...new Set(nodes.map(n=>n.floorId))].map(floorId=>({floorId,boundaries:[box(-20,-20,maxX+40,maxY+40)],walkableAreas:[box(-20,-20,maxX+40,maxY+40)]}))}});}
+// Historical seed-spacing tests explicitly exercise the centerline baseline, not the new default.
+function planBeacons(input){const nodes=input.graph.nodes;const maxX=nodes.reduce((m,n)=>Math.max(m,n.worldX),0),maxY=nodes.reduce((m,n)=>Math.max(m,n.worldY),0);return generate({...input,configuration:{...input.configuration,placementStrategy:'centerline'},floorGeometry:{floors:[...new Set(nodes.map(n=>n.floorId))].map(floorId=>({floorId,boundaries:[box(-20,-20,maxX+40,maxY+40)],walkableAreas:[box(-20,-20,maxX+40,maxY+40)]}))}});}
 const n=(id,x,y=0,type="Corridor")=>({id,floorId:"G",x:x*10,y:y*10,worldX:x,worldY:y,type,metadata:{}});
 const line={nodes:[n("a",0,0,"Entrance"),n("b",22,0,"Exit")],edges:[{id:"ab",source:"a",target:"b",distance:22}]};
 test("places and optimizes 5.5 m spacing with endpoint anchors",()=>{const r=planBeacons({graph:line});assert.equal(r.beacons.length,5);assert.equal(r.statistics.anchorBeacons,2);assert.equal(r.statistics.averageSpacing,5.5);assert.equal(r.coverage.estimatedPercent,100);assert.equal(r.warnings.length,0);});

@@ -2,8 +2,10 @@ import { BEACON_PROFILES, planBeacons, analyzePlacement, snapBeaconToGraph, vali
 import { compileFloorGeometry, geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
 import { analyzeCoverage } from "./coverage.js";
 import { deploymentQuality } from "./deploymentQuality.js";
+import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology} from './topologyPlacement.js';
 
 export const DEFAULT_PLANNING_SETTINGS = {
+  ...TOPOLOGY_DEFAULTS,
   defaultProfileId: BEACON_PROFILES[0].id, spacing: 5.5, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
@@ -13,6 +15,7 @@ const dist = (a,b) => Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY);
 const coverageFields = b => JSON.stringify([b.floorId,b.worldX,b.worldY,b.enabled,b.coverageRadius,b.reliableRadius,b.marginalRadius]);
 
 export function validatePlanningSettings(settings, profiles) {
+  validateTopologySettings(settings);
   if(typeof settings.beaconPrefix!=="string"||! /^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(settings.beaconPrefix))throw new Error("Beacon prefix must start with a letter and contain up to 20 letters, digits, underscores or hyphens.");
   if(!Number.isSafeInteger(settings.nextBeaconNumber)||settings.nextBeaconNumber<1)throw new Error("Invalid next beacon number.");
   if (!profiles.some(p=>p.id===settings.defaultProfileId)) throw new Error("Default beacon profile not found.");
@@ -34,6 +37,7 @@ export class DeploymentPlanner {
     this.graph=graph; this.floorGeometry=floorGeometry; this.floors=compileFloorGeometry(floorGeometry);
     this.profiles=profiles; this.settings={...DEFAULT_PLANNING_SETTINGS,...settings}; this.pois=pois;
     validatePlanningSettings(this.settings,profiles);
+    this.topology={edges:analyzeFloorTopology({graph,floors:this.floors,pois,settings:this.settings}),method:'geometry-cross-sections-greedy-area-coverage'};
     this.nodes=new Map(graph.nodes.map(n=>[n.id,n])); this.edges=new Map(graph.edges.map(e=>[e.id,e]));this.regions=[]; this.nodeRegion=new Map(); this.results=new Map();
     this.adjacency=new Map(graph.nodes.map(n=>[n.id,[]]));
     for(const e of graph.edges){if(!this.nodes.has(e.source)||!this.nodes.has(e.target))throw new Error("Graph edge has a missing endpoint.");this.adjacency.get(e.source).push(e);this.adjacency.get(e.target).push(e);}
@@ -73,13 +77,13 @@ export class DeploymentPlanner {
     return next;
   }
   regionsFor(b){return this.nodeRegion.get(b.nodeId)||new Set([this.edgeRegion.get(b.edgeId)||this.regions.find(r=>r.floorId===b.floorId)?.id].filter(Boolean));}
-  attached(b){const n=this.nodes.get(b.nodeId);if(n&&n.floorId===b.floorId&&dist(b,n)<1e-6)return true;const edge=this.edges.get(b.edgeId);if(!edge)return false;const a=this.nodes.get(edge.source),z=this.nodes.get(edge.target),t=b.edgeOffset/edge.distance;return a.floorId===b.floorId&&z.floorId===b.floorId&&t>=0&&t<=1&&Math.hypot(b.worldX-a.worldX-t*(z.worldX-a.worldX),b.worldY-a.worldY-t*(z.worldY-a.worldY))<1e-6;}
+  attached(b){const n=this.nodes.get(b.nodeId);if(n&&n.floorId===b.floorId)return true;const edge=this.edges.get(b.edgeId);if(!edge)return false;const a=this.nodes.get(edge.source),z=this.nodes.get(edge.target),p=segmentProjection({x:b.worldX,y:b.worldY},{x:a.worldX,y:a.worldY},{x:z.worldX,y:z.worldY});return a.floorId===b.floorId&&z.floorId===b.floorId&&Math.abs(b.edgeOffset-p.t*edge.distance)<1e-6;}
   requiredAnchors(){return this.graph.nodes.filter(n=>{const links=this.adjacency.get(n.id);return this.settings.anchorTypes.includes(n.type)||(this.settings.junctionAnchors&&links.length>=3)||links.some(e=>this.nodes.get(e.source).floorId!==this.nodes.get(e.target).floorId)||n.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(n.metadata?.category);}).map(n=>n.id);}
   evaluate(changed=null) {
     if(new Set(this.beacons.map(b=>b.id)).size!==this.beacons.length)throw new Error("Beacon IDs must be unique.");
     const start=performance.now(),required=this.requiredAnchors(),affected=changed?new Set(changed.flatMap(b=>[...this.regionsFor(b)])):new Set(this.regions.map(r=>r.id));
     const anchorBins=new Map();for(const id of required){const n=this.nodes.get(id),key=`${n.floorId}:${Math.floor(n.worldX)}:${Math.floor(n.worldY)}`;if(!anchorBins.has(key))anchorBins.set(key,[]);anchorBins.get(key).push(n);}
-    const nearbyAnchors=b=>{const ids=[];for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const n of anchorBins.get(`${b.floorId}:${Math.floor(b.worldX)+dx}:${Math.floor(b.worldY)+dy}`)||[])if(dist(b,n)<=1)ids.push(n.id);return ids;};
+    const nearbyAnchors=b=>{const ids=[],radius=b.reliableRadius??this.settings.reliableRadius,reach=Math.ceil(radius);for(let dx=-reach;dx<=reach;dx++)for(let dy=-reach;dy<=reach;dy++)for(const n of anchorBins.get(`${b.floorId}:${Math.floor(b.worldX)+dx}:${Math.floor(b.worldY)+dy}`)||[])if(dist(b,n)<=radius&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:n.worldX,y:n.worldY},this.floors.get(b.floorId)))ids.push(n.id);return ids;};
     if(!changed){for(const group of this.members.values())group.clear();for(const b of this.beacons)for(const id of this.regionsFor(b))this.members.get(id)?.set(b.id,b);}
     else {const byId=new Map(this.beacons.map(b=>[b.id,b]));for(const b of changed)for(const id of this.regionsFor(b))this.members.get(id)?.delete(b.id);for(const id of new Set(changed.map(b=>b.id))){const b=byId.get(id);if(b)for(const regionId of this.regionsFor(b))this.members.get(regionId)?.set(b.id,b);}}
     let recomputedRegions=0;
@@ -89,13 +93,13 @@ export class DeploymentPlanner {
       const result=analyzePlacement({graph:region,beacons:mapped,profile:this.profile(this.settings.defaultProfileId),floors:this.floors});
       this.results.set(region.id,result);recomputedRegions++;
     }
-    const parts=[...this.results.values()],samples=parts.flatMap(p=>p.spacingSamples),active=this.beacons.filter(b=>b.enabled!==false),warnings=parts.flatMap(p=>p.warnings.filter(w=>!["duplicate-beacons","disconnected-beacon-chain"].includes(w.code)));
+    const parts=[...this.results.values()],samples=parts.flatMap(p=>p.spacingSamples),active=this.beacons.filter(b=>b.enabled!==false),warnings=[...parts.flatMap(p=>p.warnings.filter(w=>!["duplicate-beacons","disconnected-beacon-chain"].includes(w.code))),...(this.topologyWarnings||[])];
     const present=new Set();for(const b of active)if(b.type==="Anchor")for(const id of nearbyAnchors(b))present.add(id);
-    for(const id of required)if(!present.has(id))warnings.push({code:"missing-anchor",nodeId:id,message:`Missing anchor within 1 m of ${id}.`});
+    for(const id of required)if(!present.has(id))warnings.push({code:"missing-anchor",nodeId:id,message:`Missing anchor with reliable visible coverage of ${id}.`});
     const bins=new Map();for(const b of active){const x=Math.floor(b.worldX/.25),y=Math.floor(b.worldY/.25);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const other of bins.get(`${b.floorId}:${x+dx}:${y+dy}`)||[])if(dist(b,other)<.25)warnings.push({code:"duplicate-beacons",beaconIds:[b.id,other.id],message:"Duplicate beacon positions."});const key=`${b.floorId}:${x}:${y}`;if(!bins.has(key))bins.set(key,[]);bins.get(key).push(b);}
     let geometryFailures=0;
     for(const b of this.beacons){const point={x:b.worldX,y:b.worldY},floor=this.floors.get(b.floorId),conflict=geometryConflict(point,floor);
-      if(!this.attached(b)){if(b.enabled!==false)geometryFailures++;warnings.push({code:"off-graph",beaconId:b.id,message:`${b.id}: graph attachment is missing or stale. Recalculate this beacon.`});}
+      if(!this.attached(b)){if(b.enabled!==false)geometryFailures++;warnings.push({code:"invalid-graph-reference",beaconId:b.id,message:`${b.id}: graph reference is missing or stale. Recalculate this beacon.`});}
       if(conflict){if(b.enabled!==false)geometryFailures++;warnings.push({code:conflict,beaconId:b.id,message:`${b.id}: ${conflict}. ${b.locked?"Locked beacon was not moved.":"Move or recalculate this beacon."}`});}
       if(!conflict&&floor?.walls.some(w=>w.points.slice(1).some((end,i)=>segmentProjection(point,w.points[i],end).distance-w.width/2<this.settings.wallClearance)))warnings.push({code:"too-close-to-wall",beaconId:b.id,message:`${b.id} is within ${this.settings.wallClearance} m of a wall surface.`});
     }
@@ -111,9 +115,12 @@ export class DeploymentPlanner {
     for(const gap of coverage.gaps)warnings.push({code:"coverage-gap",edgeId:gap.edgeId,floorId:gap.floorId,x:(gap.x1+gap.x2)/2,y:(gap.y1+gap.y2)/2,message:`${gap.edgeId}: ${gap.length.toFixed(2)} m coverage gap.`});
     const byId=new Map(this.beacons.map(b=>[b.id,b])),edgeById=new Map(this.graph.edges.map(e=>[e.id,e]));
     for(const w of warnings){const b=byId.get(w.beaconId||w.beaconIds?.[0]),n=this.nodes.get(w.nodeId),e=edgeById.get(w.edgeId),a=e&&this.nodes.get(e.source),z=e&&this.nodes.get(e.target);if(w.x===undefined){const source=b||n;if(source)Object.assign(w,{floorId:source.floorId,x:source.x,y:source.y});else if(a&&z)Object.assign(w,{floorId:a.floorId,x:(a.x+z.x)/2,y:(a.y+z.y)/2});}}
+    // Actual geometric coverage is authoritative for off-centre mounting positions.
+    for(let i=warnings.length-1;i>=0;i--)if(warnings[i].code==='uncovered-edge')warnings.splice(i,1);
     warnings.push(...coverage.quality.warnings);
     const totalLength=parts.reduce((s,p)=>s+p.coverage.totalLength,0),coveredLength=parts.reduce((s,p)=>s+p.coverage.coveredLength,0);
     const plan={beacons:this.beacons,quality:coverage.quality,warnings,configuration:{mode:this.settings.planningMode,spacing:this.settings.spacing},geometryValidation:{rejected:0,relocated:0},coverage:{method:"geometry-clipped-graph-distance-radius",estimatedPercent:totalLength?100*coveredLength/totalLength:0,totalLength,coveredLength,edges:parts.flatMap(p=>p.coverage.edges)},statistics:{navigationBeacons:active.filter(b=>b.type!=="Anchor").length,anchorBeacons:active.filter(b=>b.type==="Anchor").length,totalBeacons:this.beacons.length,activeBeacons:active.length,disabledBeacons:this.beacons.length-active.length,averageSpacing:samples.length?samples.reduce((s,g)=>s+g,0)/samples.length:0,minimumSpacing:samples.reduce((s,g)=>Math.min(s,g),samples.length?Infinity:0),maximumSpacing:samples.reduce((s,g)=>Math.max(s,g),0),coveragePercent:coverage.coveragePercentage,deadZonePercent:coverage.totalArea?100*coverage.deadZoneArea/coverage.totalArea:0,overlapPercent:coverage.overlapPercentage,maximumGap:coverage.gaps.reduce((s,g)=>Math.max(s,g.length),0),minimumGap:coverage.gaps.reduce((s,g)=>Math.min(s,g.length),coverage.gaps.length?Infinity:0),deploymentQuality:coverage.quality.overallScore,installationCost:active.length*this.settings.installationCost,warnings:warnings.length}};
+    plan.topology={...this.topology,strategies:Object.fromEntries([...new Set(this.beacons.map(b=>b.placementStrategy||'Manual / legacy'))].map(strategy=>[strategy,this.beacons.filter(b=>(b.placementStrategy||'Manual / legacy')===strategy).length]))};plan.configuration.placementStrategy='topology';plan.coverage={method:coverage.method,estimatedPercent:coverage.graphCoveragePercentage,totalLength:coverage.totalGraphLength,coveredLength:coverage.graphCoveredLength,edges:coverage.graphEdges};
     this.coverage=coverage;this.lastBeacons=this.beacons.map(b=>({...b}));this.output={plan,coverage,settings:this.settings,work:{...coverage.work,recomputedRegions,regions:this.regions.length,elapsedMs:performance.now()-start},scale};return this.output;
   }
   edit(action,data={}) {
@@ -134,7 +141,7 @@ export class DeploymentPlanner {
       next=this.normalize({...old,...(action==="move"?{...position,origin:"manual"}:data.patch),id:old.id});
     }
     if(action==="move"||action==="insert"){
-      const snapped=nearestValidGraphPosition(next,this.graph,this.floors);if(!snapped)throw new Error("No valid graph position on this floor.");next=snapped;
+      if(geometryConflict({x:next.worldX,y:next.worldY},this.floors.get(next.floorId))){const repaired=nearestValidGraphPosition(next,this.graph,this.floors);if(!repaired)throw new Error("No valid installation position on this floor.");next=repaired;}else next=referenceBeacon({...next,nodeId:undefined,edgeId:undefined,placementStrategy:'Manual'},this.graph);
     }
     this.beacons=action==="duplicate"||action==="insert"?[...this.beacons,next]:this.beacons.map(b=>b.id===old.id?next:b);
     return this.evaluate([...(old?[old]:[]),next]);
@@ -146,12 +153,13 @@ export class DeploymentPlanner {
     const changed=[];this.beacons=this.beacons.map(b=>{
       if(b.locked||(scope==="selected"&&b.id!==id)||(scope==="floor"&&b.floorId!==selected.floorId))return b;
       const valid=this.attached(b)&&!geometryConflict({x:b.worldX,y:b.worldY},this.floors.get(b.floorId));
-      const moved=valid?b:nearestValidGraphPosition(b,this.graph,this.floors)||b;changed.push(b,moved);return moved;
+      const moved=valid?b:!geometryConflict({x:b.worldX,y:b.worldY},this.floors.get(b.floorId))?referenceBeacon(b,this.graph):nearestValidGraphPosition(b,this.graph,this.floors)||b;changed.push(b,moved);return moved;
     });return this.evaluate(changed);
   }
   configure(patch) {
     const settings={...this.settings,...patch};validatePlanningSettings(settings,this.profiles);const oldSettings=this.settings;this.settings=settings;
     const before=this.beacons;
+    if(Object.keys(TOPOLOGY_DEFAULTS).some(key=>key in patch))this.topology={edges:analyzeFloorTopology({graph:this.graph,floors:this.floors,pois:this.pois,settings:this.settings}),method:'geometry-cross-sections-greedy-area-coverage'};
     try{this.beacons=this.beacons.map(b=>this.normalize({...b,...("reliableRadius" in patch?{reliableRadius:settings.reliableRadius}:{}),...("marginalRadius" in patch?{marginalRadius:settings.marginalRadius}:{})}));}catch(error){this.settings=oldSettings;throw error;}
     const placementChanged=["defaultProfileId","reliableRadius","marginalRadius","anchorTypes","junctionAnchors","wallClearance"].some(key=>key in patch);
     return this.evaluate(placementChanged?[...before,...this.beacons]:[]); // Reuse geometry/coverage for metadata-only settings.
@@ -159,7 +167,9 @@ export class DeploymentPlanner {
   generate() {
     const profile=this.profile(this.settings.defaultProfileId);
     if(this.settings.planningMode==="manual")return this.evaluate();
-    const result=planBeacons({graph:this.graph,floorGeometry:this.floorGeometry,profile,placementRules:this.settings,configuration:{mode:this.settings.planningMode,spacing:this.settings.spacing}});
+    const result=planBeacons({graph:this.graph,floorGeometry:this.floorGeometry,profile,pois:this.pois,placementRules:this.settings,configuration:{...this.settings,mode:this.settings.planningMode,spacing:this.settings.spacing}});
+    this.topology=result.topology;
+    this.topologyWarnings=result.warnings.filter(w=>['topology-candidate-limit','topology-route-resolution','topology-width-capped','unknown-topology'].includes(w.code));
     const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
     const positionKey=b=>`${b.floorId}:${b.worldX.toFixed(6)}:${b.worldY.toFixed(6)}`,existing=new Map(this.beacons.map(b=>[positionKey(b),b.id]));
     this.beacons=[...preserved,...result.beacons.filter(b=>!preserved.some(p=>p.floorId===b.floorId&&dist(p,b)<.25)).map(b=>{let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});})];return this.evaluate();
@@ -170,6 +180,6 @@ export class DeploymentPlanner {
     let contribution=0,footprint=0;
     if(beacon.enabled!==false&&!geometryConflict(point,floor))for(const cell of this.coverage.floorReports.find(f=>f.floorId===beacon.floorId)?.cells||[])if(Math.hypot(cell.x-point.x,cell.y-point.y)<=radius&&visibleGeometrySegment(point,cell,floor)){footprint+=this.coverage.resolution.cellSize**2;if(cell.count===1)contribution+=this.coverage.resolution.cellSize**2;}
     const nearestEdge=snapBeaconToGraph(beacon,this.graph),nearestPoi=this.pois.filter(p=>p.floorId===beacon.floorId).reduce((best,p)=>!best||dist(beacon,p)<dist(beacon,best)?p:best,null);
-    return {...beacon,profileName:this.profile(beacon.profileId).modelName,nearestEdge:nearestEdge.edgeId?{id:nearestEdge.edgeId,distance:dist(beacon,nearestEdge)}:null,nearestPoi:nearestPoi?{id:nearestPoi.id,name:nearestPoi.name,distance:dist(beacon,nearestPoi)}:null,coverageContribution:contribution,coverageFootprint:footprint,warnings:this.output.plan.warnings.filter(w=>w.beaconId===id||w.beaconIds?.includes(id)||(w.code==="missing-anchor"&&w.floorId===beacon.floorId&&Math.hypot(w.x-beacon.x,w.y-beacon.y)*this.output.scale<=1))};
+    return {...beacon,topology:this.topology?.edges.find(e=>e.edgeId===beacon.edgeId),profileName:this.profile(beacon.profileId).modelName,nearestEdge:nearestEdge.edgeId?{id:nearestEdge.edgeId,distance:dist(beacon,nearestEdge)}:null,nearestPoi:nearestPoi?{id:nearestPoi.id,name:nearestPoi.name,distance:dist(beacon,nearestPoi)}:null,coverageContribution:contribution,coverageFootprint:footprint,warnings:this.output.plan.warnings.filter(w=>w.beaconId===id||w.beaconIds?.includes(id)||(w.code==="missing-anchor"&&w.floorId===beacon.floorId&&Math.hypot(w.x-beacon.x,w.y-beacon.y)*this.output.scale<=1))};
   }
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "check": "node --test src/domain/scale.test.js src/engines/*.test.js src/models/*.test.js && vite build",
+    "check": "tsc --noEmit && node --test src/domain/scale.test.js src/engines/*.test.js src/models/*.test.js src/engines/*.test.ts && vite build",
     "benchmark": "node --test --test-name-pattern='10,000 nodes' src/engines/navigationGraph.test.js"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "typescript": "^7.0.2",
     "vite": "6.4.3"
   }
 }

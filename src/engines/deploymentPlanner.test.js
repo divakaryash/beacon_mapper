@@ -6,7 +6,7 @@ import {geometryForProject,saveDeployment,loadDeployment} from "../models/deploy
 import {compareDeployments,beaconCsv,deploymentDocument} from "../models/deploymentExport.js";
 import {BEACON_PROFILES} from "./beaconPlacement.js";
 
-const inputs=()=>({graph:structuredClone(sampleMall.graph),floorGeometry:geometryForProject(sampleMall),pois:sampleMall.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:"floor-1",worldX:o.x*.1,worldY:o.y*.1}))});
+const inputs=()=>({graph:structuredClone(sampleMall.graph),floorGeometry:geometryForProject(sampleMall),settings:{additionalBeaconBudget:0},pois:sampleMall.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:"floor-1",worldX:o.x*.1,worldY:o.y*.1}))});
 function fresh(planner){return new DeploymentPlanner({...inputs(),beacons:structuredClone(planner.beacons),settings:planner.settings}).output;}
 function equivalent(a,b){assert.equal(a.coverage.coveredArea,b.coverage.coveredArea);assert.equal(a.coverage.overlapArea,b.coverage.overlapArea);assert.equal(a.coverage.graphCoveredLength,b.coverage.graphCoveredLength);assert.deepEqual(a.coverage.gaps,b.coverage.gaps);assert.deepEqual(a.plan.statistics,b.plan.statistics);}
 
@@ -14,7 +14,7 @@ test("live disable/enable, move, profile radii, delete and duplicate match full 
   const planner=new DeploymentPlanner(inputs());planner.generate();const ids=planner.beacons.map(b=>b.id),initial=planner.output;
   let result=planner.edit("patch",{id:"IW007",patch:{enabled:false}});equivalent(result,fresh(planner));assert.ok(result.work.recomputedCells<initial.coverage.floorReports.reduce((sum,f)=>sum+f.cells.length,0));
   planner.edit("patch",{id:"IW007",patch:{enabled:true}});
-  result=planner.edit("move",{id:"IW007",floorId:"floor-1",x:555,y:158,worldX:55.5,worldY:15.8});equivalent(result,fresh(planner));assert.equal(planner.beacons.find(b=>b.id==="IW007").worldX,56);
+  result=planner.edit("move",{id:"IW007",floorId:"floor-1",x:555,y:158,worldX:55.5,worldY:15.8});equivalent(result,fresh(planner));assert.equal(planner.beacons.find(b=>b.id==="IW007").worldX,55.5);assert.equal(planner.beacons.find(b=>b.id==="IW007").worldY,15.8);
   result=planner.edit("patch",{id:"IW007",patch:{profileId:BEACON_PROFILES[1].id,installationType:"Wall",mountingHeight:2.5,reliableRadius:4,marginalRadius:5,coverageRadius:5}});equivalent(result,fresh(planner));
   assert.deepEqual(planner.beacons.map(b=>b.id),ids);
   result=planner.edit("duplicate",{id:"IW007",newId:"duplicate"});assert.ok(result.plan.warnings.some(w=>w.code==="duplicate-beacons"));equivalent(result,fresh(planner));

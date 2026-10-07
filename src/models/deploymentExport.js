@@ -9,7 +9,7 @@ export function deploymentDocument(project) {
   return {schemaVersion:1,name:project.name,exportedAt:new Date().toISOString(),units:"metres",coordinateUnits:{worldX:"metres",worldY:"metres",x:"drawing pixels",y:"drawing pixels",geometry:"drawing pixels; thicknessMeters/widthMeters are metres"},isRFSimulation:false,planningSettings:project.planningSettings,profiles:[...BEACON_PROFILES,...(project.beaconProfiles||[])],graph:project.graph,geometry:project.objects,scale:{widthMeters:project.widthMeters,heightMeters:project.heightMeters,drawingWidthPixels:project.drawingWidthPixels,drawingHeightPixels:project.drawingHeightPixels},deployment:project.beaconPlan,coverage:coverageSummary(project.coverageAnalysis)};
 }
 export function beaconCsv(beacons) {
-  const fields=["id","floorId","type","profileId","enabled","locked","worldX","worldY","installationType","mountingHeight","orientation","coverageRadius","reliableRadius","marginalRadius","edgeId","edgeOffset","nodeId","installationStatus","notes"];
+  const fields=["id","floorId","type","profileId","enabled","locked","worldX","worldY","installationType","mountingHeight","orientation","coverageRadius","reliableRadius","marginalRadius","edgeId","edgeOffset","nodeId","referenceDistance","placementStrategy","placementRole","installationStatus","notes"];
   // Text that spreadsheet software might execute is exported as literal text.
   const cell=value=>{let text=String(value??"");if(typeof value==="string"&&/^[=+@\-\t\r]/.test(text))text=`'${text}`;return `"${text.replaceAll('"','""')}"`;};
   return [fields.map(cell).join(","),...beacons.map(b=>fields.map(f=>cell(b[f])).join(","))].join("\r\n");

@@ -1,0 +1,122 @@
+[
+  {
+    "time": 0,
+    "distance": 0,
+    "kind": "start",
+    "message": "Started at Main entrance",
+    "previousBeacon": null,
+    "currentBeacon": null
+  },
+  {
+    "time": 0,
+    "distance": 0,
+    "kind": "connect",
+    "message": "Connected to IW001",
+    "previousBeacon": null,
+    "currentBeacon": "IW001"
+  },
+  {
+    "time": 1.8518518518518516,
+    "distance": 2.5,
+    "kind": "handover",
+    "message": "Switched to IW007",
+    "previousBeacon": "IW001",
+    "currentBeacon": "IW007"
+  },
+  {
+    "time": 5,
+    "distance": 6.75,
+    "kind": "handover",
+    "message": "Switched to IW002",
+    "previousBeacon": "IW007",
+    "currentBeacon": "IW002"
+  },
+  {
+    "time": 6.666666666666666,
+    "distance": 9,
+    "kind": "landmark",
+    "message": "Passed food",
+    "previousBeacon": null,
+    "currentBeacon": null
+  },
+  {
+    "time": 9.25925925925926,
+    "distance": 12.5,
+    "kind": "handover",
+    "message": "Switched to IW008",
+    "previousBeacon": "IW002",
+    "currentBeacon": "IW008"
+  },
+  {
+    "time": 13.888888888888888,
+    "distance": 18.75,
+    "kind": "handover",
+    "message": "Switched to IW003",
+    "previousBeacon": "IW008",
+    "currentBeacon": "IW003"
+  },
+  {
+    "time": 16.296296296296294,
+    "distance": 22,
+    "kind": "landmark",
+    "message": "Passed atrium",
+    "previousBeacon": null,
+    "currentBeacon": null
+  },
+  {
+    "time": 18.51851851851852,
+    "distance": 25,
+    "kind": "handover",
+    "message": "Switched to IW009",
+    "previousBeacon": "IW003",
+    "currentBeacon": "IW009"
+  },
+  {
+    "time": 22.962962962962962,
+    "distance": 31,
+    "kind": "handover",
+    "message": "Switched to IW010",
+    "previousBeacon": "IW009",
+    "currentBeacon": "IW010"
+  },
+  {
+    "time": 27.22222222222222,
+    "distance": 36.75,
+    "kind": "handover",
+    "message": "Switched to IW011",
+    "previousBeacon": "IW010",
+    "currentBeacon": "IW011"
+  },
+  {
+    "time": 31.48148148148148,
+    "distance": 42.5,
+    "kind": "handover",
+    "message": "Switched to IW012",
+    "previousBeacon": "IW011",
+    "currentBeacon": "IW012"
+  },
+  {
+    "time": 35.925925925925924,
+    "distance": 48.5,
+    "kind": "handover",
+    "message": "Switched to IW013",
+    "previousBeacon": "IW012",
+    "currentBeacon": "IW013"
+  },
+  {
+    "time": 40.18518518518518,
+    "distance": 54.25,
+    "kind": "handover",
+    "message": "Switched to IW004",
+    "previousBeacon": "IW013",
+    "currentBeacon": "IW004"
+  },
+  {
+    "time": 42.22222222222222,
+    "distance": 57,
+    "kind": "arrival",
+    "message": "Arrived at Lift lobby",
+    "previousBeacon": "IW004",
+    "currentBeacon": "IW004"
+  }
+]

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
 import GraphPanel from "./components/GraphPanel.jsx";
 import BeaconPanel from "./components/BeaconPanel.jsx";
+import SimulationPanel from "./components/SimulationPanel.jsx";
 import CoveragePanel from "./components/CoveragePanel.jsx";
 import { BEACON_PROFILES } from "./engines/beaconPlacement.js";
 import { NavigationGraph } from "./engines/navigationGraph.js";
@@ -82,6 +83,7 @@ export default function App() {
   const [status, setStatus] = useState("Loading local project…");
   const [graphSelection, setGraphSelection] = useState(null);
   const [route, setRoute] = useState(null);
+  const [simulation,setSimulation]=useState(null);
   const [beaconSelection,setBeaconSelection]=useState(null);
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
@@ -241,8 +243,8 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area"><StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection}/></section>
-      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <section className="canvas-area"><StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <aside className="right-panel"><SimulationPanel project={committedProject} onVisualization={setSimulation}/><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );
 }

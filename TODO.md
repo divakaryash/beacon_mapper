@@ -1,8 +1,8 @@
 # INPS TODO
 
-## Approved Milestones 1–5
+## Approved Milestones 1–6
 
-- Milestones 1–5 approved by the user.
+- Milestones 1–6 approved by the user.
 - Perform hands-on planning with a surveyed project floor plan before field deployment.
 - Confirm room metadata fields and layer terminology match the deployment workflow.
 - Decide whether a minimap provides enough value to add; it remains optional.
@@ -49,8 +49,27 @@
 - [x] JSON/CSV/report/PNG exports and browser download verification
 - [x] Version save/reload and A/B metrics comparison
 - [x] Worker analysis and corridor-chain cache benchmark
-- [ ] User approval before another milestone
+- [x] Milestone 6 user approval received
 - [ ] Field review of the DLF PDF after manual geometry tracing/calibration
+
+## Milestone 7 review
+
+- [x] Milestone 7 independent TypeScript simulation/playback/validation engine
+- [x] Route handovers, timeline and report/comparison export
+- [x] Geometry-blocked and multi-floor conservative coverage checks
+- [x] Sample mall demonstration and 10,001-node / 2,501-beacon benchmark
+- [ ] Milestone 7 explicit approval (user subsequently requested Milestone 8 redesign)
+
+## Milestone 8 review
+
+- [x] Independent topology engine and all ten strategy selections
+- [x] Per-edge width, explicit entrance/POI context and polygon references
+- [x] Off-center mounting, bounded area optimization and sampled route protection
+- [x] Valid manual positions preserved; reference-aware recalculation and anchor checks
+- [x] Configurable settings, inspector, export metadata and same-count comparison
+- [x] Regression checks and before/after geometric diagrams
+- [ ] User approval before the next milestone
+- [ ] Site-specific threshold/profile calibration and survey validation
 
 ## Explicitly deferred
 

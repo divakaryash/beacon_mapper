@@ -7,7 +7,8 @@ export function clientToWorld(event, svg) {
   const point = svg.createSVGPoint();
   point.x = event.clientX;
   point.y = event.clientY;
-  return point.matrixTransform(svg.getScreenCTM().inverse());
+  const transformed = point.matrixTransform(svg.getScreenCTM().inverse());
+  return { x: transformed.x, y: transformed.y };
 }
 
 export function zoomView(view, factor, anchor) {

@@ -2,6 +2,16 @@
 
 A local-first engineering tool for modelling buildings and planning IW Beacon deployments. INPS runs entirely in the browser and deliberately has no backend, accounts, organizations, billing, or cloud services.
 
+## Topology-aware placement — Milestone 8
+
+Navigation edges now guide route stations rather than constrain installation coordinates. Every edge records perpendicular cross-section widths, walkable polygons, nearby POIs, explicit room entrances and corridor/open-area classification. Narrow/Medium/Wide Corridor, Junction, Atrium, Food Court, Store Entrance, Lift, Escalator and Stair strategies select side, alternating-side, lobby/corner and perimeter candidates. Doors are never inferred from room centroids.
+
+Geometric marginal coverage chooses valid mounting positions while protecting sampled route coverage. Additional perimeter candidates are selected greedily until the area target or configurable budget is reached; redundant area candidates are removed. This bounded heuristic does not guarantee a global minimum count. Width thresholds, mounting inset, POI search radius and additional-beacon budget are editable in Project planning settings.
+
+Valid off-center manual positions survive movement, reload and recalculation. Invalid positions still use the existing nearest-valid-graph repair fallback. Anchor validation uses actual reliable-radius visibility. The inspector and JSON/CSV expose strategy and graph-reference metadata. Route-station spacing is not physical mounting distance; actual area/graph coverage is authoritative.
+
+Run `node scripts/topology-demo.mjs`. On the hand-modelled sample, the same **17 beacons** improve from **38.2% to 52.4%** walkable coverage, retaining 100% sampled graph coverage. The default 20-addition budget yields **37 beacons and 89.4% area coverage**; the unmet 90% target remains warned. Results: `reports/milestone-8-topology.json`; before/after diagrams: `screenshots/milestone-8-*.svg`. No RF model or surveyed DLF deployment claim is made.
+
 ## Floor planning — Milestones 1–2 (approved)
 
 - Import PNG, JPG, SVG, and PDF floor plans and calibrate physical dimensions.
@@ -54,7 +64,7 @@ Run `npm run check` for all tests/build, `node scripts/beacon-demo.mjs` for plac
 
 See ALGORITHMS.md for score formulas and geometry/coverage limits. Profile defaults remain editable assumptions requiring hardware/site confirmation. RSSI thresholds, TX power and advertisement intervals are metadata only. RF propagation, RF/RSSI heatmaps, survey analysis, CSV imports and AI floor analysis remain deferred.
 
-## Deployment planning — Milestone 6 (implemented; awaiting approval)
+## Deployment planning — Milestone 6 (approved)
 
 Select a beacon on the canvas or from **Select beacon**. Drag or edit metre coordinates, enable/disable, convert Navigation/Anchor, choose its profile/mount, lock its position, duplicate or delete it. The inspector shows nearest edge/POI, nominal/reliable/marginal radii, sampled unique coverage contribution, installation metadata and related warnings. Blue circles indicate reliable radius; orange dashed circles indicate marginal radius. These are geometric assumptions, not RF classifications.
 
@@ -66,7 +76,17 @@ Navigation, Anchor, Disabled and Warning layers can be toggled separately. Locat
 
 Export deployment JSON, beacon CSV, coverage report, quality report or a PNG of the current canvas viewport. JSON explicitly distinguishes world metres from drawing pixels; reports include warnings and geometric-analysis assumptions. CSV text is quoted and protected against spreadsheet formula execution. Save named versions, reload/duplicate/delete them, and compare counts, percentages, spacing, quality and cost. Snapshots include applied settings and analyzed summaries; mismatched geometry is flagged, and legacy snapshots can have unavailable metrics until resaved.
 
-Run `node scripts/deployment-demo.mjs` for the live-edit demonstration, exported JSON/CSV, version comparison and a 10,201-node / 20,200-edge engine benchmark. Outputs are in `reports/milestone-6-*`. Browser checks use the hand-modelled sample, not automatic analysis of the imported DLF PDF. No RF simulation, Bluetooth or Flutter integration is implemented. Await approval before the next milestone.
+Run `node scripts/deployment-demo.mjs` for the live-edit demonstration, exported JSON/CSV, version comparison and a 10,201-node / 20,200-edge engine benchmark. Outputs are in `reports/milestone-6-*`. Browser checks use the hand-modelled sample, not automatic analysis of the imported DLF PDF. No RF simulation, Bluetooth or Flutter integration is implemented.
+
+## Navigation simulation — Milestone 7 (awaiting approval)
+
+Select Start POI and Destination POI, then Prepare simulation. The independent TypeScript engine finds an A* route (Dijkstra is also available through engine configuration), validates sampled route coverage, produces deterministic handovers/events and owns playback state. Play/Pause/Resume/Stop/Replay, 1×/2×/5×/10× speed and timeline seeking visualize the virtual walker, current edge, active/upcoming beacons and visited/remaining route.
+
+Reports include distance, walking time, floors/nodes, handovers, weak sections, dead zones, coverage, reliability/navigation scores and beacon separation. Export the navigation report, event log or saved-version route comparison as JSON. Comparisons require both versions to match the current geometry/calibration/graph and evaluate the same route.
+
+Signal is a dimensionless geometry-proximity score, not RSSI/dBm. Cross-floor connector interiors are conservatively unverified. Off-graph POI approaches are excluded and warned. Validation samples at 0.25 m with exact graph/geometry clipping; narrow RF gaps cannot be certified. The engine runs in a worker; graph and beacon JSX are cached during playback.
+
+Run `npm run check` (TypeScript check, unit tests, production build; Node 22.18+ or 24+ required for native TypeScript test execution) and `node scripts/simulation-demo.mjs`. Sample Main entrance → Lift lobby: 57 m, 42.22 s, 10 handovers, 100% sampled route coverage, score 100. This does not contradict 38.16% floor-area coverage: the chosen corridor is covered while large floor regions are not. Disabling three route beacons exposes a 7.5 m gap and lowers navigation score to 66.93. No Bluetooth scanning, Flutter, live positioning, RSSI calibration, RF propagation or fingerprinting.
 # Beacon identification
 
 New planner beacons use sequential IDs (`IW001`, `IW002`, …). Configure **Beacon ID prefix** in the deployment panel; changes apply only to future IDs. The project saves its next number, deletion never renumbers survivors, and version reload retains the numbering high-water mark. Existing saved IDs are preserved. **Show beacon IDs** toggles map text independently of beacon icons; map tooltips contain IDs, while beacon types remain in the inspector and reports.

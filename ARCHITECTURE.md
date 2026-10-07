@@ -1,5 +1,27 @@
 # INPS architecture
 
+## Milestone 8 topology placement
+
+```mermaid
+flowchart TD
+  G[Navigation Graph: route references] --> T[Topology: widths / entrances / POIs]
+  F[Floor Geometry in metres] --> T
+  C[Coordinate System: drawing ↔ world] --> F
+  T --> P[Side / corner / perimeter candidates]
+  R[Profiles and Configurable Rules] --> P
+  P --> V[Coverage Engine: geometry visibility]
+  V --> O[Bounded marginal-gain optimizer]
+  O --> B[Coordinates + separate graph references]
+  B --> D[DeploymentPlanner: edits / validation / worker]
+  D --> U[React: visualize / inspect / persist]
+```
+
+`topologyPlacement.js` has no React, DOM or storage imports. It reuses exact geometry clipping and existing Coverage Engine samples. `beaconPlacement.js` creates graph-derived route stations, then delegates installation candidates and additional area coverage. Explicit centerline mode is retained only for baseline comparison/regression checks, not the default UI workflow.
+
+`edgeId`/`edgeOffset` identify a projected reference station, not coordinate co-location. `nodeId` can identify an anchor's logical node. `referenceDistance`, `placementStrategy`, `placementRole` and polygon references travel with beacons. Area beacons contribute actual coverage but not route-station spacing samples. Pixel/world coordinates retain calibrated scaling. Valid manual positions are preserved; invalid geometry may still use a conservative graph repair fallback.
+
+Topology analysis is disposable and rebuilt from geometry after reload. Layouts and strategy metadata persist in IndexedDB/version snapshots. Optimization statistics describe generation, not a new optimum after every edit. The existing incremental coverage/chain caches remain responsible for interactive updates.
+
 The NavigationGraph module is plain JavaScript and has no React, DOM, or storage imports. Nodes retain drawing coordinates in pixels (`x`, `y`) and calibrated coordinates in metres (`worldX`, `worldY`). Floor IDs must use a consistent building coordinate origin when connecting floors. Connector distances are explicit measured travel distances; the initial UI value of 3 m must be edited to match the building.
 
 ```mermaid
@@ -67,3 +89,21 @@ flowchart LR
 ```
 
 Large-graph benchmarks remain engine benchmarks, not a guarantee of 10,000-node SVG rendering. Nearest valid relocation checks all same-floor graph positions when conflicts occur; coverage uses floor-specific beacon spatial bins and bounded raster/graph sampling. Physical accuracy depends on the supplied geometry and calibration.
+# Milestone 7: simulation boundary
+
+`navigationSimulation.ts` receives graph, compiled-compatible floor geometry, beacon records, POIs in metres and configuration. It owns route resolution, spatial indexing, position interpolation, deterministic coverage/handovers, validation, statistics, playback and comparison. It never imports React or accesses DOM/IndexedDB/project UI state. `simulationWorker.ts` is the native message adapter. React only converts project coordinates, sends commands, visualizes returned state and downloads reports; edits invalidate the disposable simulation session.
+
+```mermaid
+flowchart TD
+  Graph[Navigation Graph] --> Simulation[TypeScript Simulation Engine]
+  Coordinates[Coordinate adapter: pixels to metres] --> Simulation
+  Simulation --> Coverage[Geometry Coverage: clipping + visibility + radius]
+  Geometry[Floor Geometry Engine] --> Coverage
+  Beacons[Deployment beacon records] --> Coverage
+  Coverage --> Handover[Deterministic Beacon Handover]
+  Handover --> Results[State / route quality / timeline / comparison]
+  Results --> React[React playback visualization]
+  React -->|commands only| Simulation
+```
+
+The simulation coverage evaluator reuses the same Floor Geometry visibility/clipping primitives as the area Coverage Engine; it evaluates route length, not area raster cells. No RF attenuation or dBm inference is introduced. TypeScript is development-only; native Node TypeScript stripping runs engine tests/demo. Existing JavaScript engine boundaries are retained rather than migrating the entire planner.

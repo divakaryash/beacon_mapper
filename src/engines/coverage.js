@@ -36,7 +36,7 @@ export function analyzeCoverage({graph,floorGeometry,beacons,profile,placementQu
   const floorReports=[];let totalArea=0,coveredArea=0,overlapArea=0;
   // ponytail: bounded raster estimate; polygon clipping is the upgrade for sub-cell area accuracy.
   const floorBudgets=new Map();let requestedCells=0;
-  for(const [floorId,floor] of floors) {
+  for(const [floorId,floor] of configuration.graphOnly?[]:floors) {
     if(!floor.boundaries.length||(!floor.walkableAreas.length&&!floor.walkablePaths.length)){warnings.push({code:"incomplete-coverage-geometry",floorId,message:`${floorId}: draw a building boundary and walkable geometry before reporting area coverage.`});continue;}
     const points=floor.boundaries.flat(),minX=points.reduce((v,p)=>Math.min(v,p.x),Infinity),maxX=points.reduce((v,p)=>Math.max(v,p.x),-Infinity),minY=points.reduce((v,p)=>Math.min(v,p.y),Infinity),maxY=points.reduce((v,p)=>Math.max(v,p.y),-Infinity);
     const count=Math.ceil((maxX-minX)/requestedCellSize)*Math.ceil((maxY-minY)/requestedCellSize);requestedCells+=count;floorBudgets.set(floorId,{minX,minY,maxX,maxY});

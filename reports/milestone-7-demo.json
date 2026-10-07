@@ -1,0 +1,163 @@
+{
+  "sampleStatistics": {
+    "distance": 57,
+    "walkingTime": 42.22222222222222,
+    "floorsTraversed": [
+      "floor-1"
+    ],
+    "orderedNodes": [
+      "entrance",
+      "food",
+      "atrium",
+      "lift"
+    ],
+    "handovers": 10,
+    "averageDistanceBetweenHandovers": 5.425,
+    "weakCoverageSections": [],
+    "deadZones": [],
+    "longestGap": 0,
+    "coveragePercentage": 100,
+    "reliabilityScore": 100,
+    "navigationScore": 100,
+    "walkingQuality": 100,
+    "approachDistance": 0,
+    "approachVerified": true,
+    "continuousCoverage": true,
+    "maximumDistanceBetweenActiveBeacons": 6.5,
+    "beaconCount": 17
+  },
+  "beaconSequence": [
+    {
+      "time": 0,
+      "id": "IW001"
+    },
+    {
+      "time": 1.8518518518518516,
+      "id": "IW007"
+    },
+    {
+      "time": 5,
+      "id": "IW002"
+    },
+    {
+      "time": 9.25925925925926,
+      "id": "IW008"
+    },
+    {
+      "time": 13.888888888888888,
+      "id": "IW003"
+    },
+    {
+      "time": 18.51851851851852,
+      "id": "IW009"
+    },
+    {
+      "time": 22.962962962962962,
+      "id": "IW010"
+    },
+    {
+      "time": 27.22222222222222,
+      "id": "IW011"
+    },
+    {
+      "time": 31.48148148148148,
+      "id": "IW012"
+    },
+    {
+      "time": 35.925925925925924,
+      "id": "IW013"
+    },
+    {
+      "time": 40.18518518518518,
+      "id": "IW004"
+    }
+  ],
+  "comparison": {
+    "a": {
+      "name": "A · baseline",
+      "distance": 57,
+      "walkingTime": 42.22222222222222,
+      "floorsTraversed": [
+        "floor-1"
+      ],
+      "orderedNodes": [
+        "entrance",
+        "food",
+        "atrium",
+        "lift"
+      ],
+      "handovers": 10,
+      "averageDistanceBetweenHandovers": 5.425,
+      "weakCoverageSections": [],
+      "deadZones": [],
+      "longestGap": 0,
+      "coveragePercentage": 100,
+      "reliabilityScore": 100,
+      "navigationScore": 100,
+      "walkingQuality": 100,
+      "approachDistance": 0,
+      "approachVerified": true,
+      "continuousCoverage": true,
+      "maximumDistanceBetweenActiveBeacons": 6.5,
+      "beaconCount": 17
+    },
+    "b": {
+      "name": "B · three disabled",
+      "distance": 57,
+      "walkingTime": 42.22222222222222,
+      "floorsTraversed": [
+        "floor-1"
+      ],
+      "orderedNodes": [
+        "entrance",
+        "food",
+        "atrium",
+        "lift"
+      ],
+      "handovers": 6,
+      "averageDistanceBetweenHandovers": 7.75,
+      "weakCoverageSections": [
+        {
+          "start": 33.75,
+          "end": 35.75,
+          "length": 2,
+          "floorId": "floor-1"
+        },
+        {
+          "start": 43.25,
+          "end": 45.25,
+          "length": 2,
+          "floorId": "floor-1"
+        }
+      ],
+      "deadZones": [
+        {
+          "start": 35.75,
+          "end": 43.25,
+          "length": 7.5,
+          "floorId": "floor-1"
+        }
+      ],
+      "longestGap": 7.5,
+      "coveragePercentage": 86.84210526315789,
+      "reliabilityScore": 79.82456140350877,
+      "navigationScore": 66.9298245614035,
+      "walkingQuality": 79.82456140350877,
+      "approachDistance": 0,
+      "approachVerified": true,
+      "continuousCoverage": false,
+      "maximumDistanceBetweenActiveBeacons": 23.333333333333336,
+      "beaconCount": 14
+    },
+    "recommendation": "A · baseline has the higher geometry-based navigation score.",
+    "warnings": [],
+    "sameRoute": true
+  },
+  "benchmark": {
+    "nodes": 10001,
+    "beacons": 2501,
+    "routeDistance": 1100,
+    "prepareMs": 47.175291999999985,
+    "seek1000Ms": 10.490582999999958
+  }
+}

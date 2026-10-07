@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"ESNext","moduleResolution":"bundler","allowImportingTsExtensions":true,"allowJs":true,"checkJs":false,"noEmit":true,"strict":true,"lib":["ES2023","DOM"]},"include":["src/engines/navigationSimulation.ts","src/engines/simulationWorker.ts"]}

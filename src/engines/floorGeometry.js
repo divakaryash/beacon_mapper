@@ -52,6 +52,7 @@ export function compileFloorGeometry(input={}) {
       } else {
         if(points.length<3)throw new Error("Area geometry requires at least three points.");
         floor[{buildingBoundary:"boundaries",walkableArea:"walkableAreas",restrictedArea:"restrictedAreas",nonWalkableArea:"nonWalkableAreas"}[role]].push(points);
+        if(role==='walkableArea'){floor.walkableRegionMetadata??=[];floor.walkableRegionMetadata.push({id:object.id,category:object.category,name:object.name});}
       }
     }
   }
