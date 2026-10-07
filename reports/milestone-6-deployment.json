@@ -1,0 +1,1219 @@
+{
+  "schemaVersion": 1,
+  "name": "Sample mall · geometry coverage demo",
+  "exportedAt": "2026-10-07T16:02:02.506Z",
+  "units": "metres",
+  "coordinateUnits": {
+    "worldX": "metres",
+    "worldY": "metres",
+    "x": "drawing pixels",
+    "y": "drawing pixels",
+    "geometry": "drawing pixels; thicknessMeters/widthMeters are metres"
+  },
+  "isRFSimulation": false,
+  "planningSettings": {
+    "defaultProfileId": "iw-ceiling",
+    "spacing": 5.5,
+    "reliableRadius": 6,
+    "marginalRadius": 8,
+    "planningMode": "hybrid",
+    "coverageThreshold": "reliable",
+    "coverageTarget": 90,
+    "anchorTypes": [
+      "Lift",
+      "Escalator",
+      "Stairs",
+      "Entrance",
+      "Exit"
+    ],
+    "junctionAnchors": true,
+    "wallClearance": 0.3,
+    "installationCost": 0,
+    "currency": "INR",
+    "cellSize": 0.5
+  },
+  "profiles": [
+    {
+      "id": "iw-ceiling",
+      "modelName": "IW Ceiling Beacon",
+      "mountType": "Ceiling",
+      "installationType": "Ceiling",
+      "recommendedHeight": 3,
+      "defaultBeaconSpacing": 5.5,
+      "coverageRadius": 6,
+      "rssiPlanningThreshold": -75,
+      "advertisementInterval": 500,
+      "txPower": 0,
+      "notes": "Editable planning assumptions. Confirm hardware specifications and site conditions before deployment."
+    },
+    {
+      "id": "iw-wall",
+      "modelName": "IW Wall Beacon",
+      "mountType": "Wall",
+      "installationType": "Wall",
+      "recommendedHeight": 2.5,
+      "defaultBeaconSpacing": 5.5,
+      "coverageRadius": 6,
+      "rssiPlanningThreshold": -75,
+      "advertisementInterval": 500,
+      "txPower": 0,
+      "notes": "Editable planning assumptions. Confirm hardware specifications and site conditions before deployment."
+    },
+    {
+      "id": "iw-outdoor",
+      "modelName": "IW Outdoor Beacon",
+      "mountType": "Outdoor",
+      "installationType": "Pole",
+      "recommendedHeight": 3,
+      "defaultBeaconSpacing": 5.5,
+      "coverageRadius": 6,
+      "rssiPlanningThreshold": -75,
+      "advertisementInterval": 500,
+      "txPower": 0,
+      "notes": "Editable planning assumptions. Confirm hardware specifications and site conditions before deployment."
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "entrance",
+        "x": 560,
+        "y": 90,
+        "worldX": 56,
+        "worldY": 9,
+        "floorId": "floor-1",
+        "type": "Entrance",
+        "metadata": {
+          "label": "entrance"
+        }
+      },
+      {
+        "id": "food",
+        "x": 560,
+        "y": 180,
+        "worldX": 56,
+        "worldY": 18,
+        "floorId": "floor-1",
+        "type": "Room Entrance",
+        "metadata": {
+          "label": "food",
+          "category": "Food Court"
+        }
+      },
+      {
+        "id": "atrium",
+        "x": 560,
+        "y": 310,
+        "worldX": 56,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "type": "Junction",
+        "metadata": {
+          "label": "atrium",
+          "category": "Atrium"
+        }
+      },
+      {
+        "id": "lift",
+        "x": 560,
+        "y": 660,
+        "worldX": 56,
+        "worldY": 66,
+        "floorId": "floor-1",
+        "type": "Lift",
+        "metadata": {
+          "label": "lift"
+        }
+      },
+      {
+        "id": "west",
+        "x": 420,
+        "y": 310,
+        "worldX": 42,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "type": "Room Entrance",
+        "metadata": {
+          "label": "west"
+        }
+      },
+      {
+        "id": "exit",
+        "x": 700,
+        "y": 310,
+        "worldX": 70,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "type": "Exit",
+        "metadata": {
+          "label": "exit"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "entry-food",
+        "source": "entrance",
+        "target": "food",
+        "distance": 9,
+        "accessibility": true,
+        "direction": "both",
+        "edgeType": "Walkway"
+      },
+      {
+        "id": "food-atrium",
+        "source": "food",
+        "target": "atrium",
+        "distance": 13,
+        "accessibility": true,
+        "direction": "both",
+        "edgeType": "Walkway"
+      },
+      {
+        "id": "atrium-lift",
+        "source": "atrium",
+        "target": "lift",
+        "distance": 35,
+        "accessibility": true,
+        "direction": "both",
+        "edgeType": "Walkway"
+      },
+      {
+        "id": "atrium-west",
+        "source": "atrium",
+        "target": "west",
+        "distance": 14,
+        "accessibility": true,
+        "direction": "both",
+        "edgeType": "Walkway"
+      },
+      {
+        "id": "atrium-exit",
+        "source": "atrium",
+        "target": "exit",
+        "distance": 14,
+        "accessibility": true,
+        "direction": "both",
+        "edgeType": "Walkway"
+      }
+    ]
+  },
+  "geometry": [
+    {
+      "id": "boundary",
+      "type": "buildingBoundary",
+      "layerId": "walls",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 70,
+          "y": 65
+        },
+        {
+          "x": 1130,
+          "y": 65
+        },
+        {
+          "x": 1130,
+          "y": 695
+        },
+        {
+          "x": 70,
+          "y": 695
+        }
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "concourse",
+      "type": "walkableArea",
+      "layerId": "walkableAreas",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 410,
+          "y": 75
+        },
+        {
+          "x": 710,
+          "y": 75
+        },
+        {
+          "x": 710,
+          "y": 685
+        },
+        {
+          "x": 410,
+          "y": 685
+        }
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "west-retail",
+      "type": "walkableArea",
+      "layerId": "walkableAreas",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 80,
+          "y": 310
+        },
+        {
+          "x": 390,
+          "y": 310
+        },
+        {
+          "x": 390,
+          "y": 510
+        },
+        {
+          "x": 80,
+          "y": 510
+        }
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "restricted-services",
+      "type": "restrictedArea",
+      "layerId": "restrictedAreas",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 630,
+          "y": 400
+        },
+        {
+          "x": 700,
+          "y": 400
+        },
+        {
+          "x": 700,
+          "y": 450
+        },
+        {
+          "x": 630,
+          "y": 450
+        }
+      ],
+      "rotation": 0
+    },
+    {
+      "id": "wall-west",
+      "type": "wall",
+      "layerId": "walls",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 400,
+          "y": 65
+        },
+        {
+          "x": 400,
+          "y": 695
+        }
+      ],
+      "thicknessMeters": 0.8
+    },
+    {
+      "id": "wall-east",
+      "type": "wall",
+      "layerId": "walls",
+      "floorId": "floor-1",
+      "points": [
+        {
+          "x": 720,
+          "y": 65
+        },
+        {
+          "x": 720,
+          "y": 695
+        }
+      ],
+      "thicknessMeters": 0.8
+    },
+    {
+      "id": "poi-main",
+      "type": "poi",
+      "layerId": "pois",
+      "x": 560,
+      "y": 90,
+      "name": "Main entrance",
+      "category": "Entrance",
+      "floorId": "floor-1",
+      "metadata": {
+        "nodeId": "entrance"
+      }
+    },
+    {
+      "id": "poi-lift",
+      "type": "poi",
+      "layerId": "pois",
+      "x": 560,
+      "y": 660,
+      "name": "Lift lobby",
+      "category": "Lift",
+      "floorId": "floor-1",
+      "metadata": {
+        "nodeId": "lift"
+      }
+    }
+  ],
+  "scale": {
+    "widthMeters": 120,
+    "heightMeters": 76,
+    "drawingWidthPixels": 1200,
+    "drawingHeightPixels": 760
+  },
+  "deployment": {
+    "beacons": [
+      {
+        "type": "Anchor",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-1",
+        "x": 560,
+        "y": 90,
+        "worldX": 56,
+        "worldY": 9,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "entrance"
+        },
+        "nodeId": "entrance",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Anchor",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-2",
+        "x": 560,
+        "y": 180,
+        "worldX": 56,
+        "worldY": 18,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "food",
+          "category": "Food Court"
+        },
+        "nodeId": "food",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Anchor",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-3",
+        "x": 560,
+        "y": 310,
+        "worldX": 56,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "atrium",
+          "category": "Atrium"
+        },
+        "nodeId": "atrium",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Anchor",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-4",
+        "x": 560,
+        "y": 660,
+        "worldX": 56,
+        "worldY": 66,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "lift"
+        },
+        "nodeId": "lift",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-5",
+        "x": 420,
+        "y": 310,
+        "worldX": 42,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "west"
+        },
+        "nodeId": "west",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Anchor",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "id": "beacon-6",
+        "x": 700,
+        "y": 310,
+        "worldX": 70,
+        "worldY": 31,
+        "floorId": "floor-1",
+        "metadata": {
+          "label": "exit"
+        },
+        "nodeId": "exit",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": false,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "manual",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 161,
+        "worldX": 56,
+        "worldY": 16.1,
+        "edgeId": "entry-food",
+        "edgeOffset": 7.100000000000001,
+        "id": "beacon-7",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 245,
+        "worldX": 56,
+        "worldY": 24.5,
+        "edgeId": "food-atrium",
+        "edgeOffset": 6.5,
+        "id": "beacon-8",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 368.3333333333333,
+        "worldX": 56,
+        "worldY": 36.833333333333336,
+        "edgeId": "atrium-lift",
+        "edgeOffset": 5.833333333333333,
+        "id": "beacon-9",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 426.66666666666663,
+        "worldX": 56,
+        "worldY": 42.666666666666664,
+        "edgeId": "atrium-lift",
+        "edgeOffset": 11.666666666666666,
+        "id": "beacon-10",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 485,
+        "worldX": 56,
+        "worldY": 48.5,
+        "edgeId": "atrium-lift",
+        "edgeOffset": 17.5,
+        "id": "beacon-11",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 543.3333333333333,
+        "worldX": 56,
+        "worldY": 54.33333333333333,
+        "edgeId": "atrium-lift",
+        "edgeOffset": 23.333333333333332,
+        "id": "beacon-12",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 601.6666666666667,
+        "worldX": 56,
+        "worldY": 60.16666666666667,
+        "edgeId": "atrium-lift",
+        "edgeOffset": 29.166666666666668,
+        "id": "beacon-13",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 513.3333333333334,
+        "y": 310,
+        "worldX": 51.333333333333336,
+        "worldY": 31,
+        "edgeId": "atrium-west",
+        "edgeOffset": 4.666666666666667,
+        "id": "beacon-14",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 466.66666666666663,
+        "y": 310,
+        "worldX": 46.666666666666664,
+        "worldY": 31,
+        "edgeId": "atrium-west",
+        "edgeOffset": 9.333333333333334,
+        "id": "beacon-15",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 606.6666666666666,
+        "y": 310,
+        "worldX": 60.666666666666664,
+        "worldY": 31,
+        "edgeId": "atrium-exit",
+        "edgeOffset": 4.666666666666667,
+        "id": "beacon-16",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      },
+      {
+        "type": "Navigation",
+        "enabled": true,
+        "locked": false,
+        "installationType": "Ceiling",
+        "mountingHeight": 3,
+        "notes": "",
+        "installationStatus": "Planned",
+        "orientation": null,
+        "profileId": "iw-ceiling",
+        "origin": "automatic",
+        "floorId": "floor-1",
+        "x": 653.3333333333334,
+        "y": 310,
+        "worldX": 65.33333333333333,
+        "worldY": 31,
+        "edgeId": "atrium-exit",
+        "edgeOffset": 9.333333333333334,
+        "id": "beacon-17",
+        "coverageRadius": 6,
+        "reliableRadius": 6,
+        "marginalRadius": 8
+      }
+    ],
+    "quality": {
+      "overallScore": 64.44616977225672,
+      "spacingScore": 40,
+      "coverageScore": 37.784679089026916,
+      "connectivityScore": 80,
+      "anchorPlacementScore": 100,
+      "geometryFailures": 0,
+      "warnings": [
+        {
+          "code": "quality-reduction",
+          "metric": "spacingScore",
+          "message": "spacingScore: 40.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "coverageScore",
+          "message": "coverageScore: 37.8/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "connectivityScore",
+          "message": "connectivityScore: 80.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "spacing-too-large",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 135,
+        "beaconIds": [
+          "beacon-1",
+          "beacon-2"
+        ],
+        "message": "Spacing 9.00 m exceeds 6 m."
+      },
+      {
+        "code": "spacing-too-large",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 212.5,
+        "beaconIds": [
+          "beacon-2",
+          "beacon-8"
+        ],
+        "message": "Spacing 6.50 m exceeds 6 m."
+      },
+      {
+        "code": "spacing-too-large",
+        "floorId": "floor-1",
+        "x": 560,
+        "y": 277.5,
+        "beaconIds": [
+          "beacon-8",
+          "beacon-3"
+        ],
+        "message": "Spacing 6.50 m exceeds 6 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 536.6666666666667,
+        "y": 310,
+        "beaconIds": [
+          "beacon-3",
+          "beacon-14"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 490,
+        "y": 310,
+        "beaconIds": [
+          "beacon-14",
+          "beacon-15"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 443.3333333333333,
+        "y": 310,
+        "beaconIds": [
+          "beacon-15",
+          "beacon-5"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 583.3333333333333,
+        "y": 310,
+        "beaconIds": [
+          "beacon-3",
+          "beacon-16"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 630,
+        "y": 310,
+        "beaconIds": [
+          "beacon-16",
+          "beacon-17"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "spacing-too-small",
+        "floorId": "floor-1",
+        "x": 676.6666666666667,
+        "y": 310,
+        "beaconIds": [
+          "beacon-17",
+          "beacon-6"
+        ],
+        "message": "Spacing 4.67 m is below 5 m."
+      },
+      {
+        "code": "disconnected-beacon-chain",
+        "message": "3 beacon chain link(s) exceed maximum spacing."
+      },
+      {
+        "code": "coverage-target",
+        "message": "Coverage 37.8% is below target 90%."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "spacingScore",
+        "message": "spacingScore: 40.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "coverageScore",
+        "message": "coverageScore: 37.8/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "connectivityScore",
+        "message": "connectivityScore: 80.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+      }
+    ],
+    "configuration": {
+      "mode": "hybrid",
+      "spacing": 5.5
+    },
+    "geometryValidation": {
+      "rejected": 0,
+      "relocated": 0
+    },
+    "coverage": {
+      "method": "geometry-clipped-graph-distance-radius",
+      "estimatedPercent": 100,
+      "totalLength": 85,
+      "coveredLength": 85,
+      "edges": [
+        {
+          "edgeId": "entry-food",
+          "length": 9,
+          "coveredLength": 9
+        },
+        {
+          "edgeId": "food-atrium",
+          "length": 13,
+          "coveredLength": 13
+        },
+        {
+          "edgeId": "atrium-lift",
+          "length": 35,
+          "coveredLength": 35
+        },
+        {
+          "edgeId": "atrium-west",
+          "length": 14,
+          "coveredLength": 14
+        },
+        {
+          "edgeId": "atrium-exit",
+          "length": 14,
+          "coveredLength": 14
+        }
+      ]
+    },
+    "statistics": {
+      "navigationBeacons": 11,
+      "anchorBeacons": 5,
+      "totalBeacons": 17,
+      "activeBeacons": 16,
+      "disabledBeacons": 1,
+      "averageSpacing": 5.666666666666668,
+      "minimumSpacing": 4.666666666666666,
+      "maximumSpacing": 9,
+      "coveragePercent": 37.784679089026916,
+      "deadZonePercent": 62.215320910973084,
+      "overlapPercent": 24.22360248447205,
+      "maximumGap": 0,
+      "minimumGap": 0,
+      "deploymentQuality": 64.44616977225672,
+      "installationCost": 0,
+      "warnings": 14
+    }
+  },
+  "coverage": {
+    "method": "geometry-line-of-sight-radius",
+    "isRFSimulation": false,
+    "coverageThreshold": "reliable",
+    "work": {
+      "incremental": true,
+      "recomputedCells": 456,
+      "recomputedEdges": 2,
+      "reusedFloors": 0
+    },
+    "resolution": {
+      "cellSize": 0.5,
+      "graphStep": 0.25,
+      "requestedCellSize": 0.5,
+      "requestedGraphStep": 0.25
+    },
+    "deadZones": [
+      {
+        "floorId": "floor-1",
+        "area": 166.75,
+        "samples": 667,
+        "bounds": {
+          "x": 41,
+          "y": 7.5,
+          "width": 11,
+          "height": 18
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 166.75,
+        "samples": 667,
+        "bounds": {
+          "x": 60,
+          "y": 7.5,
+          "width": 11,
+          "height": 18
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 620,
+        "samples": 2480,
+        "bounds": {
+          "x": 8,
+          "y": 31,
+          "width": 31,
+          "height": 20
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 292,
+        "samples": 1168,
+        "bounds": {
+          "x": 41,
+          "y": 36.5,
+          "width": 10,
+          "height": 32
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 257,
+        "samples": 1028,
+        "bounds": {
+          "x": 61,
+          "y": 36.5,
+          "width": 10,
+          "height": 32
+        }
+      }
+    ],
+    "gaps": [],
+    "coveragePercentage": 37.784679089026916,
+    "graphCoveragePercentage": 100,
+    "totalArea": 2415,
+    "coveredArea": 912.5,
+    "deadZoneArea": 1502.5,
+    "overlapArea": 585,
+    "overlapPercentage": 24.22360248447205,
+    "graphCoveredLength": 85,
+    "totalGraphLength": 85,
+    "graphEdges": [
+      {
+        "edgeId": "entry-food",
+        "length": 9,
+        "coveredLength": 8.999999999999998
+      },
+      {
+        "edgeId": "food-atrium",
+        "length": 13,
+        "coveredLength": 13
+      },
+      {
+        "edgeId": "atrium-lift",
+        "length": 35,
+        "coveredLength": 35
+      },
+      {
+        "edgeId": "atrium-west",
+        "length": 14,
+        "coveredLength": 14
+      },
+      {
+        "edgeId": "atrium-exit",
+        "length": 14,
+        "coveredLength": 14
+      }
+    ],
+    "quality": {
+      "overallScore": 64.44616977225672,
+      "spacingScore": 40,
+      "coverageScore": 37.784679089026916,
+      "connectivityScore": 80,
+      "anchorPlacementScore": 100,
+      "geometryFailures": 0,
+      "warnings": [
+        {
+          "code": "quality-reduction",
+          "metric": "spacingScore",
+          "message": "spacingScore: 40.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "coverageScore",
+          "message": "coverageScore: 37.8/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "connectivityScore",
+          "message": "connectivityScore: 80.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "dead-zones",
+        "message": "5 dead zone(s), 1502.50 m² of sampled walkable area."
+      },
+      {
+        "code": "coverage-overlap",
+        "message": "585.00 m² has two or more visible beacons. Overlap is informational, not a quality penalty."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "spacingScore",
+        "message": "spacingScore: 40.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "coverageScore",
+        "message": "coverageScore: 37.8/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "connectivityScore",
+        "message": "connectivityScore: 80.0/100. Review related spacing, coverage, connectivity or anchor warnings."
+      }
+    ],
+    "floors": [
+      {
+        "floorId": "floor-1",
+        "minX": 7,
+        "minY": 6.5,
+        "maxX": 113,
+        "maxY": 69.5,
+        "columns": 212,
+        "rows": 126,
+        "cellSize": 0.5,
+        "deadZones": [
+          {
+            "floorId": "floor-1",
+            "area": 166.75,
+            "samples": 667,
+            "bounds": {
+              "x": 41,
+              "y": 7.5,
+              "width": 11,
+              "height": 18
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 166.75,
+            "samples": 667,
+            "bounds": {
+              "x": 60,
+              "y": 7.5,
+              "width": 11,
+              "height": 18
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 620,
+            "samples": 2480,
+            "bounds": {
+              "x": 8,
+              "y": 31,
+              "width": 31,
+              "height": 20
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 292,
+            "samples": 1168,
+            "bounds": {
+              "x": 41,
+              "y": 36.5,
+              "width": 10,
+              "height": 32
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 257,
+            "samples": 1028,
+            "bounds": {
+              "x": 61,
+              "y": 36.5,
+              "width": 10,
+              "height": 32
+            }
+          }
+        ],
+        "totalArea": 2415,
+        "coveredArea": 912.5,
+        "overlapArea": 585
+      }
+    ]
+  }
+}

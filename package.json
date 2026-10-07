@@ -1,0 +1,20 @@
+{
+  "name": "ibeacon-indoor-navigation-planner",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "node --test src/domain/scale.test.js src/engines/*.test.js src/models/*.test.js && vite build",
+    "benchmark": "node --test --test-name-pattern='10,000 nodes' src/engines/navigationGraph.test.js"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "vite": "6.4.3"
+  }
+}

@@ -1,0 +1,528 @@
+{
+  "source": "Hand-modelled Milestone 2 sample mall, not a surveyed deployment",
+  "placement": {
+    "navigationBeacons": 12,
+    "anchorBeacons": 5,
+    "totalBeacons": 17,
+    "disabledBeacons": 0,
+    "averageSpacing": 5.312500000000001,
+    "minimumSpacing": 4.5,
+    "maximumSpacing": 6.5,
+    "warnings": 13
+  },
+  "placementWarnings": [
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.50 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.50 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-large",
+      "message": "Spacing 6.50 m exceeds 6 m."
+    },
+    {
+      "code": "spacing-too-large",
+      "message": "Spacing 6.50 m exceeds 6 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "spacing-too-small",
+      "message": "Spacing 4.67 m is below 5 m."
+    },
+    {
+      "code": "disconnected-beacon-chain",
+      "message": "2 beacon chain link(s) exceed maximum spacing."
+    },
+    {
+      "code": "quality-reduction",
+      "metric": "spacingScore",
+      "message": "spacingScore: 37.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+    },
+    {
+      "code": "quality-reduction",
+      "metric": "connectivityScore",
+      "message": "connectivityScore: 87.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+    }
+  ],
+  "coverage": {
+    "method": "geometry-line-of-sight-radius",
+    "isRFSimulation": false,
+    "resolution": {
+      "cellSize": 0.5,
+      "graphStep": 0.25,
+      "requestedCellSize": 0.5,
+      "requestedGraphStep": 0.25
+    },
+    "deadZones": [
+      {
+        "floorId": "floor-1",
+        "area": 162.25,
+        "samples": 649,
+        "bounds": {
+          "x": 41,
+          "y": 7.5,
+          "width": 10,
+          "height": 18
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 162.25,
+        "samples": 649,
+        "bounds": {
+          "x": 61,
+          "y": 7.5,
+          "width": 10,
+          "height": 18
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 620,
+        "samples": 2480,
+        "bounds": {
+          "x": 8,
+          "y": 31,
+          "width": 31,
+          "height": 20
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 292,
+        "samples": 1168,
+        "bounds": {
+          "x": 41,
+          "y": 36.5,
+          "width": 10,
+          "height": 32
+        }
+      },
+      {
+        "floorId": "floor-1",
+        "area": 257,
+        "samples": 1028,
+        "bounds": {
+          "x": 61,
+          "y": 36.5,
+          "width": 10,
+          "height": 32
+        }
+      }
+    ],
+    "gaps": [],
+    "coveragePercentage": 38.15734989648033,
+    "graphCoveragePercentage": 100,
+    "totalArea": 2415,
+    "coveredArea": 921.5,
+    "deadZoneArea": 1493.5,
+    "overlapArea": 669,
+    "overlapPercentage": 27.70186335403727,
+    "graphCoveredLength": 85,
+    "totalGraphLength": 85,
+    "graphEdges": [
+      {
+        "edgeId": "entry-food",
+        "length": 9,
+        "coveredLength": 8.999999999999998
+      },
+      {
+        "edgeId": "food-atrium",
+        "length": 13,
+        "coveredLength": 13
+      },
+      {
+        "edgeId": "atrium-lift",
+        "length": 35,
+        "coveredLength": 35
+      },
+      {
+        "edgeId": "atrium-west",
+        "length": 14,
+        "coveredLength": 14
+      },
+      {
+        "edgeId": "atrium-exit",
+        "length": 14,
+        "coveredLength": 14
+      }
+    ],
+    "quality": {
+      "overallScore": 65.78933747412009,
+      "spacingScore": 37.5,
+      "coverageScore": 38.15734989648033,
+      "connectivityScore": 87.5,
+      "anchorPlacementScore": 100,
+      "geometryFailures": 0,
+      "warnings": [
+        {
+          "code": "quality-reduction",
+          "metric": "spacingScore",
+          "message": "spacingScore: 37.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "coverageScore",
+          "message": "coverageScore: 38.2/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "connectivityScore",
+          "message": "connectivityScore: 87.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "dead-zones",
+        "message": "5 dead zone(s), 1493.50 m² of sampled walkable area."
+      },
+      {
+        "code": "coverage-overlap",
+        "message": "669.00 m² has two or more visible beacons. Overlap is informational, not a quality penalty."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "spacingScore",
+        "message": "spacingScore: 37.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "coverageScore",
+        "message": "coverageScore: 38.2/100. Review related spacing, coverage, connectivity or anchor warnings."
+      },
+      {
+        "code": "quality-reduction",
+        "metric": "connectivityScore",
+        "message": "connectivityScore: 87.5/100. Review related spacing, coverage, connectivity or anchor warnings."
+      }
+    ],
+    "floorReports": [
+      {
+        "floorId": "floor-1",
+        "minX": 7,
+        "minY": 6.5,
+        "maxX": 113,
+        "maxY": 69.5,
+        "columns": 212,
+        "rows": 126,
+        "cellSize": 0.5,
+        "deadZones": [
+          {
+            "floorId": "floor-1",
+            "area": 162.25,
+            "samples": 649,
+            "bounds": {
+              "x": 41,
+              "y": 7.5,
+              "width": 10,
+              "height": 18
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 162.25,
+            "samples": 649,
+            "bounds": {
+              "x": 61,
+              "y": 7.5,
+              "width": 10,
+              "height": 18
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 620,
+            "samples": 2480,
+            "bounds": {
+              "x": 8,
+              "y": 31,
+              "width": 31,
+              "height": 20
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 292,
+            "samples": 1168,
+            "bounds": {
+              "x": 41,
+              "y": 36.5,
+              "width": 10,
+              "height": 32
+            }
+          },
+          {
+            "floorId": "floor-1",
+            "area": 257,
+            "samples": 1028,
+            "bounds": {
+              "x": 61,
+              "y": 36.5,
+              "width": 10,
+              "height": 32
+            }
+          }
+        ],
+        "totalArea": 2415,
+        "coveredArea": 921.5,
+        "overlapArea": 669
+      }
+    ]
+  },
+  "gapTest": {
+    "placement": {
+      "navigationBeacons": 9,
+      "anchorBeacons": 5,
+      "totalBeacons": 14,
+      "disabledBeacons": 3,
+      "averageSpacing": 6.538461538461539,
+      "minimumSpacing": 4.5,
+      "maximumSpacing": 23.333333333333336,
+      "warnings": 16
+    },
+    "coverage": {
+      "method": "geometry-line-of-sight-radius",
+      "isRFSimulation": false,
+      "resolution": {
+        "cellSize": 0.5,
+        "graphStep": 0.25,
+        "requestedCellSize": 0.5,
+        "requestedGraphStep": 0.25
+      },
+      "deadZones": [
+        {
+          "floorId": "floor-1",
+          "area": 162.25,
+          "samples": 649,
+          "bounds": {
+            "x": 41,
+            "y": 7.5,
+            "width": 10,
+            "height": 18
+          }
+        },
+        {
+          "floorId": "floor-1",
+          "area": 162.25,
+          "samples": 649,
+          "bounds": {
+            "x": 61,
+            "y": 7.5,
+            "width": 10,
+            "height": 18
+          }
+        },
+        {
+          "floorId": "floor-1",
+          "area": 620,
+          "samples": 2480,
+          "bounds": {
+            "x": 8,
+            "y": 31,
+            "width": 31,
+            "height": 20
+          }
+        },
+        {
+          "floorId": "floor-1",
+          "area": 705,
+          "samples": 2820,
+          "bounds": {
+            "x": 41,
+            "y": 36.5,
+            "width": 30,
+            "height": 32
+          }
+        }
+      ],
+      "gaps": [
+        {
+          "floorId": "floor-1",
+          "edgeId": "atrium-lift",
+          "start": 11.749999999999998,
+          "end": 23.25,
+          "length": 11.500000000000002,
+          "x1": 560,
+          "y1": 427.5,
+          "x2": 560,
+          "y2": 542.5
+        }
+      ],
+      "coveragePercentage": 31.697722567287784,
+      "graphCoveragePercentage": 86.47058823529414,
+      "totalArea": 2415,
+      "coveredArea": 765.5,
+      "deadZoneArea": 1649.5,
+      "overlapArea": 491,
+      "overlapPercentage": 20.33126293995859,
+      "graphCoveredLength": 73.50000000000003,
+      "totalGraphLength": 85,
+      "graphEdges": [
+        {
+          "edgeId": "entry-food",
+          "length": 9,
+          "coveredLength": 8.999999999999998
+        },
+        {
+          "edgeId": "food-atrium",
+          "length": 13,
+          "coveredLength": 13
+        },
+        {
+          "edgeId": "atrium-lift",
+          "length": 35,
+          "coveredLength": 23.500000000000036
+        },
+        {
+          "edgeId": "atrium-west",
+          "length": 14,
+          "coveredLength": 14
+        },
+        {
+          "edgeId": "atrium-exit",
+          "length": 14,
+          "coveredLength": 14
+        }
+      ],
+      "quality": {
+        "overallScore": 56.00135371874502,
+        "spacingScore": 15.384615384615385,
+        "coverageScore": 31.697722567287784,
+        "connectivityScore": 76.92307692307692,
+        "anchorPlacementScore": 100,
+        "geometryFailures": 0,
+        "warnings": [
+          {
+            "code": "quality-reduction",
+            "metric": "spacingScore",
+            "message": "spacingScore: 15.4/100. Review related spacing, coverage, connectivity or anchor warnings."
+          },
+          {
+            "code": "quality-reduction",
+            "metric": "coverageScore",
+            "message": "coverageScore: 31.7/100. Review related spacing, coverage, connectivity or anchor warnings."
+          },
+          {
+            "code": "quality-reduction",
+            "metric": "connectivityScore",
+            "message": "connectivityScore: 76.9/100. Review related spacing, coverage, connectivity or anchor warnings."
+          }
+        ]
+      },
+      "warnings": [
+        {
+          "code": "dead-zones",
+          "message": "4 dead zone(s), 1649.50 m² of sampled walkable area."
+        },
+        {
+          "code": "coverage-overlap",
+          "message": "491.00 m² has two or more visible beacons. Overlap is informational, not a quality penalty."
+        },
+        {
+          "code": "graph-gaps",
+          "message": "1 graph gap(s), 11.50 m uncovered."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "spacingScore",
+          "message": "spacingScore: 15.4/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "coverageScore",
+          "message": "coverageScore: 31.7/100. Review related spacing, coverage, connectivity or anchor warnings."
+        },
+        {
+          "code": "quality-reduction",
+          "metric": "connectivityScore",
+          "message": "connectivityScore: 76.9/100. Review related spacing, coverage, connectivity or anchor warnings."
+        }
+      ],
+      "floorReports": [
+        {
+          "floorId": "floor-1",
+          "minX": 7,
+          "minY": 6.5,
+          "maxX": 113,
+          "maxY": 69.5,
+          "columns": 212,
+          "rows": 126,
+          "cellSize": 0.5,
+          "deadZones": [
+            {
+              "floorId": "floor-1",
+              "area": 162.25,
+              "samples": 649,
+              "bounds": {
+                "x": 41,
+                "y": 7.5,
+                "width": 10,
+                "height": 18
+              }
+            },
+            {
+              "floorId": "floor-1",
+              "area": 162.25,
+              "samples": 649,
+              "bounds": {
+                "x": 61,
+                "y": 7.5,
+                "width": 10,
+                "height": 18
+              }
+            },
+            {
+              "floorId": "floor-1",
+              "area": 620,
+              "samples": 2480,
+              "bounds": {
+                "x": 8,
+                "y": 31,
+                "width": 31,
+                "height": 20
+              }
+            },
+            {
+              "floorId": "floor-1",
+              "area": 705,
+              "samples": 2820,
+              "bounds": {
+                "x": 41,
+                "y": 36.5,
+                "width": 30,
+                "height": 32
+              }
+            }
+          ],
+          "totalArea": 2415,
+          "coveredArea": 765.5,
+          "overlapArea": 491
+        }
+      ]
+    }
+  },
+  "elapsedMs": 56.172917
+}

@@ -1,0 +1,17 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {analyzeCoverage} from "./coverage.js";
+import {BEACON_PROFILES} from "./beaconPlacement.js";
+const region=[{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+const floor={floorId:"G",boundaries:[region],walkableAreas:[region]};
+const graph={nodes:[{id:"a",floorId:"G",x:1,y:5,worldX:1,worldY:5},{id:"b",floorId:"G",x:9,y:5,worldX:9,worldY:5}],edges:[{id:"e",source:"a",target:"b",distance:8}]};
+const beacon=(id,x,y,radius=6)=>({id,floorId:"G",worldX:x,worldY:y,coverageRadius:radius});
+const analyze=(beacons,floors=[floor])=>analyzeCoverage({graph,floorGeometry:{floors},beacons,profile:BEACON_PROFILES[0],placementQuality:{spacingScore:100,connectivityScore:100,anchorPlacementScore:100},configuration:{cellSize:.5}});
+test("empty deployment exposes all dead area and the entire graph gap",()=>{const r=analyze([]);assert.equal(r.coveragePercentage,0);assert.equal(r.deadZoneArea,100);assert.equal(r.deadZones.length,1);assert.equal(r.gaps[0].length,8);assert.equal(r.quality.coverageScore,0);});
+test("coverage union is never double-counted; overlap is reported independently",()=>{const r=analyze([beacon("a",4,5,20),beacon("b",6,5,20)]);assert.equal(r.coveragePercentage,100);assert.equal(r.coveredArea,100);assert.equal(r.overlapArea,100);assert.equal(r.graphCoveragePercentage,100);assert.equal(r.quality.overallScore,100);assert.equal(r.isRFSimulation,false);});
+test("solid walls block line of sight, expose dead zones and graph gaps",()=>{const r=analyze([beacon("a",2,5,20)],[{...floor,walls:[{points:[{x:5,y:0},{x:5,y:10}],width:.2}]}]);assert.ok(r.coveragePercentage<55);assert.ok(r.deadZones.length>0);assert.ok(r.gaps.length>0);assert.ok(r.graphCoveragePercentage<55);});
+test("disabled and cross-floor beacons never cover this floor",()=>{const r=analyze([{...beacon("off",5,5,20),enabled:false},{...beacon("other",5,5,20),floorId:"L2"}]);assert.equal(r.coveragePercentage,0);assert.ok(r.warnings.some(w=>w.code==="invalid-coverage-beacon"));});
+test("missing boundary reports unavailable area rather than fabricated coverage",()=>{const r=analyze([beacon("a",2,5)],[{floorId:"G",walkableAreas:[region]}]);assert.equal(r.totalArea,0);assert.ok(r.warnings.some(w=>w.code==="no-coverage-area"));assert.equal(r.quality.overallScore,0);});
+test("invalid sampling input is rejected",()=>{assert.throws(()=>analyzeCoverage({graph,floorGeometry:{floors:[floor]},beacons:[],profile:BEACON_PROFILES[0],configuration:{cellSize:0}}));});
+test("thin wall gaps cannot disappear between graph samples",()=>{const r=analyze([beacon("a",2,5,20),beacon("b",8,5,20)],[{...floor,walls:[{points:[{x:5,y:0},{x:5,y:10}],width:.02}]}]);assert.ok(r.gaps.some(g=>g.length>=.019));assert.ok(r.graphCoveragePercentage<100);});
+test("dead-zone clustering respects walls thinner than the area grid",()=>{const r=analyze([],[{...floor,walls:[{points:[{x:5,y:0},{x:5,y:10}],width:.02}]}]);assert.equal(r.deadZones.length,2);});

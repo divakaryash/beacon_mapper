@@ -1,0 +1,142 @@
+{
+  "baseline": {
+    "navigationBeacons": 12,
+    "anchorBeacons": 5,
+    "totalBeacons": 17,
+    "activeBeacons": 17,
+    "disabledBeacons": 0,
+    "averageSpacing": 5.312500000000001,
+    "minimumSpacing": 4.5,
+    "maximumSpacing": 6.5,
+    "coveragePercent": 38.15734989648033,
+    "deadZonePercent": 61.84265010351967,
+    "overlapPercent": 27.70186335403727,
+    "maximumGap": 0,
+    "minimumGap": 0,
+    "deploymentQuality": 65.78933747412009,
+    "installationCost": 0,
+    "warnings": 15
+  },
+  "moved": {
+    "navigationBeacons": 12,
+    "anchorBeacons": 5,
+    "totalBeacons": 17,
+    "activeBeacons": 17,
+    "disabledBeacons": 0,
+    "averageSpacing": 5.312500000000001,
+    "minimumSpacing": 1.8999999999999986,
+    "maximumSpacing": 7.100000000000001,
+    "coveragePercent": 38.07453416149068,
+    "deadZonePercent": 61.92546583850932,
+    "overlapPercent": 27.12215320910973,
+    "maximumGap": 0,
+    "minimumGap": 0,
+    "deploymentQuality": 64.20613354037266,
+    "installationCost": 0,
+    "warnings": 15
+  },
+  "disabled": {
+    "navigationBeacons": 11,
+    "anchorBeacons": 5,
+    "totalBeacons": 17,
+    "activeBeacons": 16,
+    "disabledBeacons": 1,
+    "averageSpacing": 5.666666666666668,
+    "minimumSpacing": 4.666666666666666,
+    "maximumSpacing": 9,
+    "coveragePercent": 37.784679089026916,
+    "deadZonePercent": 62.215320910973084,
+    "overlapPercent": 24.22360248447205,
+    "maximumGap": 0,
+    "minimumGap": 0,
+    "deploymentQuality": 64.44616977225672,
+    "installationCost": 0,
+    "warnings": 14
+  },
+  "incrementalWork": {
+    "incremental": true,
+    "recomputedCells": 578,
+    "recomputedEdges": 2,
+    "reusedFloors": 0,
+    "recomputedRegions": 1,
+    "regions": 4,
+    "elapsedMs": 16.325083000000006
+  },
+  "comparison": {
+    "sameGeometry": true,
+    "sameAssumptions": true,
+    "sameCurrency": true,
+    "rows": [
+      {
+        "metric": "beacons",
+        "a": 17,
+        "b": 17,
+        "delta": 0
+      },
+      {
+        "metric": "activeBeacons",
+        "a": 17,
+        "b": 16,
+        "delta": -1
+      },
+      {
+        "metric": "coverage",
+        "a": 38.15734989648033,
+        "b": 37.784679089026916,
+        "delta": -0.3726708074534173
+      },
+      {
+        "metric": "deadZone",
+        "a": 61.84265010351967,
+        "b": 62.215320910973084,
+        "delta": 0.3726708074534173
+      },
+      {
+        "metric": "overlap",
+        "a": 27.70186335403727,
+        "b": 24.22360248447205,
+        "delta": -3.4782608695652186
+      },
+      {
+        "metric": "averageSpacing",
+        "a": 5.312500000000001,
+        "b": 5.666666666666668,
+        "delta": 0.35416666666666696
+      },
+      {
+        "metric": "quality",
+        "a": 65.78933747412009,
+        "b": 64.44616977225672,
+        "delta": -1.343167701863365
+      },
+      {
+        "metric": "cost",
+        "a": 0,
+        "b": 0,
+        "delta": 0
+      }
+    ]
+  },
+  "benchmark": {
+    "nodes": 10201,
+    "edges": 20200,
+    "beacons": 10201,
+    "generationMs": 1316.1285,
+    "editMs": [
+      87.79987499999993,
+      85.07291599999985,
+      64.42754200000013,
+      72.57037500000001,
+      77.194209
+    ],
+    "lastWork": {
+      "incremental": true,
+      "recomputedCells": 16,
+      "recomputedEdges": 16,
+      "reusedFloors": 0,
+      "recomputedRegions": 4,
+      "regions": 20196,
+      "elapsedMs": 77.194209
+    }
+  }
+}
