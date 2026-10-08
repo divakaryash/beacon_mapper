@@ -1,6 +1,7 @@
 import React,{useState} from "react";
 import {analyzeCoverage} from "../engines/coverage.js";
 import {geometryForProject} from "../models/deployments.js";
+import {deploymentQualityReport,downloadFile} from "../models/deploymentExport.js";
 import {BEACON_PROFILES} from "../engines/beaconPlacement.js";
 
 export default function CoveragePanel({project,update,planner}) {
@@ -8,7 +9,7 @@ export default function CoveragePanel({project,update,planner}) {
   const floors=[...new Set(project.graph.nodes.map(n=>n.floorId))];
   function setting(field,value){if(field==="cellSize"&&planner&&project.beaconPlan){planner.command("configure",{cellSize:value});return;}update({...project,coverageSettings:{...settings,[field]:value}});}
   function analyze(){if(planner){planner.command("configure",{cellSize:settings.cellSize});return;}try{const next=analyzeCoverage({graph:project.graph,floorGeometry:geometryForProject(project),beacons:project.beaconPlan.beacons,profile:project.beaconProfile||BEACON_PROFILES[0],placementQuality:project.beaconPlan.quality,configuration:{...project.planningSettings,cellSize:settings.cellSize}});update({...project,coverageAnalysis:next,layers:{...project.layers,coverage:{visible:true,locked:true}}});setError("");}catch(e){setError(e.message);}}
-  function downloadReport(){const {floorReports,...summary}=result;const blob=new Blob([JSON.stringify({...summary,floors:floorReports.map(({cells,...floor})=>floor),placementWarnings:project.beaconPlan.warnings},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="deployment-quality-report.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),0);}
+  function downloadReport(){downloadFile("deployment-quality-report.json",deploymentQualityReport(project));}
   return <section className="panel-section coverage-panel"><h2>Coverage analysis</h2><small>Geometry + graph only. No RF propagation, attenuation or RSSI prediction.</small>
     <label>Coverage floor<select value={settings.floorId||floors[0]||""} onChange={e=>setting("floorId",e.target.value)}>{floors.map(f=><option key={f}>{f}</option>)}</select></label>
     <label>Area resolution (m)<input type="number" min=".1" step=".1" value={settings.cellSize} onChange={e=>setting("cellSize",Number(e.target.value))}/></label>
@@ -21,7 +22,8 @@ export default function CoveragePanel({project,update,planner}) {
     </div><small>Sampled area: {result.totalArea.toFixed(1)} m². Actual grid: {result.resolution.cellSize.toFixed(2)} m; graph step: {result.resolution.graphStep.toFixed(2)} m. Solid blue circles show reliable radius; dashed orange circles show marginal radius. Neither is an RF coverage guarantee.</small>
     <h3>Deployment quality report</h3><div className="metrics-grid">{Object.entries(result.quality).filter(([k])=>k.endsWith("Score")).map(([k,v])=><div key={k}><span>{k}</span><strong>{v.toFixed(1)}/100</strong></div>)}</div>
     <details><summary>Dead zones and gap analysis</summary>{result.deadZones.slice(0,30).map((d,i)=><p key={i}>{d.floorId}: {d.area.toFixed(2)} m² near ({d.bounds.x.toFixed(1)}, {d.bounds.y.toFixed(1)}) m</p>)}{result.gaps.slice(0,30).map((g,i)=><p key={i}>{g.floorId} · {g.edgeId}: {g.start.toFixed(2)}–{g.end.toFixed(2)} m ({g.length.toFixed(2)} m gap)</p>)}<small>Up to 30 entries per list; download the report for every entry.</small></details>
-    <ul>{result.warnings.slice(0,30).map((w,i)=><li key={i}>{w.message}</li>)}</ul><button className="secondary" onClick={downloadReport}>Download quality report</button></>}
+    <ul>{result.warnings.slice(0,30).map((w,i)=><li key={i}>{w.message}</li>)}</ul></>}
+    <button className="secondary" onClick={downloadReport}>{result?"Download quality report":"Download analysis diagnostics"}</button>
     {error&&<p role="alert">{error}</p>}
   </section>;
 }

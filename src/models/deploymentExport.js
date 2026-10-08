@@ -4,6 +4,19 @@ export function coverageSummary(result) {
   const {floorReports,...summary}=result;
   return {...summary,floors:floorReports.map(({cells,...floor})=>floor)};
 }
+export function deploymentQualityReport(project) {
+  return {
+    ...coverageSummary(project.coverageAnalysis),
+    reportVersion:2,
+    status:project.floorAnalysis?.status==="failed"||project.deploymentError?"analysis-failed":project.beaconPlan?.beacons.length?"draft-generated":"not-generated",
+    source:{filename:project.file?.name||project.name,sha256:project.sourceSha256,drawingWidthPixels:project.drawingWidthPixels,drawingHeightPixels:project.drawingHeightPixels},
+    floorAnalysis:project.floorAnalysis||null,
+    deploymentError:project.deploymentError||null,
+    inputs:{objects:project.objects.length,nodes:project.graph.nodes.length,edges:project.graph.edges.length},
+    beaconCount:project.beaconPlan?.beacons.length||0,
+    placementWarnings:project.beaconPlan?.warnings||[],
+  };
+}
 export function deploymentDocument(project) {
   if(!project.beaconPlan||project.placementNeedsReview)throw new Error("Recalculate a valid deployment before exporting.");
   return {schemaVersion:1,name:project.name,exportedAt:new Date().toISOString(),units:"metres",coordinateUnits:{worldX:"metres",worldY:"metres",x:"drawing pixels",y:"drawing pixels",geometry:"drawing pixels; thicknessMeters/widthMeters are metres"},isRFSimulation:false,planningSettings:project.planningSettings,profiles:[...BEACON_PROFILES,...(project.beaconProfiles||[])],graph:project.graph,geometry:project.objects,scale:{widthMeters:project.widthMeters,heightMeters:project.heightMeters,drawingWidthPixels:project.drawingWidthPixels,drawingHeightPixels:project.drawingHeightPixels},deployment:project.beaconPlan,coverage:coverageSummary(project.coverageAnalysis)};

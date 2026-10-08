@@ -72,3 +72,8 @@ test("sequential IDs persist through delete, reload, prefix changes and version 
   const loaded=loadDeployment({...saved,planningSettings:{...result.settings,nextBeaconNumber:30}},"a");
   assert.equal(loaded.planningSettings.nextBeaconNumber,30);
 });
+
+test('empty upload geometry cannot produce a misleading zero-score deployment',()=>{
+  assert.throws(()=>new DeploymentPlanner({...inputs(),graph:{nodes:[],edges:[]}}),/No navigation paths detected/);
+  assert.throws(()=>new DeploymentPlanner({...inputs(),floorGeometry:{objects:[],metersPerPixel:.1}}),/No walkable geometry detected/);
+});

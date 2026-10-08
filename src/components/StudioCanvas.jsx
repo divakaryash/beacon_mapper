@@ -25,9 +25,10 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   } else if (object.type === "poi") {
     shape = (
       <g {...common}>
-        <circle cx={object.x} cy={object.y} r="12" />
-        <circle className="poi-core" cx={object.x} cy={object.y} r="4" />
-        <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>
+        <circle cx={object.x} cy={object.y} r="12" className={object.origin === "reference" ? "reference-hit-target" : undefined} />
+        <circle className="poi-core" cx={object.x} cy={object.y} r={object.origin === "reference" ? 3 : 4} />
+        <title>{object.name || object.category} · {object.category}</title>
+        {(object.origin !== "reference" || selected) && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
       </g>
     );
   } else if (object.type === "text") {
@@ -35,7 +36,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   }
 
   return (
-    <g data-object-id={object.id} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
+    <g data-object-id={object.id} data-origin={object.origin} data-source-type={object.metadata?.sourceType} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
       <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}</g>
     </g>
   );
@@ -65,7 +66,7 @@ function FloorPlan({ project, source }) {
   if (!source || project.layers.floorPlan?.visible === false) return null;
   const width = Number(project.drawingWidthPixels) || 1200;
   const height = Number(project.drawingHeightPixels) || 800;
-  return <image className="floor-source" href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
+  return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
 export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation }) {
@@ -269,12 +270,12 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   },edgeDown:(e,edge)=>{if(spacePressed||e.button===1||!["select","move"].includes(tool))return;e.stopPropagation();setGraphSelection({id:edge.id,kind:"edge"});}};
   const graphDrawing=useMemo(()=>project.layers.navigationGraph?.visible&&<g className="navigation-graph">
     {project.graph.edges.map(edge=>{const a=graphNodes.get(edge.source),b=graphNodes.get(edge.target);if(!a||!b)return null;return <line key={edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={`${a.floorId!==b.floorId?"floor-connector":""} ${route?.edgeIds.includes(edge.id)?"route-edge":""}`} onPointerDown={e=>handlers.current.edgeDown(e,edge)}><title>{edge.edgeType} · {edge.distance.toFixed(2)} m · {edge.direction}</title></line>;})}
-    {project.graph.nodes.map(node=><g key={node.id} data-node-id={node.id} onPointerDown={e=>handlers.current.nodeDown(e,node)}><circle cx={node.x} cy={node.y} r={node.type==="Junction"?8:5} className={graphSelection?.id===node.id?"selected-node":""}/>{(node.metadata?.label||node.type!=="Corridor")&&<text x={node.x+10} y={node.y-10}>{node.metadata?.label||node.type} · {node.floorId}</text>}<title>{node.id} · {node.type} · {node.floorId}</title></g>)}
-  </g>,[project.graph,project.layers.navigationGraph?.visible,graphNodes,graphSelection,route]);
+    {project.graph.nodes.map(node=><g key={node.id} data-node-id={node.id} onPointerDown={e=>handlers.current.nodeDown(e,node)}><circle cx={node.x} cy={node.y} r={node.type==="Junction"?8:5} className={graphSelection?.id===node.id?"selected-node":""}/>{(project.floorAnalysis?.method!=="aligned-venue-reference"||graphSelection?.id===node.id)&&(node.metadata?.label||node.type!=="Corridor")&&<text x={node.x+10} y={node.y-10}>{node.metadata?.label||node.type} · {node.floorId}</text>}<title>{node.id} · {node.type} · {node.floorId}</title></g>)}
+  </g>,[project.graph,project.layers.navigationGraph?.visible,graphNodes,graphSelection,route,project.floorAnalysis?.method]);
 
   const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={b.type==="Anchor"?11:7} fill={b.enabled===false?"#94a3b8":b.type==="Anchor"?"#e39522":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
   return (
-    <div className={`studio-canvas ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
+    <div className={`studio-canvas ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
         ref={svgRef}
@@ -296,7 +297,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
           </pattern>
         </defs>
         <rect x="-50000" y="-50000" width="100000" height="100000" className="canvas-paper" />
-        <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />
+        {project.floorAnalysis?.method !== "aligned-venue-reference" && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
         <FloorPlan project={project} source={source} />
         <CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","anchorBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (

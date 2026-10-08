@@ -33,8 +33,10 @@ export const BEACON_ANCHOR_TYPES = ["Lift","Escalator","Stairs","Entrance","Exit
 export class DeploymentPlanner {
   constructor({graph,floorGeometry,profiles=BEACON_PROFILES,settings={},beacons=[],pois=[]}) {
     validatePlacementGraph(graph);
+    if(!graph.edges.length)throw new Error("No navigation paths detected. Floor analysis must succeed before generating a deployment.");
     for(const p of profiles)planBeacons({graph:{nodes:[],edges:[]},profile:p});
     this.graph=graph; this.floorGeometry=floorGeometry; this.floors=compileFloorGeometry(floorGeometry);
+    if(![...this.floors.values()].some(f=>f.walkableAreas.length||f.walkablePaths.length))throw new Error("No walkable geometry detected. Floor analysis must succeed before generating a deployment.");
     this.profiles=profiles; this.settings={...DEFAULT_PLANNING_SETTINGS,...settings}; this.pois=pois;
     validatePlanningSettings(this.settings,profiles);
     this.topology={edges:analyzeFloorTopology({graph,floors:this.floors,pois,settings:this.settings}),method:'geometry-cross-sections-greedy-area-coverage'};

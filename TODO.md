@@ -1,5 +1,24 @@
 # INPS TODO
 
+## Highest priority — automatic upload-to-deployment workflow
+
+Non-essential UI and further simulation/planner features are paused.
+
+- [x] Supplied DLF ground-floor PDF uses a fingerprint-matched, API-aligned reference with exact shop/wall footprints and API access points; centroid/stale-local-coordinate regression checks added.
+- [x] Geometry bounds avoid scanning distant polygons during detailed reference coverage analysis.
+- [ ] Confirm the traced DLF facade, API-derived physical scale, and final beacon count/spacing on site.
+- [ ] Browser verification of real DLF PDF upload (file upload permission declined; engine/build checks passed).
+
+- [x] Upload automatically analyzes a bounded raster in a worker, generates editable geometry and navigation paths, and invokes geometry-aware IW deployment/coverage planning.
+- [x] New source starts a fresh geometry/graph/deployment; no previous floor coordinates are carried over.
+- [x] PDF/SVG text labels supply landmark candidates; ambiguous detections and provisional scale are disclosed.
+- [x] Width calibration rescales the generated graph and regenerates beacon count/coverage.
+- [ ] Reliable recognition of walls, doors, shops and all vertical transport symbols in arbitrary raster/coloured plans (current method is a monochrome geometry heuristic).
+- [ ] Distinguish public corridors, private rooms and atrium voids with semantic detection.
+- [ ] Infer/confirm physical scale from dimensions; current draft assumes a 100 m full drawing width.
+- [ ] Validate on real supplied mall plans, including open exterior boundaries, courtyard holes and small door openings.
+- [ ] Improve automatic wall extraction and symbol/text recognition before claiming review-only planning for arbitrary plans.
+
 ## Approved Milestones 1–6
 
 - Milestones 1–6 approved by the user.
@@ -76,5 +95,4 @@
 - RF propagation and RSSI simulation (later milestone; geometry-based count heatmap is implemented)
 - Installed Beacon CSV import
 - BLE Survey Log analysis
-- AI floor analysis
 - Authentication, user management, teams, billing, multi-tenancy, cloud sync, notifications, roles, and audit logs

@@ -51,11 +51,19 @@ export function makeObject(type, data = {}) {
 
 export function normalizeProject(project) {
   if (!project) return null;
+  const reference = project.floorAnalysis?.method === "aligned-venue-reference";
+  const layers = {...defaultLayers(), ...project.layers};
+  if (reference && !project.referencePresentationInitialized) {
+    for (const id of ["coverage", "warnings", "walkableAreas"]) layers[id] = {...layers[id], visible:false};
+    layers.navigationGraph = {...layers.navigationGraph, visible:true, locked:false};
+    layers.beacons = {...layers.beacons, visible:true, locked:false};
+  }
   return {
     objects: [], graph: { nodes: [], edges: [] }, deployments:[], beaconProfiles:[], coverageSettings:{circles:true,heatmap:true,deadZones:true,overlap:true,gaps:true,cellSize:.5,floorId:""}, layers: defaultLayers(), gridSize: 20, snapToGrid: true,
     drawingHeightPixels: project.drawingHeightPixels || 800, ...project,
     placementNeedsReview:!!project.placementNeedsReview||!!(project.beaconPlan&&!project.beaconPlan.geometryValidation),
     coverageAnalysis:project.beaconPlan&&!project.beaconPlan.geometryValidation?null:project.coverageAnalysis,
-    layers:{...defaultLayers(),...project.layers},
+    layers,
+    referencePresentationInitialized: reference || !!project.referencePresentationInitialized,
   };
 }

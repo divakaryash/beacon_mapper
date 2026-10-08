@@ -17,7 +17,10 @@ export function pointInPolygon(point,polygon) {
   }
   return inside;
 }
-const inPolygons=(point,polygons)=>polygons.some(p=>pointInPolygon(point,p));
+const inPolygons=(point,polygons,bounds)=>polygons.some(p=>{
+  const box=bounds?.get(p);
+  return (!box||(point.x>=box.x-EPS&&point.x<=box.x+box.width+EPS&&point.y>=box.y-EPS&&point.y<=box.y+box.height+EPS))&&pointInPolygon(point,p);
+});
 const inPaths=(point,paths)=>paths.some(path=>path.points.slice(1).some((b,i)=>segmentProjection(point,path.points[i],b).distance<=path.width/2+EPS));
 function selfIntersects(polygon) {
   const points=polygon.length>3&&Math.hypot(polygon[0].x-polygon.at(-1).x,polygon[0].y-polygon.at(-1).y)<EPS?polygon.slice(0,-1):polygon;
@@ -60,17 +63,19 @@ export function compileFloorGeometry(input={}) {
     for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygons)if(polygon.length<3||polygonArea(polygon)<=EPS||polygon.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||selfIntersects(polygon))throw new Error("Invalid, self-intersecting or zero-area floor polygon.");
     for(const path of [...floor.walls,...floor.walkablePaths])if(path.points.length<2||!(path.width>0)||!Number.isFinite(path.width)||path.points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))throw new Error("Invalid floor path width or coordinates.");
   }
+  // Compiled geometry is a snapshot; reject distant polygons before testing detailed boundaries.
+  for(const floor of floors.values())floor.polygonBounds=new Map([floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas].flat().map(p=>[p,boundsOf({points:p})]));
   return floors;
 }
 export function geometryConflict(point,floor,{requireWalkable=true}={}) {
   if(!floor?.boundaries.length)return "missing-building-boundary";
-  if(!inPolygons(point,floor.boundaries))return "outside-building";
+  if(!inPolygons(point,floor.boundaries,floor.polygonBounds))return "outside-building";
   if(inPaths(point,floor.walls))return "inside-wall";
-  if(inPolygons(point,floor.restrictedAreas))return "restricted-area";
-  if(inPolygons(point,floor.nonWalkableAreas))return "non-walkable-area";
+  if(inPolygons(point,floor.restrictedAreas,floor.polygonBounds))return "restricted-area";
+  if(inPolygons(point,floor.nonWalkableAreas,floor.polygonBounds))return "non-walkable-area";
   if(requireWalkable) {
     if(!floor.walkableAreas.length&&!floor.walkablePaths.length)return "missing-walkable-geometry";
-    if(!inPolygons(point,floor.walkableAreas)&&!inPaths(point,floor.walkablePaths))return "non-walkable-area";
+    if(!inPolygons(point,floor.walkableAreas,floor.polygonBounds)&&!inPaths(point,floor.walkablePaths))return "non-walkable-area";
   }
   return null;
 }
@@ -94,7 +99,11 @@ function circleCuts(a,b,center,radius,cuts) {
 export function validGraphIntervals(a,b,floor,{requireWalkable=true}={}) {
   if(!floor?.boundaries.length)return [];
   const cuts=[0,1];
-  for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygons)for(let i=0;i<polygon.length;i++)lineCuts(a,b,polygon[i],polygon[(i+1)%polygon.length],cuts);
+  for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygons){
+    const box=floor.polygonBounds?.get(polygon);
+    if(box&&(Math.max(a.x,b.x)<box.x-EPS||Math.min(a.x,b.x)>box.x+box.width+EPS||Math.max(a.y,b.y)<box.y-EPS||Math.min(a.y,b.y)>box.y+box.height+EPS))continue;
+    for(let i=0;i<polygon.length;i++)lineCuts(a,b,polygon[i],polygon[(i+1)%polygon.length],cuts);
+  }
   for(const path of [...floor.walls,...floor.walkablePaths])for(let i=1;i<path.points.length;i++) {
     const c=path.points[i-1],d=path.points[i],length=Math.hypot(d.x-c.x,d.y-c.y),r=path.width/2;
     circleCuts(a,b,c,r,cuts);circleCuts(a,b,d,r,cuts);

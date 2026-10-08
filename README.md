@@ -2,6 +2,36 @@
 
 A local-first engineering tool for modelling buildings and planning IW Beacon deployments. INPS runs entirely in the browser and deliberately has no backend, accounts, organizations, billing, or cloud services.
 
+## Automatic initial deployment — current priority
+
+Upload PDF/PNG/JPG/SVG to automatically infer enclosed walkable geometry and wall masks, trace building contours, generate an editable skeleton navigation graph, and run geometry-aware beacon placement plus coverage analysis. IW001, IW002… appear directly on the floor plan alongside paths, beacon counts, coverage and dead zones. Replacing the source starts a fresh draft. No additional UI features are planned until this core workflow is reliable.
+
+This first pass is a bounded monochrome raster heuristic (128 pixels on the longest side), not a trained semantic detector. It can miss thin/coloured walls and open building boundaries, confuse text with walls, and include private rooms or atrium voids as walkable. Room candidates are disconnected rectangular regions; lift/escalator/stair/entrance/exit candidates come from positioned PDF/SVG text labels. Raster OCR and unlabeled symbol recognition are not implemented. Ambiguous/disconnected results need review; a plan without enclosed geometry fails explicitly and keeps its source available for correction.
+
+Physical size cannot be recovered from an arbitrary image alone. The draft explicitly assumes a **100 m full drawing width**; enter the true drawing width to rescale the graph and automatically regenerate count and coverage. Exports remain blocked while scale is provisional. Geometry/radius coverage and bounded greedy placement do not guarantee RF performance or a global optimum. PDF import currently uses page 1 only.
+
+## DLF ground-floor reference correction
+
+The supplied `GROUND FLOOR (L-01) Model (1).pdf` is recognized by SHA-256 on upload or when restoring an older inferred map, and uses a saved, sanitized snapshot of the user-provided floor-0 venue API. Its geographic polygon outlines are aligned to this exact PDF. Unrelated files retain the generic detection path; no DLF coordinates are applied by filename alone. The API key, account data and outlet descriptions are not stored in the app.
+
+The upload opens with the reference-style annotation view: full-opacity source, translucent category colours and small red access-point markers. Marker names appear on hover or selection. Navigation paths and IW beacons appear automatically. Coverage, warnings and the broad inferred public-floor fill start hidden to keep the source readable; use the existing Layers controls to show them. The generated beacon count appears in the header and at the top of the beacon panel. Layer choices survive reload. Red API markers are access points, not IW beacons.
+
+The reference preserves 73 shop footprints, 49 wall footprints and 131 explicit API access points. Centroid label features are excluded. API geographic Point coordinates are used for shop entrances, lifts, escalators, stairs, entries and exits; inconsistent `coordinnatesLocal` coordinates are ignored. POI markers stay at their source position; a separate geometry-valid access link in the Navigation Graph layer joins the nearest corridor edge. Shops, shafts, walls, greenery and restricted footprints are excluded from public placement. The extracted graph is validated against exact polygons, and sampling fragments are joined only across unobstructed walkable segments.
+
+The API has an empty Boundary and no public walkable polygons or corridor graph. The outer facade was therefore traced from the PDF and public floor inferred by exclusion; physical scale is estimated from geographic distances. These need review. This is a stored calibration/regression example, not machine-learning retraining. The current draft count is not a proven minimum or approved installation recommendation. See `reports/dlf-reference-validation.json` and `screenshots/dlf-api-reference-alignment.png`.
+
+## L00 basement upload correction
+
+`L00 FLOOR PLAN (REVISED) Model (1).pdf` selects a separate sanitized floor -1 API reference by exact SHA-256; the ground-floor calibration is never reused. Alignment uses 15 corresponding lift-shaft centres on the L00 PDF (median residual about 2.3 pixels in the 1800-pixel preview). The outer facade is traced from this PDF because the API boundary is empty. Physical scale remains an estimate from geographic distances. Review the geometry and connections before installation.
+
+The basement reference includes 59 shop footprints, 25 wall footprints and 110 access points, including directional escalators. Existing saved L00 imports are corrected when reopened. The tested initial draft has 634 beacons, 92.4% sampled walkable coverage and three disconnected navigation components requiring review; this count is not an optimized installation recommendation. See `reports/dlf-basement-reference-validation.json` and `screenshots/dlf-basement-api-reference-alignment.png`.
+
+Empty graphs or missing walkable geometry now fail explicitly instead of returning a zero-score deployment. Planning settings can be saved before generation without creating an empty deployment. Quality reports include source identity, selected reference floor, detection warnings, geometry/graph counts, beacon count and deployment errors. A failed upload can export analysis diagnostics even when coverage is unavailable.
+
+The real L00 upload was demonstrated at `http://127.0.0.1:5190/`: choose the PDF, wait for analysis, then review the automatically visible paths/beacons. No drawing or Generate click was needed. `screenshots/l00-upload-browser-demo.png` and `screenshots/l00-upload-browser-detail.png` show the actual browser result. This verifies the calibrated L00 workflow; arbitrary uploads still use the limited raster heuristic.
+
+The saved references are ordinary lazy-loaded JavaScript modules exporting GeoJSON objects. Native JSON import attributes caused a browser failure against Vite's transformed JavaScript response; avoiding those attributes fixes both dev and build imports without changing the reference data.
+
 ## Topology-aware placement — Milestone 8
 
 Navigation edges now guide route stations rather than constrain installation coordinates. Every edge records perpendicular cross-section widths, walkable polygons, nearby POIs, explicit room entrances and corridor/open-area classification. Narrow/Medium/Wide Corridor, Junction, Atrium, Food Court, Store Entrance, Lift, Escalator and Stair strategies select side, alternating-side, lobby/corner and perimeter candidates. Doors are never inferred from room centroids.
@@ -53,7 +83,7 @@ Mounting metadata includes installation type, height, optional orientation, note
 Coverage circles, count heatmap, dead zones, overlaps, graph gaps, area/graph percentages and deployment quality reports are available. The Coverage engine is independent from React. Its model is geometric radius plus line-of-sight, not RF propagation. Walls, restricted regions, non-walkable regions and building boundaries block visibility. Disabled and invalid beacons contribute no coverage. Coverage is floor-specific.
 
 1. Import a floor, or choose **Open sample mall** on the welcome screen.
-2. Calibrate the scale. Draw a **Boundary** and walkable areas or width-configured paths. Use Properties to assign geometry roles, floor IDs and wall thickness. Existing polygons/rooms/rectangles can be marked as boundaries, walkable, restricted or non-walkable.
+2. Confirm the scale and review the automatically detected geometry. If detection fails, draw a **Boundary** and walkable areas or width-configured paths. Use Properties to assign geometry roles, floor IDs and wall thickness. Existing polygons/rooms/rectangles can be marked as boundaries, walkable, restricted or non-walkable.
 3. Create/review the navigation graph, generate beacons, and review placement warnings.
 4. Click **Analyze coverage**. Toggle circles, heatmap, dead zones, overlap and graph gaps independently. Select the coverage floor if multiple floors exist.
 5. Review the quality report and download its JSON. Use saved deployment controls for comparisons.
@@ -62,7 +92,7 @@ Defaults: 0.5 m area cells, 0.25 m graph sampling. Analysis coarsens large raste
 
 Run `npm run check` for all tests/build, `node scripts/beacon-demo.mjs` for placement, and `node scripts/coverage-demo.mjs` to regenerate the sample coverage diagrams and quality report. The sample is hand-modelled from the Milestone 2 drawing, not a surveyed mall: 17 beacons (5 anchors), 38.2% walkable-area coverage, 100% graph coverage, 5 dead zones (1493.5 m²), and 669 m² overlap. Disabling three adjacent beacons exposes an 11.5 m graph gap. This deliberately imperfect sample demonstrates warnings, not a deployment recommendation.
 
-See ALGORITHMS.md for score formulas and geometry/coverage limits. Profile defaults remain editable assumptions requiring hardware/site confirmation. RSSI thresholds, TX power and advertisement intervals are metadata only. RF propagation, RF/RSSI heatmaps, survey analysis, CSV imports and AI floor analysis remain deferred.
+See ALGORITHMS.md for score formulas and geometry/coverage limits. Profile defaults remain editable assumptions requiring hardware/site confirmation. RSSI thresholds, TX power and advertisement intervals are metadata only. RF propagation, RF/RSSI heatmaps, survey analysis and CSV imports remain deferred. Semantic floor analysis remains the active priority.
 
 ## Deployment planning — Milestone 6 (approved)
 
@@ -76,7 +106,7 @@ Navigation, Anchor, Disabled and Warning layers can be toggled separately. Locat
 
 Export deployment JSON, beacon CSV, coverage report, quality report or a PNG of the current canvas viewport. JSON explicitly distinguishes world metres from drawing pixels; reports include warnings and geometric-analysis assumptions. CSV text is quoted and protected against spreadsheet formula execution. Save named versions, reload/duplicate/delete them, and compare counts, percentages, spacing, quality and cost. Snapshots include applied settings and analyzed summaries; mismatched geometry is flagged, and legacy snapshots can have unavailable metrics until resaved.
 
-Run `node scripts/deployment-demo.mjs` for the live-edit demonstration, exported JSON/CSV, version comparison and a 10,201-node / 20,200-edge engine benchmark. Outputs are in `reports/milestone-6-*`. Browser checks use the hand-modelled sample, not automatic analysis of the imported DLF PDF. No RF simulation, Bluetooth or Flutter integration is implemented.
+Run `node scripts/deployment-demo.mjs` for the live-edit demonstration, exported JSON/CSV, version comparison and a 10,201-node / 20,200-edge engine benchmark. Outputs are in `reports/milestone-6-*`. Milestone 6 browser checks used the hand-modelled sample; the L00 upload workflow has since been verified in the browser. No RF simulation, Bluetooth or Flutter integration is implemented.
 
 ## Navigation simulation — Milestone 7 (awaiting approval)
 
