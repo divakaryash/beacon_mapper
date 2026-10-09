@@ -4,7 +4,100 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c0ec7ac-530f-4dfa-a296-6f881a98c78a" name="Changes" comment="" />
+    <list default="true" id="6c0ec7ac-530f-4dfa-a296-6f881a98c78a" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/dlf-basement-reference-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/dlf-reference-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/generic-floor-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/00-baseline.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/05-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/08-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/campus-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/report.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/routing-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/professional/stage-checks.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/second-floor-labels-first-validation.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reports/second-floor-ocr-labels.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/requirements-annotation.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/automatic-floor-draft.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/dlf-api-reference-alignment.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/dlf-basement-api-reference-alignment.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/dlf-reference-deployment.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/first-floor-generic-auto-mapping-detail.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/first-floor-generic-auto-mapping.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/l00-beacon-clusters-fixed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/l00-navigation-beacons-only.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/l00-polygon-measurements.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/l00-upload-browser-demo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/l00-upload-browser-detail.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/second-floor-outlets-and-paths.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/screenshots/third-floor-smooth-contours.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/annotation-service.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/audit-annotation-baseline.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/check-annotation-stages.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/compare_to_reference.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/export_annotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/professional_annotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/stage_annotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/validate_annotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/components/ProfessionalExport.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/facilityBlocks.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/facilityBlocks.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/fixtures/ac02-ground-800x365.rgba.gz" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/floorAnalysisWorker.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/floorPlanAnalysis.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/floorPlanAnalysis.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/venueReference.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/engines/venueReference.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/deploymentQualityReport.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/drawing.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorGeojson.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorGeojson.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorPlanLabels.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorPlanLabels.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorPlanSetup.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/floorPlanSetup.test.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/models/polygonOcr.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/samples/dlfBasementReference.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/samples/dlfGroundReference.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/annotation/synthetic_campus.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/annotation/test_annotation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/venue_profile.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/vite.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/swift-toolchain.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/swift-toolchain.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PROJECT_PLAN.md" beforeDir="false" afterPath="$PROJECT_DIR$/PROJECT_PLAN.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/TODO.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reports/UI_VERIFICATION.md" beforeDir="false" afterPath="$PROJECT_DIR$/reports/UI_VERIFICATION.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BeaconPanel.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BeaconPanel.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CoveragePanel.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CoveragePanel.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/StudioCanvas.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/StudioCanvas.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/beaconPlacement.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/beaconPlacement.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/beaconPlacement.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/beaconPlacement.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/deploymentPlanner.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/deploymentPlanner.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/deploymentPlanner.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/deploymentPlanner.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/deploymentQuality.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/deploymentQuality.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/floorGeometry.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/floorGeometry.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/floorGeometry.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/floorGeometry.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/geometry.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/geometry.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/geometry.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/geometry.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/topologyPlacement.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/topologyPlacement.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engines/topologyPlacement.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/engines/topologyPlacement.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/hooks/useDeploymentPlanner.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/hooks/useDeploymentPlanner.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/deploymentExport.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/deploymentExport.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/deployments.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/deployments.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/drawing.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/drawing.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/floorPlanImport.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/floorPlanImport.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/floorPlanImport.test.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/floorPlanImport.test.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/styles.css" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -16,21 +109,21 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "divakaryash"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;divakaryash&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/divakaryash/beacon_mapper.git",
-    "accountId": "d69fe1cc-e64b-4977-8c62-269c1e0f9301"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/divakaryash/beacon_mapper.git&quot;,
+    &quot;accountId&quot;: &quot;d69fe1cc-e64b-4977-8c62-269c1e0f9301&quot;
   }
-}]]></component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 8
-}]]></component>
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
   <component name="ProjectId" id="3KOmOS9mYo2edcbw1ZfX8YHPGe6" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -42,11 +135,12 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "Merging main",
     "kotlin-language-version-configured": "true",
     "settings.editor.selected.configurable": "preferences.pluginManager",
     "show.migrate.to.gradle.popup": "false"
