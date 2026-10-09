@@ -1,3 +1,4 @@
+import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
 import GraphPanel from "./components/GraphPanel.jsx";
@@ -88,6 +89,10 @@ export default function App() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const importRequest = useRef(0);
+  const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
+  let uploadReady=false;
+  try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch {}
+  const uploadFields=<div><p><small>Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins.</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
   const [focusLocation,setFocusLocation]=useState(null);
   const [planningError,setPlanningError]=useState("");
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
@@ -208,16 +213,22 @@ export default function App() {
     setLiveProject(null);
     const base = { objects: [], graph:{nodes:[],edges:[]}, layers: defaultLayers(), gridSize: 20, snapToGrid: false };
     try {
+      const setup=validateFloorPlanSetup(uploadSetup);
       const imported = await readFloorPlan(file);
+      const originalHeight=imported.drawingHeightPixels;
+      imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
+      imported.floorPlanLabels=imported.floorPlanLabels?.map(label=>({...label,y:label.y*imported.drawingHeightPixels/originalHeight,height:label.height*imported.drawingHeightPixels/originalHeight}));
       if (request !== importRequest.current) return;
       setStatus("Analyzing geometry and navigation paths…");
-      // A raster does not establish metres: this provisional scale must be confirmed.
-      const widthMeters=100,metersPerPixel=widthMeters/imported.drawingWidthPixels;
+      // User dimensions establish scale before geometry and placement are generated.
+      const widthMeters=setup.widthMeters,metersPerPixel=widthMeters/imported.drawingWidthPixels;
       let detected;
       try {detected=await analyzeImportedFloor(imported,metersPerPixel);}
       catch(error){detected={objects:[],graph:{nodes:[],edges:[]},analysis:{method:"bounded-raster-topology",status:"failed",warnings:[error.message]}};}
       if(request!==importRequest.current)return;
-      history.reset(normalizeProject({...base,...imported,name:file.name,widthMeters:detected.widthMeters||widthMeters,heightMeters:detected.heightMeters||imported.drawingHeightPixels*metersPerPixel,planningSettings:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:detected.analysis.scaleAssumed??true},autoPlanPending:detected.graph.edges.length>0,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
+      const detectedNodes=new Map(detected.graph.nodes.map(n=>[n.id,n]));
+      detected.graph={...detected.graph,nodes:detected.graph.nodes.map(n=>({...n,worldX:n.x*metersPerPixel,worldY:n.y*metersPerPixel})),edges:detected.graph.edges.map(e=>{const a=detectedNodes.get(e.source),b=detectedNodes.get(e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*metersPerPixel};})};
+      history.reset(normalizeProject({...base,...imported,name:file.name,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},widthMeters,heightMeters:setup.heightMeters,planningSettings:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:false},autoPlanPending:detected.graph.edges.length>0,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
       setSelectedId(null); setGraphSelection(null); setBeaconSelection(null); setRoute(null);
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
@@ -236,7 +247,7 @@ export default function App() {
     <main className="welcome"><section className="welcome-card">
       <p className="eyebrow">INPS · Local planning workspace</p><h1>Upload a floor plan. Review an initial deployment.</h1>
       <p>Automatically infer geometry and navigation paths, then place IW Beacons. Everything stays in this browser.</p>
-      <label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label><small>PNG, JPG, SVG, or PDF (first page)</small>
+      {uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label><small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
     </section></main>
@@ -257,7 +268,7 @@ export default function App() {
       <aside className="left-panel">
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
-          <label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
+          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
           {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall segments"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}

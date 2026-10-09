@@ -41,7 +41,10 @@ export function compileFloorGeometry(input={}) {
     const scale=Number(input.metersPerPixel);
     if(!Number.isFinite(scale)||scale<=0)throw new Error("Floor geometry requires a positive metres-per-pixel scale.");
     for(const object of input.objects) {
-      const role=object.geometryRole||(["room","polygon","rectangle"].includes(object.type)?"nonWalkableArea":object.type);
+      const area=["room","polygon","rectangle","walkableArea","restrictedArea","nonWalkableArea"].includes(object.type);
+      const restricted=object.type==="restrictedArea"||(area&&((object.layerId==="restrictedAreas"&&object.type!=="nonWalkableArea")||object.category==="Restricted Area"||object.metadata?.sourceType==="Restricted Area"));
+      const blocked=area&&["Wall","Lift","Escalator","Escalator-up","Escalator-down","Stairs","Steps","Non Walkable","Green Area"].includes(object.metadata?.sourceType||object.category);
+      const role=restricted?"restrictedArea":blocked?"nonWalkableArea":object.geometryRole||(["room","polygon","rectangle"].includes(object.type)?"nonWalkableArea":object.type);
       if(!["buildingBoundary","walkableArea","restrictedArea","nonWalkableArea","wall","walkablePath"].includes(role))continue;
       const floorId=object.floorId||input.defaultFloorId||"floor-1";
       if(!floors.has(floorId))floors.set(floorId,{floorId,boundaries:[],walkableAreas:[],restrictedAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[]});

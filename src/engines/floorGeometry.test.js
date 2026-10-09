@@ -29,3 +29,35 @@ test("indexed geometry agrees with exact unindexed checks at cell boundaries and
   for(const point of [{x:5,y:1},{x:5.1,y:1},{x:4.999,y:1},{x:50,y:20},{x:-20,y:-20},{x:70,y:60}])assert.equal(geometryConflict(point,indexed),geometryConflict(point,source));
   for(const [a,b] of [[{x:-1,y:1},{x:60,y:1}],[{x:-80,y:-80},{x:80,y:80}],[{x:4.9,y:1},{x:5.2,y:1}]])assert.deepEqual(validGraphIntervals(a,b,indexed),validGraphIntervals(a,b,source));
 });
+
+
+test("restricted types and polygon layers block placement even with stale drawing-only or walkable roles",()=>{
+  for(const object of [
+    {type:"restrictedArea",geometryRole:"none"},
+    {type:"restrictedArea",geometryRole:"walkableArea"},
+    {type:"polygon",layerId:"restrictedAreas",geometryRole:"none"},
+    {type:"room",layerId:"restrictedAreas",geometryRole:"walkableArea"}
+  ]){
+    const geometry=compileFloorGeometry({metersPerPixel:1,defaultFloorId:"G",objects:[
+      {type:"buildingBoundary",points:box(0,0,20,20)},
+      {type:"walkableArea",points:box(0,0,20,20)},
+      {...object,points:box(5,5,4,4)}
+    ]}).get("G");
+    assert.equal(geometryConflict({x:6,y:6},geometry),"restricted-area");
+    assert.equal(geometryConflict({x:5,y:6},geometry),"restricted-area");
+    assert.equal(geometryConflict({x:4,y:6},geometry),null);
+    assert.deepEqual(validGraphIntervals({x:4,y:6},{x:10,y:6},geometry),[[0,1/6],[5/6,1]]);
+  }
+});
+
+test('vertical transport and restricted reference polygons override conflicting walkable roles',()=>{
+  for(const category of ['Restricted Area','Steps','Stairs','Escalator','Lift']){
+    const geometry=compileFloorGeometry({metersPerPixel:1,objects:[
+      {type:'buildingBoundary',points:box(0,0,20,20)},
+      {type:'walkableArea',points:box(0,0,20,20)},
+      {type:'walkableArea',category,geometryRole:'walkableArea',points:box(5,5,4,4)}
+    ]}).get('floor-1');
+    assert.ok(geometryConflict({x:6,y:6},geometry));
+    assert.ok(geometryConflict({x:5,y:6},geometry));
+  }
+});

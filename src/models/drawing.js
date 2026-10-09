@@ -1,3 +1,4 @@
+import {compileFloorGeometry, geometryConflict} from "../engines/floorGeometry.js";
 export const LAYERS = [
   { id: "floorPlan", label: "Floor Plan", color: "#94a3b8" },
   { id: "walls", label: "Walls", color: "#172033" },
@@ -64,12 +65,26 @@ export function normalizeProject(project) {
     layers.navigationGraph = {...layers.navigationGraph, visible:true, locked:false};
     layers.beacons = {...layers.beacons, visible:true, locked:false};
   }
+  let beaconPlan=normalizeBeaconPlan(project.beaconPlan),removedBlockedAutomatic=false;
+  if(beaconPlan&&project.objects?.length&&Number(project.widthMeters)>0&&Number(project.drawingWidthPixels)>0){
+    const scale=Number(project.widthMeters)/Number(project.drawingWidthPixels);
+    try {
+      const floors=compileFloorGeometry({objects:project.objects,metersPerPixel:scale});
+      const beacons=beaconPlan.beacons.filter(b=>{
+        const floor=floors.get(b.floorId||"floor-1"),conflict=floor&&geometryConflict({x:b.x*scale,y:b.y*scale},floor,{requireWalkable:false});
+        const remove=!b.locked&&b.origin!=="manual"&&["restricted-area","non-walkable-area","inside-wall"].includes(conflict);
+        removedBlockedAutomatic ||= remove;return !remove;
+      });
+      if(removedBlockedAutomatic)beaconPlan={...beaconPlan,beacons};
+    } catch { /* Invalid geometry remains available for correction in the editor. */ }
+  }
   return {
     objects: [], graph: { nodes: [], edges: [] }, deployments:[], beaconProfiles:[], coverageSettings:{circles:true,heatmap:true,deadZones:true,overlap:true,gaps:true,cellSize:.5,floorId:""}, layers: defaultLayers(), gridSize: 20, snapToGrid: true,
     drawingHeightPixels: project.drawingHeightPixels || 800, ...project,
-    placementNeedsReview:!!project.placementNeedsReview||!!(project.beaconPlan&&!project.beaconPlan.geometryValidation),
-    coverageAnalysis:project.beaconPlan&&!project.beaconPlan.geometryValidation?null:project.coverageAnalysis,
-    beaconPlan: normalizeBeaconPlan(project.beaconPlan),
+    autoPlanPending:removedBlockedAutomatic||!!project.autoPlanPending,
+    placementNeedsReview:removedBlockedAutomatic||!!project.placementNeedsReview||!!(project.beaconPlan&&!project.beaconPlan.geometryValidation),
+    coverageAnalysis:removedBlockedAutomatic||(project.beaconPlan&&!project.beaconPlan.geometryValidation)?null:project.coverageAnalysis,
+    beaconPlan,
     deployments: (project.deployments||[]).map(d=>({...d,plan:normalizeBeaconPlan(d.plan)})),
     layers,
     referencePresentationInitialized: reference || !!project.referencePresentationInitialized,

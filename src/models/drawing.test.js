@@ -36,3 +36,18 @@ test('legacy live and saved deployments use one type without changing positions 
   }
   assert.equal(plan.beacons[0].type,'Anchor');
 });
+
+test('restoring removes blocked automatic beacons and requests regeneration without moving protected beacons',()=>{
+  const points=[{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+  const result=normalizeProject({widthMeters:10,drawingWidthPixels:10,objects:[
+    {type:'buildingBoundary',points},
+    {type:'polygon',layerId:'restrictedAreas',geometryRole:'none',points}
+  ],beaconPlan:{beacons:[
+    {id:'IW001',x:5,y:5,floorId:'floor-1',origin:'automatic'},
+    {id:'IW002',x:5,y:5,floorId:'floor-1',origin:'manual'},
+    {id:'IW003',x:5,y:5,floorId:'floor-1',origin:'automatic',locked:true}
+  ]}});
+  assert.deepEqual(result.beaconPlan.beacons.map(b=>b.id),['IW002','IW003']);
+  assert.equal(result.autoPlanPending,true);
+  assert.equal(result.coverageAnalysis,null);
+});
