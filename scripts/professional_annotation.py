@@ -103,3 +103,29 @@ def cleanup(data, profile):
         if accepted:occupied=unary_union(([occupied] if occupied is not None else [])+accepted)
     data['features']=output;data['metadata']['stage']=2
     return data
+
+def valid_name(name, profile, repeated=()):
+    if not name or re.match(r'Detected\b',name,re.I) or len(name.strip())<3:return False
+    if re.search(r'\b(extent|wide fire corridor|scale|legend)\b|\d\s*(mm|m²|sqm)\b',name,re.I):return False
+    if any(re.search(pattern,name,re.I) for pattern in profile['namePatterns']):return True
+    words=re.findall(r'[A-Za-z]+',name)
+    return bool(words) and sum(map(len,words))/len(name)>.65 and (name.casefold() in repeated or any(word.casefold() in profile['dictionary'] for word in words))
+
+def naming(data, profile, labels=()):
+    data=copy.deepcopy(data);counts={};repeated={}
+    for label in labels:repeated[label['text'].strip().casefold()]=repeated.get(label['text'].strip().casefold(),0)+1
+    repeated={k for k,v in repeated.items() if v>1}
+    for f in data['features']:
+        p=f['properties'];g=shape(f['geometry'])
+        if p['type']=='Boundary':continue
+        candidates=[p.get('name')]
+        nearby=[l for l in labels if g.covers(Point(l['x'],l['y']))]
+        nearby.sort(key=lambda l:(l.get('source')!='pdf-text',-l.get('confidence',0),l['text']))
+        candidates=[l['text'].strip() for l in nearby]+candidates
+        name=next((n for n in candidates if valid_name(n,profile,repeated)),None)
+        category=classify(' '.join(n for n in candidates if n),p['type'],profile)
+        if category in {'Male Washroom','Female Washroom'}:
+            counts[category]=counts.get(category,0)+1;name=f'{category}-{counts[category]}'
+        p.update(name=name,type=category,fillColor=profile['colors'].get(category,'#a4d3df'),needsReview=p.get('needsReview',False) or name is None)
+    data['metadata']['stage']=3
+    return data

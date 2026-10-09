@@ -26,6 +26,10 @@ class AnnotationTests(unittest.TestCase):
         f=feature('other',[(10,2),(18,2),(18,10),(10,10)]);f['properties']['noSeparatingPartition']=True;source['features'].append(f)
         output=cleanup(taxonomy(source,0),load_profile())
         self.assertEqual(len(output['features']),2)
+    def test_names(self):
+        p=load_profile()
+        for name in ['A','WE','Detected room 12','Extent 3 x 5 m','ng']:self.assertFalse(valid_name(name,p))
+        for name in ['E347','B305A','3K14A','GL-01','Room 101','Reception']:self.assertTrue(valid_name(name,p))
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):
