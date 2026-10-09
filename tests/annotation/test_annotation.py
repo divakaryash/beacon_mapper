@@ -30,6 +30,10 @@ class AnnotationTests(unittest.TestCase):
         p=load_profile()
         for name in ['A','WE','Detected room 12','Extent 3 x 5 m','ng']:self.assertFalse(valid_name(name,p))
         for name in ['E347','B305A','3K14A','GL-01','Room 101','Reception']:self.assertTrue(valid_name(name,p))
+    def test_circulation(self):
+        source=sample();source['features'][1]['properties'].update(type='Escalator',name='Escalator')
+        f=circulation(taxonomy(source,0),load_profile())['features'][1]
+        self.assertEqual(f['geometry']['type'],'Point');self.assertIsNone(f['properties']['travelDirection']);self.assertTrue(f['properties']['needsReview'])
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):

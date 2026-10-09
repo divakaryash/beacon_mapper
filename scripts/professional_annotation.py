@@ -129,3 +129,20 @@ def naming(data, profile, labels=()):
         p.update(name=name,type=category,fillColor=profile['colors'].get(category,'#a4d3df'),needsReview=p.get('needsReview',False) or name is None)
     data['metadata']['stage']=3
     return data
+
+def circulation(data, profile):
+    data=copy.deepcopy(data);counts={};output=[]
+    for f in sorted(data['features'],key=lambda f:str(f['id'])):
+        p=f['properties'];t=p['type']
+        if t=='Vertical circulation':
+            data['metadata']['dropped'].append({'id':f['id'],'reason':'unknown circulation assembly; cannot infer stairs versus escalator','needsReview':True});continue
+        if t in {'Stairs','Escalator','Travelator','Ramp'}:
+            footprint=shape(f['geometry']);point=footprint.representative_point()
+            p['blockedFootprint']=mapping(footprint);f['geometry']=dict(mapping(point))
+            counts[t]=counts.get(t,0)+1
+            direction=p.get('travelDirection') if p.get('directionEvidence') else None
+            if direction not in {'Up','Down'}:direction=None
+            p['name']=f'Stairs-{counts[t]}' if t=='Stairs' else f"{'E' if t=='Escalator' else t}-{counts[t]}"+(f' {direction}' if direction else '')
+            p['travelDirection']=direction;p['needsReview']=p.get('needsReview',False) or (t=='Escalator' and direction is None)
+        output.append(f)
+    data['features']=output;data['metadata']['stage']=4;return data
