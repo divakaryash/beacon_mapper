@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeProject, defaultLayers} from './drawing.js';
+import {normalizeProject, defaultLayers, makeObject} from './drawing.js';
 
 test('reference uploads open a clear annotated plan without discarding deployment data', () => {
   const graph = {nodes:[{id:'entrance'}],edges:[]};
@@ -50,4 +50,39 @@ test('restoring removes blocked automatic beacons and requests regeneration with
   assert.deepEqual(result.beaconPlan.beacons.map(b=>b.id),['IW002','IW003']);
   assert.equal(result.autoPlanPending,true);
   assert.equal(result.coverageAnalysis,null);
+});
+
+
+test('connected line edges close as one irregular polygon while open lines remain lines',()=>{
+  const points=[{x:0,y:0},{x:10,y:0},{x:10,y:4},{x:4,y:4},{x:4,y:10},{x:0,y:10}];
+  const polygon=makeObject('polyline',{points:[...points,{...points[0]}]});
+  assert.equal(polygon.type,'polygon');assert.deepEqual(polygon.points,points);
+  assert.equal(polygon.layerId,'rooms');
+  assert.equal(makeObject('polyline',{points}).type,'polyline');
+  assert.equal(makeObject('wall',{points:[...points,points[0]]}).type,'wall');
+});
+
+
+test('old automatic contours update once without altering manual or locked shapes',()=>{
+  const points=[{x:0,y:0},{x:10,y:0},{x:10,y:1},{x:9,y:1},{x:9,y:2},{x:8,y:2},{x:8,y:3},{x:7,y:3},{x:7,y:4},{x:6,y:4},{x:6,y:5},{x:0,y:5}];
+  const automatic={type:'room',origin:'automatic',points};
+  const manual={...automatic,origin:'manual'},locked={...automatic,locked:true};
+  const original={widthMeters:10,drawingWidthPixels:10,drawingHeightPixels:10,floorAnalysis:{method:'bounded-raster-topology',resolution:{width:10,height:10}},objects:[automatic,manual,locked],coverageAnalysis:{old:true}};
+  const result=normalizeProject(original);
+  assert.ok(result.objects[0].points.length<points.length);
+  assert.equal(result.objects[1],manual);assert.equal(result.objects[2],locked);
+  assert.equal(original.objects[0].points,points);
+  assert.equal(result.floorAnalysis.contourVersion,2);
+  assert.equal(result.autoPlanPending,true);assert.equal(result.coverageAnalysis,null);
+  const reopened=normalizeProject({...result,autoPlanPending:false});
+  assert.equal(reopened.objects,result.objects);assert.equal(reopened.autoPlanPending,false);
+});
+
+test('automatic corridors stay internal geometry while rooms, facilities and manual annotations remain visible',async()=>{
+  const {visibleAnnotation}=await import('./drawing.js');
+  assert.equal(visibleAnnotation({origin:'automatic',type:'walkableArea'}),false);
+  assert.equal(visibleAnnotation({origin:'reference',type:'walkableArea'}),false);
+  assert.equal(visibleAnnotation({origin:'automatic',type:'buildingBoundary'}),false);
+  assert.equal(visibleAnnotation({origin:'automatic',category:'Wall'}),false);
+  for(const object of [{origin:'automatic',type:'room'},{origin:'automatic',type:'nonWalkableArea',category:'Stairs'},{type:'walkableArea'}])assert.equal(visibleAnnotation(object),true);
 });

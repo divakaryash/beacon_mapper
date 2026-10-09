@@ -33,3 +33,36 @@ test('provided origin overrides saved reference coordinates and uses calibrated 
   const [lon,lat]=output.features[1].geometry.coordinates;
   assert.ok(lon>0&&lon<.001);assert.ok(lat<0&&lat>-.001);
 });
+
+test('irregular room export preserves every corner instead of its bounding rectangle',()=>{
+  const points=[{x:0,y:0},{x:100,y:0},{x:100,y:40},{x:40,y:40},{x:40,y:100},{x:0,y:100}];
+  const output=floorGeojson({...project,objects:[{id:'irregular',type:'room',points}]});
+  const ring=output.features[0].geometry.coordinates[0];
+  assert.equal(ring.length,7);
+  for(const p of points)assert.ok(ring.some(([x,y])=>x===p.x*.1&&y===-p.y*.1));
+  assert.ok(Math.abs(output.features[0].properties.area-64)<1e-9);
+});
+
+test('export carries readable category styles without changing polygon geometry',()=>{
+  const output=floorGeojson({...project,objects:[...project.objects,{id:'boundary',type:'buildingBoundary',points:[{x:0,y:0},{x:200,y:0},{x:200,y:100},{x:0,y:100}]},{id:'walkable',type:'walkableArea',points:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]}]});
+  const byId=new Map(output.features.map(f=>[f.id,f]));
+  assert.equal(byId.get('wall-1').properties['stroke-opacity'],0);
+  assert.equal(byId.get('boundary').properties['fill-opacity'],0);
+  assert.equal(byId.get('room-1').properties.fill,'#64c3dc');
+  assert.equal(byId.get('walkable').properties.fill,'#78e196');
+  assert.equal(byId.get('room-1').geometry.coordinates[0].length,5);
+});
+
+test('connected polygon holes export as inner rings instead of rectangle fragments',()=>{
+  const points=[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}];
+  const holes=[[{x:10,y:10},{x:90,y:10},{x:90,y:90},{x:10,y:90}]];
+  const output=floorGeojson({...project,objects:[{id:'wall-contour',type:'nonWalkableArea',category:'Wall',points,holes}]});
+  assert.equal(output.features.length,1);assert.equal(output.features[0].geometry.coordinates.length,2);
+  assert.ok(Math.abs(output.features[0].properties.area-36)<1e-9);
+});
+
+test('detected corridor geometry exports as navigation lines instead of filled polygons',()=>{
+  const output=floorGeojson({...project,objects:[...project.objects,{id:'internal-corridor',type:'walkableArea',origin:'automatic',points:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]}],graph:{nodes:[{id:'a',floorId:'floor-1',x:0,y:0},{id:'b',floorId:'floor-1',x:100,y:0}],edges:[{id:'path',source:'a',target:'b'}]}});
+  assert.ok(!output.features.some(f=>f.id==='internal-corridor'));
+  const path=output.features.find(f=>f.id==='path');assert.equal(path.geometry.type,'LineString');assert.equal(path.properties.isWalkable,true);
+});

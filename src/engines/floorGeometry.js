@@ -15,6 +15,7 @@ export function pointInPolygon(point,polygon) {
     if(segmentProjection(point,a,b).distance<EPS)return true;
     if((a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
   }
+  if(inside&&polygon.holes?.some(hole=>pointInPolygon(point,hole)&&!hole.some((a,i)=>segmentProjection(point,a,hole[(i+1)%hole.length]).distance<EPS)))return false;
   return inside;
 }
 const inPolygons=(point,polygons,bounds,index)=>polygonCandidates(polygons,index,point,point).some(p=>{
@@ -50,6 +51,7 @@ export function compileFloorGeometry(input={}) {
       if(!floors.has(floorId))floors.set(floorId,{floorId,boundaries:[],walkableAreas:[],restrictedAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[]});
       const floor=floors.get(floorId),bounds=boundsOf(object),center={x:bounds.x+bounds.width/2,y:bounds.y+bounds.height/2};
       const points=objectPoints(object).map(p=>rotatedPoint(p,center,object.rotation||0)).map(p=>({x:p.x*scale,y:p.y*scale}));
+      if(object.holes?.length)points.holes=object.holes.map(hole=>hole.map(p=>rotatedPoint(p,center,object.rotation||0)).map(p=>({x:p.x*scale,y:p.y*scale})));
       if(points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))throw new Error("Geometry coordinates must be finite.");
       if(role==="wall"||role==="walkablePath") {
         const width=Number(role==="wall" ? object.thicknessMeters??.2 : object.widthMeters??2);
@@ -63,7 +65,7 @@ export function compileFloorGeometry(input={}) {
     }
   }
   for(const floor of floors.values()) {
-    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygons)if(polygon.length<3||polygonArea(polygon)<=EPS||polygon.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||selfIntersects(polygon))throw new Error("Invalid, self-intersecting or zero-area floor polygon.");
+    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const outer of polygons)for(const polygon of [outer,...(outer.holes||[])])if(polygon.length<3||polygonArea(polygon)<=EPS||polygon.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||selfIntersects(polygon))throw new Error("Invalid, self-intersecting or zero-area floor polygon.");
     for(const path of [...floor.walls,...floor.walkablePaths])if(path.points.length<2||!(path.width>0)||!Number.isFinite(path.width)||path.points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))throw new Error("Invalid floor path width or coordinates.");
   }
   // Compiled geometry is a snapshot; reject distant polygons before testing detailed boundaries.
@@ -116,7 +118,7 @@ export function validGraphIntervals(a,b,floor,{requireWalkable=true}={}) {
   for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygonCandidates(polygons,floor.polygonIndex?.get(polygons),a,b)){
     const box=floor.polygonBounds?.get(polygon);
     if(box&&(Math.max(a.x,b.x)<box.x-EPS||Math.min(a.x,b.x)>box.x+box.width+EPS||Math.max(a.y,b.y)<box.y-EPS||Math.min(a.y,b.y)>box.y+box.height+EPS))continue;
-    for(let i=0;i<polygon.length;i++)lineCuts(a,b,polygon[i],polygon[(i+1)%polygon.length],cuts);
+    for(const ring of [polygon,...(polygon.holes||[])])for(let i=0;i<ring.length;i++)lineCuts(a,b,ring[i],ring[(i+1)%ring.length],cuts);
   }
   for(const path of [...floor.walls,...floor.walkablePaths])for(let i=1;i<path.points.length;i++) {
     const c=path.points[i-1],d=path.points[i],length=Math.hypot(d.x-c.x,d.y-c.y),r=path.width/2;

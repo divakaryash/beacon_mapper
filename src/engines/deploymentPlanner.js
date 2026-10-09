@@ -7,7 +7,7 @@ import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorT
 export const DEFAULT_PLANNING_SETTINGS = {
   ...TOPOLOGY_DEFAULTS,
   defaultProfileId: BEACON_PROFILES[0].id, spacing: 5.5, reliableRadius: 6, marginalRadius: 8,
-  planningMode: "hybrid", coverageThreshold: "reliable", coverageTarget: 90,
+  planningMode: "hybrid", placementStrategy:"landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
   wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
 };
@@ -123,7 +123,7 @@ export class DeploymentPlanner {
     warnings.push(...coverage.quality.warnings);
     const totalLength=parts.reduce((s,p)=>s+p.coverage.totalLength,0),coveredLength=parts.reduce((s,p)=>s+p.coverage.coveredLength,0);
     const plan={beacons:this.beacons,quality:coverage.quality,warnings,configuration:{mode:this.settings.planningMode,spacing:this.settings.spacing},geometryValidation:{rejected:0,relocated:0},coverage:{method:"geometry-clipped-graph-distance-radius",estimatedPercent:totalLength?100*coveredLength/totalLength:0,totalLength,coveredLength,edges:parts.flatMap(p=>p.coverage.edges)},statistics:{navigationBeacons:active.length,totalBeacons:this.beacons.length,activeBeacons:active.length,disabledBeacons:this.beacons.length-active.length,averageSpacing:samples.length?samples.reduce((s,g)=>s+g,0)/samples.length:0,minimumSpacing:samples.reduce((s,g)=>Math.min(s,g),samples.length?Infinity:0),maximumSpacing:samples.reduce((s,g)=>Math.max(s,g),0),coveragePercent:coverage.coveragePercentage,deadZonePercent:coverage.totalArea?100*coverage.deadZoneArea/coverage.totalArea:0,overlapPercent:coverage.overlapPercentage,maximumGap:coverage.gaps.reduce((s,g)=>Math.max(s,g.length),0),minimumGap:coverage.gaps.reduce((s,g)=>Math.min(s,g.length),coverage.gaps.length?Infinity:0),deploymentQuality:coverage.quality.overallScore,installationCost:active.length*this.settings.installationCost,warnings:warnings.length}};
-    plan.topology={...this.topology,strategies:Object.fromEntries([...new Set(this.beacons.map(b=>b.placementStrategy||'Manual / legacy'))].map(strategy=>[strategy,this.beacons.filter(b=>(b.placementStrategy||'Manual / legacy')===strategy).length]))};plan.configuration.placementStrategy='topology';plan.coverage={method:coverage.method,estimatedPercent:coverage.graphCoveragePercentage,totalLength:coverage.totalGraphLength,coveredLength:coverage.graphCoveredLength,edges:coverage.graphEdges};
+    plan.topology={...this.topology,strategies:Object.fromEntries([...new Set(this.beacons.map(b=>b.placementStrategy||'Manual / legacy'))].map(strategy=>[strategy,this.beacons.filter(b=>(b.placementStrategy||'Manual / legacy')===strategy).length]))};plan.configuration.placementStrategy=this.settings.placementStrategy||'topology';plan.coverage={method:coverage.method,estimatedPercent:coverage.graphCoveragePercentage,totalLength:coverage.totalGraphLength,coveredLength:coverage.graphCoveredLength,edges:coverage.graphEdges};
     this.coverage=coverage;this.lastBeacons=this.beacons.map(b=>({...b}));this.output={plan,coverage,settings:this.settings,work:{...coverage.work,recomputedRegions,regions:this.regions.length,elapsedMs:performance.now()-start},scale};return this.output;
   }
   edit(action,data={}) {

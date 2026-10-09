@@ -27,7 +27,7 @@ test('DLF reference preserves API points, excludes private footprints and genera
   for(const edge of result.graph.edges){const a=nodes.get(edge.source),b=nodes.get(edge.target);assert.ok(validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor).reduce((sum,[lo,hi])=>sum+hi-lo,0)>1-1e-7);}
   const zaraCenter=position([77.321060507513,28.568205359717798]);
   assert.equal(geometryConflict({x:zaraCenter.x*scale,y:zaraCenter.y*scale},floor),'non-walkable-area');
-  const output=new DeploymentPlanner({graph:result.graph,floorGeometry,pois:pois.map(p=>({...p,worldX:p.x*scale,worldY:p.y*scale})),settings:{cellSize:1,additionalBeaconBudget:100}}).generate();
+  const output=new DeploymentPlanner({graph:result.graph,floorGeometry,pois:pois.map(p=>({...p,worldX:p.x*scale,worldY:p.y*scale})),settings:{placementStrategy:"topology",cellSize:1,additionalBeaconBudget:100}}).generate();
   assert.ok(output.plan.beacons.length>0);
   assert.equal(output.plan.beacons[0].id,'IW001');
   for(const b of output.plan.beacons)assert.equal(geometryConflict({x:b.worldX,y:b.worldY},floor),null);
@@ -62,7 +62,7 @@ test('L00 basement produces its own editable graph, numbered beacons and measura
     const intervals=validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floors.get(a.floorId));
     assert.ok(intervals.length===1&&intervals[0][0]<1e-6&&intervals[0][1]>1-1e-6);
   }
-  const output=new DeploymentPlanner({graph:result.graph,floorGeometry,settings:{cellSize:1,additionalBeaconBudget:100},pois:result.objects.filter(o=>o.type==='poi').map(o=>({...o,worldX:o.x*scale,worldY:o.y*scale}))}).generate();
+  const output=new DeploymentPlanner({graph:result.graph,floorGeometry,settings:{placementStrategy:"topology",cellSize:1,additionalBeaconBudget:100},pois:result.objects.filter(o=>o.type==='poi').map(o=>({...o,worldX:o.x*scale,worldY:o.y*scale}))}).generate();
   assert.ok(output.plan.beacons.length>0);
   assert.equal(output.plan.beacons[0].id,'IW001');
   assert.equal(new Set(output.plan.beacons.map(b=>b.id)).size,output.plan.beacons.length);

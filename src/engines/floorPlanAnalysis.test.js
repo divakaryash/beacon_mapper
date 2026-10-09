@@ -77,3 +77,67 @@ test('PDF page frames cannot become building boundaries or outdoor navigation ar
   assert.equal(geometryConflict({x:4,y:40},floor),'outside-building');
   for(const n of result.graph.nodes)assert.equal(geometryConflict({x:n.worldX,y:n.worldY},floor),null);
 });
+
+test('automatic walls are connected contour polygons with holes rather than row rectangles',()=>{
+  const result=analyzeFloorPlan(fixture());
+  const walls=result.objects.filter(o=>o.category==='Wall');
+  assert.ok(walls.length>0);
+  assert.ok(walls.every(w=>Array.isArray(w.holes)));
+  assert.ok(walls.some(w=>w.holes.length>0||w.points.length>4));
+});
+
+test('word-like text inside the building does not create wall polygons while solid columns remain',()=>{
+  const width=320,height=240,data=new Uint8ClampedArray(width*height*4).fill(255);
+  const ink=(x,y)=>{const i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=0;};
+  for(let y=10;y<230;y++)for(let x=10;x<310;x++)if(x===10||x===309||y===10||y===229)ink(x,y);
+  for(let y=80;y<86;y++)for(let x=80;x<86;x++)ink(x,y);
+  const input={data,width,height,metersPerPixel:1};
+  const before=analyzeFloorPlan(input);
+  for(const start of [120,132,144])for(let y=100;y<112;y++)for(let x=start;x<start+8;x++)if(x===start||x===start+7||y===100||y===111)ink(x,y);
+  const after=analyzeFloorPlan(input);
+  assert.deepEqual(after.objects,before.objects);
+  const floor=compileFloorGeometry({objects:after.objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(geometryConflict({x:82,y:82},floor),'non-walkable-area');
+});
+
+
+test('an internal X is one enclosing room while a real divider remains separate rooms',()=>{
+  const width=100,height=100;
+  const draw=(cross)=>{
+    const data=new Uint8ClampedArray(width*height*4).fill(255);
+    const ink=(x,y)=>{const p=(y*width+x)*4;data[p]=data[p+1]=data[p+2]=0;};
+    for(let y=5;y<=94;y++)for(let x=5;x<=94;x++)if(x===5||x===94||y===5||y===94)ink(x,y);
+    for(let y=20;y<=60;y++)for(let x=20;x<=60;x++)if(x===20||x===60||y===20||y===60||(cross?(x===y||x+y===80):x===40))ink(x,y);
+    return analyzeFloorPlan({data,width,height,metersPerPixel:1});
+  };
+  const crossed=draw(true),divided=draw(false);
+  assert.equal(crossed.objects.filter(o=>o.type==='room').length,1);
+  assert.equal(divided.objects.filter(o=>o.type==='room').length,2);
+  const floor=compileFloorGeometry({objects:crossed.objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(geometryConflict({x:40,y:40},floor),'non-walkable-area');
+  assert.ok(!crossed.objects.some(o=>o.category==='Wall'&&o.holes?.length===4));
+});
+
+test('readable printed labels name their enclosing room without changing its geometry',()=>{
+  const input=fixture();
+  for(let y=10;y<=20;y++)for(let x=10;x<=20;x++)if(x===10||x===20||y===10||y===20){const p=(y*input.width+x)*4;input.data[p]=input.data[p+1]=input.data[p+2]=0;}
+  const before=analyzeFloorPlan({...input,labels:[]});
+  const after=analyzeFloorPlan({...input,labels:[{text:'Shop 101',x:12,y:14},{text:'Zara',x:12,y:17}]});
+  const room=after.objects.find(o=>o.type==='room');
+  assert.equal(room.name,'Shop 101 Zara');
+  assert.deepEqual(room.points,before.objects.find(o=>o.type==='room').points);
+});
+
+test('a labeled stair assembly produces one block and its lobby point stays outside the treads',()=>{
+  const width=120,height=100,data=new Uint8ClampedArray(width*height*4).fill(255);
+  const ink=(x,y)=>{const p=(y*width+x)*4;data[p]=data[p+1]=data[p+2]=0;};
+  for(let y=5;y<95;y++)for(const x of [5,114])ink(x,y);
+  for(let x=5;x<=114;x++)for(const y of [5,94])ink(x,y);
+  for(let y=20;y<=38;y+=3)for(let x=20;x<40;x++)ink(x,y);
+  const result=analyzeFloorPlan({data,width,height,metersPerPixel:.1,labels:[{text:'STAIRS',x:20,y:48,width:20,height:5}]});
+  const blocks=result.objects.filter(o=>o.metadata?.groupedAssembly&&o.type==='nonWalkableArea');assert.equal(blocks.length,1);
+  const poi=result.objects.find(o=>o.type==='poi'&&o.category==='Stairs');assert.ok(poi);
+  const floor=compileFloorGeometry({objects:result.objects,metersPerPixel:.1}).get('floor-1');
+  assert.equal(geometryConflict({x:poi.x*.1,y:poi.y*.1},floor),null);
+  assert.ok(Math.hypot(poi.x-30,poi.y-29)*.1<=6);
+});

@@ -6,7 +6,7 @@ import {geometryForProject,saveDeployment,loadDeployment} from "../models/deploy
 import {compareDeployments,beaconCsv,deploymentDocument} from "../models/deploymentExport.js";
 import {BEACON_PROFILES} from "./beaconPlacement.js";
 
-const inputs=()=>({graph:structuredClone(sampleMall.graph),floorGeometry:geometryForProject(sampleMall),settings:{additionalBeaconBudget:0},pois:sampleMall.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:"floor-1",worldX:o.x*.1,worldY:o.y*.1}))});
+const inputs=()=>({graph:structuredClone(sampleMall.graph),floorGeometry:geometryForProject(sampleMall),settings:{additionalBeaconBudget:0,placementStrategy:"topology"},pois:sampleMall.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:"floor-1",worldX:o.x*.1,worldY:o.y*.1}))});
 function fresh(planner){return new DeploymentPlanner({...inputs(),beacons:structuredClone(planner.beacons),settings:planner.settings}).output;}
 function equivalent(a,b){assert.equal(a.coverage.coveredArea,b.coverage.coveredArea);assert.equal(a.coverage.overlapArea,b.coverage.overlapArea);assert.equal(a.coverage.graphCoveredLength,b.coverage.graphCoveredLength);assert.deepEqual(a.coverage.gaps,b.coverage.gaps);assert.deepEqual(a.plan.statistics,b.plan.statistics);}
 

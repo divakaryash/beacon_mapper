@@ -61,3 +61,12 @@ test('vertical transport and restricted reference polygons override conflicting 
     assert.ok(geometryConflict({x:5,y:6},geometry));
   }
 });
+
+test('connected wall polygons preserve open holes and block their actual edge footprint',()=>{
+  const objects=[{type:'buildingBoundary',points:box(0,0,20,20)},{type:'walkableArea',points:box(0,0,20,20)},{type:'nonWalkableArea',category:'Wall',points:box(4,4,12,12),holes:[box(5,5,10,10)]}];
+  const floor=compileFloorGeometry({objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(geometryConflict({x:10,y:10},floor),null);
+  assert.equal(geometryConflict({x:4.5,y:10},floor),'non-walkable-area');
+  assert.equal(geometryConflict({x:5,y:10},floor),'non-walkable-area');
+  assert.deepEqual(validGraphIntervals({x:3,y:10},{x:17,y:10},floor),[[0,1/14],[2/14,12/14],[13/14,1]]);
+});

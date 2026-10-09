@@ -22,3 +22,19 @@ test("a graph crossing a wall is warned, never scored as fully covered",()=>{con
 test("duplicate node-attached beacons reduce quality and duplicate graph IDs are rejected",()=>{const original=planBeacons({graph:line});const r=planBeacons({graph:line,configuration:{beacons:[...original.beacons,{...original.beacons[0],id:"duplicate"}]}});assert.ok(r.quality.spacingScore<100);assert.ok(r.quality.overallScore<100);assert.throws(()=>planBeacons({graph:{...line,edges:[...line.edges,...line.edges]}}));});
 test("same-floor edge distances cannot fabricate physical beacon spacing",()=>{assert.throws(()=>planBeacons({graph:{...line,edges:[{...line.edges[0],distance:11}]}}),/does not match/);});
 test("traverses large graph without recursion",()=>{const count=10001;const graph={nodes:Array.from({length:count},(_,i)=>n(String(i),i)),edges:Array.from({length:count-1},(_,i)=>({id:String(i),source:String(i),target:String(i+1),distance:1}))};const begin=performance.now();const r=planBeacons({graph,profile:BEACON_PROFILES[0]});assert.ok(r.beacons.length>1000);assert.equal(r.beacons.every(b=>b.type==="Navigation"),true);console.log(`beacon benchmark: ${count} nodes, ${r.beacons.length} beacons, ${(performance.now()-begin).toFixed(1)} ms`);});
+
+test('landmark deployment groups four lifts and covers a junction without corridor filler',()=>{
+  const graph={nodes:[n('j',20,10),n('left',0,10),n('right',40,10),n('up',20,30),...Array.from({length:4},(_,i)=>n('lift'+i,5+i,10,'Lift'))],edges:[{id:'jl',source:'j',target:'left',distance:20},{id:'jr',source:'j',target:'right',distance:20},{id:'ju',source:'j',target:'up',distance:20},...Array.from({length:4},(_,i)=>({id:'lift-edge'+i,source:'left',target:'lift'+i,distance:5+i}))]};
+  const result=generate({graph,configuration:{placementStrategy:'landmarks'},floorGeometry:{floors:[{floorId:'G',boundaries:[box(-1,-1,45,35)],walkableAreas:[box(-1,-1,45,35)]}]}});
+  assert.equal(result.beacons.filter(b=>b.placementStrategy==='Shared vertical lobby').length,1);
+  assert.ok(result.beacons.some(b=>b.nodeId==='j'));
+  assert.ok(result.beacons.every(b=>b.placementStrategy));
+});
+
+test('landmark deployment gives a room one exterior suggestion and none inside its polygon',()=>{
+  const graph={nodes:[n('a',0,2),n('b',30,2)],edges:[{id:'ab',source:'a',target:'b',distance:30}]};
+  const room={id:'shop',type:'room',floorId:'G',points:box(50,50,100,100)};
+  const result=generate({graph,configuration:{placementStrategy:'landmarks'},floorGeometry:{metersPerPixel:.1,objects:[{type:'buildingBoundary',floorId:'G',points:box(-10,-10,400,200)},{type:'walkableArea',floorId:'G',points:box(-10,-10,400,200)},room]}});
+  assert.equal(result.beacons.length,1);assert.deepEqual(result.beacons[0].outletIds,['shop']);
+  assert.ok(result.beacons[0].worldY<5);
+});

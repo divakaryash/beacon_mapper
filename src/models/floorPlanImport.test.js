@@ -38,3 +38,25 @@ test('PDF detection suppresses annotation paths and page-edge frames while retai
   assert.equal(filter(0,path(6,[5,0,5,500])),false);
   assert.equal(filter(0,path(8,[100,100,102,102],[0,100,100,1,102,100,1,102,102,1,100,102,4])),true);
 });
+
+test('CAD word strokes are suppressed together while walls and columns remain',()=>{
+  const ops={constructPath:5,stroke:6,closeStroke:7,fill:8};
+  const filter=geometryOperationsFilter(ops,{getTransform:()=>({a:1,b:0,c:0,d:1,e:0,f:0})},{width:512,height:512});
+  const list={fnArray:[5,5,5,5],argsArray:[
+    [6,[Array(25).fill(1)],[10,10,14,17]],
+    [6,[Array(25).fill(1)],[16,10,20,17]],
+    [6,[Array(25).fill(1)],[22,10,26,17]],
+    [6,[[0,40,10,1,40,100]],[40,10,40,100]]
+  ]};
+  list.fnArray.forEach((_,i)=>filter(i,list));assert.equal(filter.excludePrintedWords(),true);
+  for(let i=0;i<3;i++)assert.equal(filter(i,list),false);
+  assert.equal(filter(3,list),true);
+});
+
+test('recognized text boxes suppress contained glyph paths without deleting a wall crossing the label',()=>{
+  const ops={constructPath:5,stroke:6,closeStroke:7,fill:8};
+  const filter=geometryOperationsFilter(ops,{getTransform:()=>({a:1,b:0,c:0,d:1,e:0,f:0})},{width:512,height:512});
+  const list={fnArray:[5,5],argsArray:[[6,[Array(11).fill(1)],[10,10,15,17]],[6,[[0,0,14,1,100,14]],[0,14,100,14]]]};
+  filter(0,list);filter(1,list);filter.excludePrintedWords([{x:9,y:18,width:8,height:9}]);
+  assert.equal(filter(0,list),false);assert.equal(filter(1,list),true);
+});

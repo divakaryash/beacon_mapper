@@ -1,3 +1,4 @@
+import {recognizeFloorLabels} from "./floorPlanLabels.js";
 export const isPdf = file => file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
 
 export function rasterSize(width, height) {
@@ -28,8 +29,9 @@ export async function readFloorPlan(file) {
       geometryCanvas.width=Math.ceil(original.width*geometryScale);
       geometryCanvas.height=Math.ceil(original.height*geometryScale);
       const geometryContext=geometryCanvas.getContext("2d");
-      await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryOperationsFilter(OPS,geometryContext,{width:geometryCanvas.width,height:geometryCanvas.height})}).promise;
-      const floorPlanGeometryPreview=await new Promise((resolve,reject)=>geometryCanvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Could not render floor geometry")),"image/png"));
+      const geometryFilter=geometryOperationsFilter(OPS,geometryContext,{width:geometryCanvas.width,height:geometryCanvas.height});
+      await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
+      if(geometryFilter.excludePrintedWords())await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: page.getViewport({ scale: size.scale }), background: "white" }).promise;
       const preview = await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not render PDF page")), "image/png"));
       const text = await page.getTextContent();
@@ -38,7 +40,13 @@ export async function readFloorPlan(file) {
         const [x,y] = viewport.convertToViewportPoint(item.transform[4],item.transform[5]);
         return {text:item.str,x,y,...(Math.abs(item.transform[1])<.001?{width:item.width*size.scale,height:item.height*size.scale}: {})};
       });
-      return { file, sourceSha256, floorPlanLabels, floorPlanGeometryPreview, floorPlanPreview: preview, pdfPageCount: pdf.numPages, drawingWidthPixels: size.width, drawingHeightPixels: size.height };
+      const printedLabels=await matchingFloorReference({file,sourceSha256})?[]:await recognizeFloorLabels(preview,size.width,size.height);
+      floorPlanLabels.push(...printedLabels.filter(label=>!floorPlanLabels.some(native=>native.text.trim()===label.text&&Math.hypot(native.x-label.x,native.y-label.y)<label.height)));
+      if(geometryFilter.excludePrintedWords(printedLabels.map(label=>({...label,x:label.x*geometryCanvas.width/size.width,y:label.y*geometryCanvas.height/size.height,width:label.width*geometryCanvas.width/size.width,height:label.height*geometryCanvas.height/size.height})))){
+        await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
+      }
+      const labeledGeometryPreview=await new Promise((resolve,reject)=>geometryCanvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Could not render labeled geometry")),"image/png"));
+      return { file, sourceSha256, floorPlanLabels, floorPlanGeometryPreview:labeledGeometryPreview, floorPlanPreview: preview, pdfPageCount: pdf.numPages, drawingWidthPixels: size.width, drawingHeightPixels: size.height };
     } finally { await task.destroy(); }
   }
   if (!file.type.startsWith("image/") && !/\.(png|jpe?g|svg)$/i.test(file.name)) throw new Error("Choose a PNG, JPG, SVG, or PDF floor plan");
@@ -46,7 +54,8 @@ export async function readFloorPlan(file) {
   try {
     const image = new Image();
     await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("Could not read floor-plan image")); image.src = source; });
-    return { file, floorPlanPreview: null, pdfPageCount: null, drawingWidthPixels: image.naturalWidth, drawingHeightPixels: image.naturalHeight };
+    const floorPlanLabels=await recognizeFloorLabels(file,image.naturalWidth,image.naturalHeight);
+    return { file, floorPlanLabels, floorPlanPreview: null, pdfPageCount: null, drawingWidthPixels: image.naturalWidth, drawingHeightPixels: image.naturalHeight };
   } finally { URL.revokeObjectURL(source); }
 }
 
@@ -71,7 +80,7 @@ export async function analyzeImportedFloor(imported,metersPerPixel) {
       try{const cleanImage=new Image();await new Promise((resolve,reject)=>{cleanImage.onload=resolve;cleanImage.onerror=()=>reject(new Error("Could not read SVG geometry"));cleanImage.src=cleanSource;});context.fillRect(0,0,width,height);context.drawImage(cleanImage,0,0,width,height);}finally{URL.revokeObjectURL(cleanSource);}
     }
     // Text is annotation, not a wall. Only remove positioned, unrotated label boxes.
-    for(const label of labels)if(!geometryPreview&&!/\.svg$/i.test(imported.file.name)&&imported.file.type!=='image/svg+xml'&&label.width>0&&label.height>0)context.fillRect(label.x*width/imported.drawingWidthPixels,(label.y-label.height)*height/imported.drawingHeightPixels,label.width*width/imported.drawingWidthPixels,label.height*height/imported.drawingHeightPixels);
+    for(const label of labels)if(label.source!=="ocr"&&!geometryPreview&&!/\.svg$/i.test(imported.file.name)&&imported.file.type!=='image/svg+xml'&&label.width>0&&label.height>0)context.fillRect(label.x*width/imported.drawingWidthPixels,(label.y-label.height)*height/imported.drawingHeightPixels,label.width*width/imported.drawingWidthPixels,label.height*height/imported.drawingHeightPixels);
     const raster=context.getImageData(0,0,width,height);
     return await runFloorAnalysis({data:raster.data,width,height,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,metersPerPixel,labels,excludeDrawingFrame:isPdf(imported.file)},[raster.data.buffer]);
   } finally {URL.revokeObjectURL(source);}
@@ -104,7 +113,9 @@ export async function matchingFloorReference(imported) {
 // CAD exports often convert text to tiny stroked paths, so text operators alone are insufficient.
 export function geometryOperationsFilter(ops,context,pageSize) {
   const textOperations=new Set([ops.showText,ops.showSpacedText,ops.nextLineShowText,ops.nextLineSetSpacingShowText]);
-  return (index,list)=>{
+  const candidates=new Map(),excluded=new Set();
+  const filter=(index,list)=>{
+    if(excluded.has(index))return false;
     const operation=list.fnArray[index];if(textOperations.has(operation))return false;
     if(operation!==ops.constructPath)return true;
     const [paint,paths,bounds]=list.argsArray[index];
@@ -115,6 +126,23 @@ export function geometryOperationsFilter(ops,context,pageSize) {
     // Exclude long page-edge dimension/frame strokes; interior building walls remain structural.
     if(pageSize&&[ops.stroke,ops.closeStroke].includes(paint)&&((width<.5&&height>pageSize.height*.9&&(minX<pageSize.width*.15||minX>pageSize.width*.85))||(height<.5&&width>pageSize.width*.85&&(minY<pageSize.height*.03||minY>pageSize.height*.97))))return false;
     const path=paths?.[0],solidColumn=![ops.stroke,ops.closeStroke].includes(paint)&&path?.length===13&&path[12]===4&&width>0&&height>0&&width/height>.5&&width/height<2;
+    if(pageSize&&!solidColumn&&!(path?.length===13&&path[12]===4)&&path?.length>=10&&height>=.5&&height<=Math.max(pageSize.width,pageSize.height)/24&&width>=height*.15&&width<=height*1.5)candidates.set(index,{index,minX,minY,maxX:minX+width,maxY:minY+height,height});
     return solidColumn||Math.max(width,height)>=3;
   };
+  filter.excludePrintedWords=(labels=[])=>{
+    for(const glyph of candidates.values())if(labels.some(label=>glyph.minX>=label.x-.5&&glyph.maxX<=label.x+label.width+.5&&glyph.minY>=label.y-label.height-.5&&glyph.maxY<=label.y+.5))excluded.add(glyph.index);
+    const glyphs=[...candidates.values()],seen=new Set();
+    for(const glyph of glyphs)if(!seen.has(glyph)){
+      const word=[glyph];seen.add(glyph);
+      for(let k=0;k<word.length;k++)for(const other of glyphs){
+        const current=word[k],height=Math.max(current.height,other.height);
+        const gap=Math.max(current.minX,other.minX)-Math.min(current.maxX,other.maxX);
+        if(seen.has(other)||Math.min(current.height,other.height)<height*.6||Math.abs(current.maxY-other.maxY)>height*.3||gap< -height*.25||gap>height)continue;
+        word.push(other);seen.add(other);
+      }
+      if(word.length>=3)word.forEach(g=>excluded.add(g.index));
+    }
+    return excluded.size>0;
+  };
+  return filter;
 }
