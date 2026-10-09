@@ -202,3 +202,37 @@ def register(data, controls, meters_per_pixel, profile):
         if p.get('entryDirection') is not None:p['entryDirection']=(p['entryDirection']-math.degrees(math.atan2(b,a)))%360
     result['metadata'].update(stage=6,coordinateSystem='WGS84',scaleSource={'kind':'surveyed-control-points','count':len(controls)},registration={'a':float(a),'b':float(b),'tx':float(tx),'ty':float(ty),'origin':[lon,lat],'eastMetersPerDegree':east,'northMetersPerDegree':north,'metersPerPixel':meters_per_pixel,'residualMeters':errors.tolist(),'maximumResidualMeters':float(max(errors))})
     return result
+
+def routing(data, graph, profile):
+    blockers=unary_union([shape(f['geometry']) for f in data['features'] if f['geometry']['type']=='Polygon' and f['properties']['type']!='Boundary']+[shape(f['properties']['blockedFootprint']) for f in data['features'] if f['properties'].get('blockedFootprint')])
+    boundary=unary_union([shape(f['geometry']) for f in data['features'] if f['properties']['type']=='Boundary'])
+    nodes={n['id']:(n['x'], -n['y']) for n in graph.get('nodes',[])}
+    adjacency={id:set() for id in nodes};discarded=[]
+    def visible(a,b):
+        line=LineString([a,b]);return boundary.covers(line) and line.intersection(blockers).length<1e-7
+    for e in graph.get('edges',[]):
+        a=e.get('source');b=e.get('target')
+        if a not in nodes or b not in nodes or not visible(nodes[a],nodes[b]):discarded.append(e.get('id'));continue
+        adjacency[a].add(b);adjacency[b].add(a)
+    doors=[f for f in data['features'] if f['properties']['type']=='Point'];unreachable=[]
+    for f in doors:
+        point=tuple(f['geometry']['coordinates']);candidates=sorted((math.dist(point,p),id) for id,p in nodes.items() if adjacency[id] and visible(point,p))
+        if not candidates:unreachable.append(f['id']);continue
+        neighbor=candidates[0][1];nodes[f['id']]=point;adjacency[f['id']]={neighbor};adjacency[neighbor].add(f['id'])
+    terminals={id for id,v in adjacency.items() if len(v)!=2 and v}|{f['id'] for f in doors if f['id'] in adjacency};visited=set();edges=[]
+    for start in sorted(terminals):
+        for neighbor in sorted(adjacency[start]):
+            if frozenset((start,neighbor)) in visited:continue
+            path=[start,neighbor];visited.add(frozenset(path));previous=start;current=neighbor
+            while current not in terminals:
+                following=next(iter(adjacency[current]-{previous}));visited.add(frozenset((current,following)));path.append(following);previous,current=current,following
+            line=LineString([nodes[id] for id in path]);simple=line.simplify(profile['simplifyMeters'])
+            if visible_chain(simple,boundary,blockers):line=simple
+            short=line.length<profile['minimumRoutingMeters']
+            if short and not (start.endswith('-entry') or current.endswith('-entry')):discarded.append({'path':path,'reason':'short branch'});continue
+            edges.append({'type':'Feature','id':f'route-{len(edges)+1}','properties':{'source':start,'target':current,'lengthMeters':line.length,'needsReview':short},'geometry':mapping(line)})
+    used={e['properties'][key] for e in edges for key in ('source','target')}
+    features=[{'type':'Feature','id':id,'properties':{'type':'door' if id.endswith('-entry') else 'junction','needsReview':len(adjacency[id])<3 and not id.endswith('-entry')},'geometry':mapping(Point(nodes[id]))} for id in sorted(used)]+edges
+    return {'type':'FeatureCollection','coordinateSystem':'local metres','features':features,'metadata':{'discardedEdges':discarded,'unreachableDoors':unreachable,'doorReachableFraction':(len(doors)-len(unreachable))/max(1,len(doors))}}
+
+def visible_chain(line,boundary,blockers):return boundary.covers(line) and line.intersection(blockers).length<1e-7

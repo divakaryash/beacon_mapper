@@ -47,6 +47,12 @@ class AnnotationTests(unittest.TestCase):
         self.assertTrue(all(f['properties']['global'] for f in output['features']))
         controls[3]['latitude']+=.001
         with self.assertRaises(ValueError):register(data,controls,1,load_profile())
+    def test_routing(self):
+        data=linked_points(taxonomy(sample(),0),load_profile())
+        graph={'nodes':[{'id':str(i),'x':i,'y':-15} for i in range(2,25)],'edges':[{'id':str(i),'source':str(i),'target':str(i+1)} for i in range(2,24)]}
+        result=routing(data,graph,load_profile());edges=[f for f in result['features'] if f['geometry']['type']=='LineString']
+        self.assertLess(len(edges),5)
+        for edge in edges:self.assertLess(shape(edge['geometry']).intersection(shape(data['features'][1]['geometry'])).length,1e-7)
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):
