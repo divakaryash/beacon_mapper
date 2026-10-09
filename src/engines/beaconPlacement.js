@@ -1,6 +1,6 @@
 import {compileFloorGeometry,geometryConflict,nearestValidGraphPosition,validGraphIntervals,visibleGeometrySegment} from "./floorGeometry.js";
 import {deploymentQuality} from "./deploymentQuality.js";
-import {placeByTopology,referenceBeacon} from './topologyPlacement.js';
+import {placeByTopology,referenceBeacon,automaticBeaconSeparationMeters} from './topologyPlacement.js';
 import {analyzeCoverage} from './coverage.js';
 export const defaultBeaconSpacingMeters = 5.5;
 // Planning assumptions, not manufacturer-certified RF specifications.
@@ -59,7 +59,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   function add(input) {
     const cx=Math.floor(input.worldX/dedup),cy=Math.floor(input.worldY/dedup);
     for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const existing of cells.get(`${input.floorId}:${cx+dx}:${cy+dy}`)||[]){
-      if(distance(existing,input)<=dedup){if(input.type==="Anchor")existing.type="Anchor";if(input.nodeId){nodeBeacons.set(input.nodeId,existing);existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,input.nodeId].filter(Boolean))];}return existing;}
+      if(distance(existing,input)<=dedup){if(input.nodeId){nodeBeacons.set(input.nodeId,existing);existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,input.nodeId].filter(Boolean))];}return existing;}
     }
     const beacon={profileId:profile.id,type:"Navigation",enabled:true,origin:"automatic",...input,id:`beacon-${beacons.length+1}`};
     beacons.push(beacon);const bucket=key(input.floorId,input.worldX,input.worldY,dedup);if(!cells.has(bucket))cells.set(bucket,[]);cells.get(bucket).push(beacon);if(input.nodeId)nodeBeacons.set(input.nodeId,beacon);return beacon;
@@ -70,7 +70,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     const transition=incident.get(node.id).some(e=>nodes.get(e.source).floorId!==nodes.get(e.target).floorId);
     const anchor=(placementRules.anchorTypes?placementRules.anchorTypes.includes(node.type):anchorTypes.has(node.type))||(placementRules.junctionAnchors!==false&&degree>=3)||transition||node.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(node.metadata?.category);
     if(anchor)requiredAnchors.push(node.id);
-    if(anchor||important.has(node.type)||degree<=1) add({...node,type:anchor?"Anchor":"Navigation",nodeId:node.id});
+    if(anchor||important.has(node.type)||degree<=1) add({...node,type:"Navigation",nodeId:node.id});
   }
   // Walk degree-two corridor chains so intermediate graph sampling does not create extra beacons.
   const visited=new Set(); const edgeChains=[];
@@ -105,6 +105,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   const topologyResult=configuration.placementStrategy==='centerline'||configuration.beacons!==undefined||configuration.mode==='manual'?null:placeByTopology({graph,floors,beacons,profile,pois,settings:{...placementRules,...configuration,metersPerPixel:floorGeometry.metersPerPixel}});
   const submitted=configuration.beacons !== undefined ? configuration.beacons : configuration.mode==="manual" ? [] : topologyResult?.beacons||beacons;
   const geometryWarnings=[],final=[],finalBins=new Map();let failures=0;
+  const finalTolerance=configuration.placementStrategy==='centerline'?dedup:Math.min(minimum,automaticBeaconSeparationMeters);
   for(const floorId of new Set([...nodes.values()].map(n=>n.floorId))){const floor=floors.get(floorId);if(!floor?.boundaries.length||(!floor.walkableAreas.length&&!floor.walkablePaths.length))geometryWarnings.push({code:"incomplete-geometry",floorId,message:`${floorId}: draw an explicit building boundary and walkable area/path before generating a deployment.`});}
   const submittedIds=new Set(),edgeLookup=new Map(edges.map(e=>[e.id,e]));
   for(const original of submitted) {
@@ -112,6 +113,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     if(![original.x,original.y,original.worldX,original.worldY].every(Number.isFinite))throw new Error("Beacon coordinates must be finite.");
     let beacon={type:"Navigation",enabled:true,installationType:profile.mountType==="Outdoor"?"Pole":profile.mountType,mountingHeight:profile.recommendedHeight,orientation:null,notes:"",installationStatus:"Planned",...original,coverageRadius:profile.coverageRadius,profileId:profile.id};
     if(!["Navigation","Anchor"].includes(beacon.type))throw new Error("Invalid beacon type.");
+    beacon.type="Navigation";
     if(!["Ceiling","Wall","Pole"].includes(beacon.installationType)||!(beacon.mountingHeight>0)||!Number.isFinite(Number(beacon.mountingHeight)))throw new Error("Invalid beacon installation type or mounting height.");
     if(beacon.orientation!==null&&!Number.isFinite(Number(beacon.orientation)))throw new Error("Orientation must be finite or unset.");
     const attachedNode=nodes.get(beacon.nodeId),attachedEdge=edgeLookup.get(beacon.edgeId);
@@ -131,7 +133,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
       if(!moved){failures++;geometryWarnings.push({code:"geometry-rejected",beaconId:beacon.id,message:`${beacon.id}: ${conflict}; no valid same-floor graph position. Beacon omitted.`});continue;}
       beacon=moved;geometryWarnings.push({code:"geometry-relocated",beaconId:beacon.id,message:`${beacon.id} moved ${distance(original,beacon).toFixed(2)} m to resolve ${conflict}.`});
     }
-    if(configuration.beacons===undefined){let duplicate=null;const cx=Math.floor(beacon.worldX/dedup),cy=Math.floor(beacon.worldY/dedup);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const b of finalBins.get(`${beacon.floorId}:${cx+dx}:${cy+dy}`)||[])if(distance(b,beacon)<dedup)duplicate=b;if(duplicate){if(beacon.type==="Anchor")duplicate.type="Anchor";duplicate.anchorNodeIds=[...new Set([...(duplicate.anchorNodeIds||[]),duplicate.nodeId,duplicate.anchorNodeId,beacon.nodeId,beacon.anchorNodeId].filter(Boolean))];geometryWarnings.push({code:"relocation-deduplicated",message:`${beacon.id} merged with ${duplicate.id} after relocation.`});continue;}const bucket=key(beacon.floorId,beacon.worldX,beacon.worldY,dedup);if(!finalBins.has(bucket))finalBins.set(bucket,[]);finalBins.get(bucket).push(beacon);}
+    if(configuration.beacons===undefined){let duplicate=null;const cx=Math.floor(beacon.worldX/finalTolerance),cy=Math.floor(beacon.worldY/finalTolerance);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const b of finalBins.get(`${beacon.floorId}:${cx+dx}:${cy+dy}`)||[])if(distance(b,beacon)<finalTolerance-1e-6&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:beacon.worldX,y:beacon.worldY},floors.get(beacon.floorId)))duplicate=b;if(duplicate){duplicate.anchorNodeIds=[...new Set([...(duplicate.anchorNodeIds||[]),duplicate.nodeId,duplicate.anchorNodeId,beacon.nodeId,beacon.anchorNodeId].filter(Boolean))];geometryWarnings.push({code:"relocation-deduplicated",message:`${beacon.id} merged with ${duplicate.id} after relocation.`});continue;}const bucket=key(beacon.floorId,beacon.worldX,beacon.worldY,finalTolerance);if(!finalBins.has(bucket))finalBins.set(bucket,[]);finalBins.get(bucket).push(beacon);}
     final.push(beacon);
   }
   const result=analyzePlacement({graph,beacons:final,profile,placementRules:{...placementRules,minimumSpacing:minimum,maximumSpacing:maximum},requiredAnchors,floors,geometryFailures:failures});
@@ -188,8 +190,8 @@ export function analyzePlacement({graph,beacons,profile=BEACON_PROFILES[0],place
   for(const nodeId of nodes.keys())if(byNode.has(nodeId)||(adjacency.get(nodeId)||[]).length!==2)for(const edge of adjacency.get(nodeId)||[])if(!walked.has(edge.id))inspectChain(nodeId,edge);
   for(const edge of edges)if(!walked.has(edge.id))inspectChain(edge.source,edge);
   let anchorsPresent=0;
-  const anchorsByNode=new Map();for(const b of active)if(b.type==="Anchor")for(const id of new Set([b.nodeId,b.anchorNodeId,...(b.anchorNodeIds||[])].filter(Boolean))){if(!anchorsByNode.has(id))anchorsByNode.set(id,[]);anchorsByNode.get(id).push(b);}
-  for(const nodeId of requiredAnchors){const node=nodes.get(nodeId);const present=(anchorsByNode.get(nodeId)||[]).some(b=>b.floorId===node.floorId&&distance(b,node)<=(placementRules.anchorTolerance??b.reliableRadius??profile.coverageRadius)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:node.worldX,y:node.worldY},floors.get(node.floorId)));if(present)anchorsPresent++;else warnings.push({code:"missing-anchor",nodeId,message:`Missing anchor covering ${nodeId}.`});}
+  const anchorsByNode=new Map();for(const b of active)for(const id of new Set([b.nodeId,b.anchorNodeId,...(b.anchorNodeIds||[])].filter(Boolean))){if(!anchorsByNode.has(id))anchorsByNode.set(id,[]);anchorsByNode.get(id).push(b);}
+  for(const nodeId of requiredAnchors){const node=nodes.get(nodeId);const present=(anchorsByNode.get(nodeId)||[]).some(b=>b.floorId===node.floorId&&distance(b,node)<=(placementRules.anchorTolerance??b.reliableRadius??profile.coverageRadius)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:node.worldX,y:node.worldY},floors.get(node.floorId)));if(present)anchorsPresent++;else warnings.push({code:"missing-anchor",nodeId,message:`Uncovered navigation landmark ${nodeId}.`});}
   const bins=new Map();for(const b of active){const size=placementRules.duplicateTolerance??.25,cx=Math.floor(b.worldX/size),cy=Math.floor(b.worldY/size);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const other of bins.get(`${b.floorId}:${cx+dx}:${cy+dy}`)||[])if(distance(b,other)<size)warnings.push({code:"duplicate-beacons",beaconIds:[b.id,other.id],message:"Duplicate beacon positions."});const k=key(b.floorId,b.worldX,b.worldY,size);if(!bins.has(k))bins.set(k,[]);bins.get(k).push(b);}
   const seen=new Set();let components=0,largestComponent=0;for(const nodeId of nodes.keys())if(!seen.has(nodeId)){components++;let size=0;const stack=[nodeId];seen.add(nodeId);while(stack.length){size++;for(const edge of adjacency.get(stack.pop())||[]){const next=seen.has(edge.source)?edge.target:edge.source;if(!seen.has(next)){seen.add(next);stack.push(next);}}}largestComponent=Math.max(largestComponent,size);}
   if(components>1)warnings.push({code:"disconnected-beacon-chain",message:`Navigation graph has ${components} disconnected components.`});
@@ -206,5 +208,5 @@ export function analyzePlacement({graph,beacons,profile=BEACON_PROFILES[0],place
     for(let i=warnings.length-1;i>=0;i--)if(warnings[i].code==='uncovered-edge')warnings.splice(i,1);
     for(const gap of actual.gaps)warnings.push({code:'uncovered-edge',edgeId:gap.edgeId,message:`Edge ${gap.edgeId} has ${gap.length.toFixed(2)} m outside actual geometric coverage.`});
   }
-  return {beacons,spacingSamples:samples,coverage,warnings,quality,statistics:{navigationBeacons:active.filter(b=>b.type!=="Anchor").length,anchorBeacons:active.filter(b=>b.type==="Anchor").length,totalBeacons:active.length,disabledBeacons:beacons.length-active.length,averageSpacing:samples.length?samples.reduce((a,b)=>a+b,0)/samples.length:0,minimumSpacing:samples.length?samples.reduce((a,b)=>Math.min(a,b),Infinity):0,maximumSpacing:samples.length?samples.reduce((a,b)=>Math.max(a,b),-Infinity):0,warnings:warnings.length}};
+  return {beacons,spacingSamples:samples,coverage,warnings,quality,statistics:{navigationBeacons:active.length,totalBeacons:active.length,disabledBeacons:beacons.length-active.length,averageSpacing:samples.length?samples.reduce((a,b)=>a+b,0)/samples.length:0,minimumSpacing:samples.length?samples.reduce((a,b)=>Math.min(a,b),Infinity):0,maximumSpacing:samples.length?samples.reduce((a,b)=>Math.max(a,b),-Infinity):0,warnings:warnings.length}};
 }

@@ -8,7 +8,6 @@ export const LAYERS = [
   { id: "pois", label: "POIs", color: "#d97706" },
   { id: "beacons", label: "Beacons", color: "#0891b2" },
   { id: "navigationBeacons", label: "Navigation Beacons", color: "#0891b2" },
-  { id: "anchorBeacons", label: "Anchor Beacons", color: "#e39522" },
   { id: "disabledBeacons", label: "Disabled Beacons", color: "#94a3b8" },
   { id: "coverage", label: "Coverage", color: "#7c3aed" },
   { id: "warnings", label: "Warnings", color: "#dc2626" },
@@ -49,12 +48,19 @@ export function makeObject(type, data = {}) {
   return object;
 }
 
+export function normalizeBeaconPlan(plan) {
+  if (!plan) return plan;
+  const beacons=plan.beacons.map(b=>({...b,type:"Navigation"}));
+  const {anchorBeacons,...statistics}=plan.statistics||{};
+  return {...plan,beacons,statistics:{...statistics,navigationBeacons:beacons.filter(b=>b.enabled!==false).length}};
+}
+
 export function normalizeProject(project) {
   if (!project) return null;
-  const reference = project.floorAnalysis?.method === "aligned-venue-reference";
+  const reference = !!project.floorAnalysis;
   const layers = {...defaultLayers(), ...project.layers};
   if (reference && !project.referencePresentationInitialized) {
-    for (const id of ["coverage", "warnings", "walkableAreas"]) layers[id] = {...layers[id], visible:false};
+    for (const id of ["coverage", "warnings"]) layers[id] = {...layers[id], visible:false};
     layers.navigationGraph = {...layers.navigationGraph, visible:true, locked:false};
     layers.beacons = {...layers.beacons, visible:true, locked:false};
   }
@@ -63,6 +69,8 @@ export function normalizeProject(project) {
     drawingHeightPixels: project.drawingHeightPixels || 800, ...project,
     placementNeedsReview:!!project.placementNeedsReview||!!(project.beaconPlan&&!project.beaconPlan.geometryValidation),
     coverageAnalysis:project.beaconPlan&&!project.beaconPlan.geometryValidation?null:project.coverageAnalysis,
+    beaconPlan: normalizeBeaconPlan(project.beaconPlan),
+    deployments: (project.deployments||[]).map(d=>({...d,plan:normalizeBeaconPlan(d.plan)})),
     layers,
     referencePresentationInitialized: reference || !!project.referencePresentationInitialized,
   };

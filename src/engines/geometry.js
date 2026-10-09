@@ -96,7 +96,7 @@ export function rotatedPoint(point, center, degrees) {
 }
 
 export function measurements(object, metersPerPixel) {
-  if (!object || !metersPerPixel) return { area: null, perimeter: null, length: null };
+  if (!object || !Number.isFinite(metersPerPixel) || metersPerPixel <= 0) return { area: null, perimeter: null, length: null };
   const points = objectPoints(object);
   const closed = ["room", "polygon", "walkableArea", "restrictedArea", "rectangle","buildingBoundary","nonWalkableArea"].includes(object.type);
   const perimeterPixels = closed ? polygonPerimeter(points) : polylineLength(points);

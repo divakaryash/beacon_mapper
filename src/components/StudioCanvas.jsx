@@ -1,6 +1,6 @@
 import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { boundsOf, moveObject, resizeObject, rotationFromCenter } from "../engines/geometry.js";
+import { boundsOf, measurements, moveObject, resizeObject, rotationFromCenter } from "../engines/geometry.js";
 import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordinates.js";
 import { LAYERS, makeObject } from "../models/drawing.js";
 import CoverageOverlay from "./CoverageOverlay.jsx";
@@ -10,9 +10,13 @@ const polygonTools = new Set(["polygon", "walkableArea", "restrictedArea","build
 const lineTools = new Set(["polyline", "wall", "walkablePath"]);
 const boxTools = new Set(["rectangle", "room"]);
 
-const ObjectShape = memo(function ObjectShape({ object, color, selected, onPointerDown }) {
+const ObjectShape = memo(function ObjectShape({ object, color, selected, onPointerDown, metersPerPixel, scaleAssumed }) {
   const bounds = boundsOf(object);
   const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  const size = measurements(object, metersPerPixel);
+  const hasArea = size.area > 0 && Number.isFinite(size.area) && (!["Wall","Void"].includes(object.category) || selected);
+  const labelFont = Math.max(2, Math.min(10, bounds.width / 16, bounds.height / 5));
+  const extent = `${(bounds.width * metersPerPixel).toFixed(1)} × ${(bounds.height * metersPerPixel).toFixed(1)} m`;
   const common = { onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object" };
   let shape;
 
@@ -36,8 +40,13 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   }
 
   return (
-    <g data-object-id={object.id} data-origin={object.origin} data-source-type={object.metadata?.sourceType} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
-      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}</g>
+    <g data-object-id={object.id} data-origin={object.origin} data-object-type={object.type} data-category={object.category} data-source-type={object.metadata?.sourceType} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
+      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}{hasArea && <text className="polygon-size-label" data-polygon-measurement={object.id} x={center.x} y={center.y-labelFont} textAnchor="middle" fontSize={labelFont} pointerEvents="none">
+        <title>{object.name || object.type}: {size.area.toFixed(1)} m²; perimeter {size.perimeter.toFixed(1)} m; bounding extent {extent}{scaleAssumed ? "; assumed scale — confirm drawing dimensions" : ""}</title>
+        <tspan x={center.x}>{scaleAssumed ? "≈ " : ""}{size.area.toFixed(1)} m²</tspan>
+        <tspan x={center.x} dy="1.2em">Extent {extent}</tspan>
+        <tspan x={center.x} dy="1.2em">P {size.perimeter.toFixed(1)} m</tspan>
+      </text>}</g>
     </g>
   );
 });
@@ -270,12 +279,13 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   },edgeDown:(e,edge)=>{if(spacePressed||e.button===1||!["select","move"].includes(tool))return;e.stopPropagation();setGraphSelection({id:edge.id,kind:"edge"});}};
   const graphDrawing=useMemo(()=>project.layers.navigationGraph?.visible&&<g className="navigation-graph">
     {project.graph.edges.map(edge=>{const a=graphNodes.get(edge.source),b=graphNodes.get(edge.target);if(!a||!b)return null;return <line key={edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={`${a.floorId!==b.floorId?"floor-connector":""} ${route?.edgeIds.includes(edge.id)?"route-edge":""}`} onPointerDown={e=>handlers.current.edgeDown(e,edge)}><title>{edge.edgeType} · {edge.distance.toFixed(2)} m · {edge.direction}</title></line>;})}
-    {project.graph.nodes.map(node=><g key={node.id} data-node-id={node.id} onPointerDown={e=>handlers.current.nodeDown(e,node)}><circle cx={node.x} cy={node.y} r={node.type==="Junction"?8:5} className={graphSelection?.id===node.id?"selected-node":""}/>{(project.floorAnalysis?.method!=="aligned-venue-reference"||graphSelection?.id===node.id)&&(node.metadata?.label||node.type!=="Corridor")&&<text x={node.x+10} y={node.y-10}>{node.metadata?.label||node.type} · {node.floorId}</text>}<title>{node.id} · {node.type} · {node.floorId}</title></g>)}
+    {project.graph.nodes.map(node=><g key={node.id} data-node-id={node.id} onPointerDown={e=>handlers.current.nodeDown(e,node)}><circle cx={node.x} cy={node.y} r={node.type==="Junction"?8:5} className={graphSelection?.id===node.id?"selected-node":""}/>{(!project.floorAnalysis||graphSelection?.id===node.id)&&(node.metadata?.label||node.type!=="Corridor")&&<text x={node.x+10} y={node.y-10}>{node.metadata?.label||node.type} · {node.floorId}</text>}<title>{node.id} · {node.type} · {node.floorId}</title></g>)}
   </g>,[project.graph,project.layers.navigationGraph?.visible,graphNodes,graphSelection,route,project.floorAnalysis?.method]);
 
-  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":b.type==="Anchor"?"anchorBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={b.type==="Anchor"?11:7} fill={b.enabled===false?"#94a3b8":b.type==="Anchor"?"#e39522":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
+  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
   return (
-    <div className={`studio-canvas ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
+    <div className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
+      {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span><i className="legend-walkable" />Walkable areas</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Voids / restricted</span><span><i className="legend-boundary" />Boundary</span></div>}
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
         ref={svgRef}
@@ -297,13 +307,13 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
           </pattern>
         </defs>
         <rect x="-50000" y="-50000" width="100000" height="100000" className="canvas-paper" />
-        {project.floorAnalysis?.method !== "aligned-venue-reference" && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
+        {!project.floorAnalysis && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
         <FloorPlan project={project} source={source} />
         <CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>
-        {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","anchorBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
+        {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
             {displayObjects.filter((object) => object.layerId === layer.id).map((object) => (
-              <ObjectShape key={object.id} object={object} color={layer.color} selected={object.id === selectedId} onPointerDown={objectDown} />
+              <ObjectShape key={object.id} object={object} color={layer.color} selected={object.id === selectedId} onPointerDown={objectDown} metersPerPixel={Number(project.widthMeters)/Number(project.drawingWidthPixels)} scaleAssumed={project.floorAnalysis?.scaleAssumed} />
             ))}
           </g>
         ))}

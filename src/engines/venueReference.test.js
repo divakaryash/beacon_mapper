@@ -5,6 +5,7 @@ import basement from '../samples/dlfBasementReference.js';
 import {analyzeVenueReference} from './venueReference.js';
 import {compileFloorGeometry,geometryConflict,validGraphIntervals} from './floorGeometry.js';
 import {NavigationGraph} from './navigationGraph.js';
+import {nearbyVisibleBeacon} from './topologyPlacement.js';
 import {DeploymentPlanner} from './deploymentPlanner.js';
 
 const dimensions={drawingWidth:1191,drawingHeight:1684};
@@ -30,6 +31,7 @@ test('DLF reference preserves API points, excludes private footprints and genera
   assert.ok(output.plan.beacons.length>0);
   assert.equal(output.plan.beacons[0].id,'IW001');
   for(const b of output.plan.beacons)assert.equal(geometryConflict({x:b.worldX,y:b.worldY},floor),null);
+  for(const [i,b] of output.plan.beacons.entries())assert.equal(nearbyVisibleBeacon(output.plan.beacons.slice(0,i),b,new Map([[floor.floorId,floor]])),undefined);
   assert.ok(output.coverage.coveragePercentage>=90);
   assert.ok(!output.plan.warnings.some(w=>w.code==='graph-geometry-conflict'));
 });
@@ -64,6 +66,7 @@ test('L00 basement produces its own editable graph, numbered beacons and measura
   assert.ok(output.plan.beacons.length>0);
   assert.equal(output.plan.beacons[0].id,'IW001');
   assert.equal(new Set(output.plan.beacons.map(b=>b.id)).size,output.plan.beacons.length);
+  for(const [i,b] of output.plan.beacons.entries())assert.equal(nearbyVisibleBeacon(output.plan.beacons.slice(0,i),b,floors),undefined);
   for(const beacon of output.plan.beacons)assert.equal(geometryConflict({x:beacon.worldX,y:beacon.worldY},floors.get(beacon.floorId)),null);
   assert.ok(output.coverage.totalArea>0);
   assert.ok(output.coverage.coveragePercentage>80);

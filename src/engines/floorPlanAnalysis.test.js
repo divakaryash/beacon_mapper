@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {analyzeFloorPlan} from './floorPlanAnalysis.js';
+import {analyzeFloorPlan,maskContours} from './floorPlanAnalysis.js';
 import {compileFloorGeometry,geometryConflict,validGraphIntervals} from './floorGeometry.js';
 import {DeploymentPlanner} from './deploymentPlanner.js';
 
@@ -45,4 +45,35 @@ test('landmarks attach to edges in their own region and exterior marks do not fa
   assert.deepEqual(result.objects.filter(o=>o.type==='poi').map(o=>o.category),['Escalator','Exit']);
   assert.ok(result.graph.nodes.some(n=>n.type==='Escalator'));
   assert.ok(result.graph.nodes.some(n=>n.type==='Exit'));
+});
+
+test('concave region contours preserve shape and split pinched contacts into valid polygons',()=>{
+  const width=8,height=8,mask=new Uint8Array(width*height);
+  for(let y=1;y<7;y++)for(let x=1;x<7;x++)if(x<3||y>4)mask[y*width+x]=1;
+  const contours=maskContours(mask,width,height),outer=contours.filter(c=>!c.hole);
+  assert.equal(outer.length,1);assert.ok(outer[0].points.length>4);
+  const objects=[{type:'buildingBoundary',points:[{x:0,y:0},{x:8,y:0},{x:8,y:8},{x:0,y:8}]},{type:'walkableArea',points:outer[0].points}];
+  const floor=compileFloorGeometry({objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(geometryConflict({x:5,y:2},floor),'non-walkable-area');assert.equal(geometryConflict({x:2,y:5},floor),null);
+  const pinched=new Uint8Array(64);for(const [x,y] of [[2,2],[3,3],[4,3],[4,2],[4,1],[3,1],[2,1]])pinched[y*8+x]=1;
+  for(const c of maskContours(pinched,8,8))assert.doesNotThrow(()=>compileFloorGeometry({objects:[{type:'buildingBoundary',points:c.points}],metersPerPixel:1}));
+});
+
+test('closed rooms receive actual polygons and are excluded from automatically generated routes',()=>{
+  const input=fixture();
+  for(let y=10;y<=20;y++)for(let x=10;x<=20;x++)if(x===10||x===20||y===10||y===20){const p=(y*input.width+x)*4;input.data[p]=input.data[p+1]=input.data[p+2]=0;}
+  const result=analyzeFloorPlan(input),room=result.objects.find(o=>o.type==='room');assert.ok(room);
+  const floor=compileFloorGeometry({objects:result.objects,metersPerPixel:.5}).get('floor-1');
+  assert.equal(geometryConflict({x:7,y:7},floor),'non-walkable-area');
+  for(const n of result.graph.nodes)assert.equal(geometryConflict({x:n.worldX,y:n.worldY},floor),null);
+});
+
+test('PDF page frames cannot become building boundaries or outdoor navigation areas',()=>{
+  const width=80,height=80,data=new Uint8ClampedArray(width*height*4).fill(255);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(((x===1||x===78)&&y>=1&&y<=78)||((y===1||y===78)&&x>=1&&x<=78)||((x===10||x===65)&&y>=12&&y<=67)||((y===12||y===67)&&x>=10&&x<=65)){const p=(y*width+x)*4;data[p]=data[p+1]=data[p+2]=0;}
+  const result=analyzeFloorPlan({data,width,height,metersPerPixel:1,excludeDrawingFrame:true});
+  const floor=compileFloorGeometry({objects:result.objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(result.analysis.detected.boundaries,1);
+  assert.equal(geometryConflict({x:4,y:40},floor),'outside-building');
+  for(const n of result.graph.nodes)assert.equal(geometryConflict({x:n.worldX,y:n.worldY},floor),null);
 });

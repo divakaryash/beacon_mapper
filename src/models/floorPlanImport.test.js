@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isPdf, rasterSize, floorPlanFingerprint, matchingFloorReference } from "./floorPlanImport.js";
+import { isPdf, rasterSize, floorPlanFingerprint, matchingFloorReference, geometryOperationsFilter } from "./floorPlanImport.js";
 
 test("PDF detection and bounded, aspect-preserving raster dimensions", () => {
   assert.ok(isPdf({ name: "GROUND FLOOR.PDF", type: "" }));
@@ -26,4 +26,15 @@ test('L00 selects its basement reference and never reuses the ground-floor geome
   const result=await matchingFloorReference({file:{name:'L00 FLOOR PLAN (REVISED) Model (1).pdf',type:'application/pdf'},sourceSha256:reference.pdfSha256});
   assert.equal(result.floor,-1);
   assert.notEqual(result.pdfSha256,(await matchingFloorReference({file:{type:'application/pdf'},sourceSha256:(await import('../samples/dlfGroundReference.js')).default.pdfSha256})).pdfSha256);
+});
+
+test('PDF detection suppresses annotation paths and page-edge frames while retaining structural lines and columns',()=>{
+  const ops={showText:1,showSpacedText:2,nextLineShowText:3,nextLineSetSpacingShowText:4,constructPath:5,stroke:6,closeStroke:7,fill:8};
+  const filter=geometryOperationsFilter(ops,{getTransform:()=>({a:1,b:0,c:0,d:1,e:0,f:0})},{width:512,height:512});
+  const path=(paint,bounds,data=[])=>({fnArray:[5],argsArray:[[paint,[data],bounds]]});
+  assert.equal(filter(0,{fnArray:[1],argsArray:[[]]}),false);
+  assert.equal(filter(0,path(6,[0,0,1,2])),false);
+  assert.equal(filter(0,path(6,[100,100,100,200])),true);
+  assert.equal(filter(0,path(6,[5,0,5,500])),false);
+  assert.equal(filter(0,path(8,[100,100,102,102],[0,100,100,1,102,100,1,102,102,1,100,102,4])),true);
 });

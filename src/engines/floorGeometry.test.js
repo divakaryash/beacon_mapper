@@ -9,3 +9,23 @@ test("rotated drawing geometry converts pixels to metres and retains floor scope
 test("nearest valid relocation stays on same floor and handles a fully blocked graph",()=>{const graph={nodes:[{id:"a",floorId:"G",x:20,y:50,worldX:2,worldY:5},{id:"b",floorId:"G",x:70,y:50,worldX:7,worldY:5}],edges:[{id:"e",source:"a",target:"b",distance:5}]};const moved=nearestValidGraphPosition({floorId:"G",worldX:5,worldY:5},graph,new Map([["G",floor]]));assert.ok(Math.abs(moved.worldX-5)>.1);assert.equal(moved.edgeId,"e");assert.equal(nearestValidGraphPosition({floorId:"L2",worldX:5,worldY:5},graph,new Map([["G",floor]])),null);});
 test("walkable paths are buffered by their actual width",()=>{const paths={...floor,walkableAreas:[],walls:[],walkablePaths:[{points:[{x:1,y:2},{x:18,y:2}],width:2}]};assert.equal(geometryConflict({x:3,y:2.9},paths),null);assert.equal(geometryConflict({x:3,y:3.1},paths),"non-walkable-area");});
 test("invalid scale and geometry widths are rejected",()=>{assert.throws(()=>compileFloorGeometry({objects:[],metersPerPixel:0}));assert.throws(()=>compileFloorGeometry({floors:[{...floor,walls:[{points:[{x:0,y:0},{x:1,y:1}],width:-1}]}]}));});
+
+test("ordinary room and polygon interiors and edges block placement inside walkable geometry",()=>{
+  for(const type of ["room","polygon","rectangle"]) {
+    const geometry=compileFloorGeometry({metersPerPixel:1,defaultFloorId:"G",objects:[
+      {type:"buildingBoundary",points:box(0,0,20,20)},
+      {type:"walkableArea",points:box(0,0,20,20)},
+      {type,points:box(5,5,4,4)}
+    ]}).get("G");
+    assert.equal(geometryConflict({x:6,y:6},geometry),"non-walkable-area");
+    assert.equal(geometryConflict({x:5,y:6},geometry),"non-walkable-area");
+    assert.equal(geometryConflict({x:4,y:6},geometry),null);
+  }
+});
+
+test("indexed geometry agrees with exact unindexed checks at cell boundaries and across large polygons",()=>{
+  const source={floorId:"G",boundaries:[box(-100,-100,200,200)],walkableAreas:[box(-100,-100,200,200)],nonWalkableAreas:Array.from({length:120},(_,i)=>box((i%12)*5,Math.floor(i/12)*5,.1,2)),restrictedAreas:[box(-30,-30,20,20)],walls:[],walkablePaths:[]};
+  const indexed=compileFloorGeometry({floors:[source]}).get("G");
+  for(const point of [{x:5,y:1},{x:5.1,y:1},{x:4.999,y:1},{x:50,y:20},{x:-20,y:-20},{x:70,y:60}])assert.equal(geometryConflict(point,indexed),geometryConflict(point,source));
+  for(const [a,b] of [[{x:-1,y:1},{x:60,y:1}],[{x:-80,y:-80},{x:80,y:80}],[{x:4.9,y:1},{x:5.2,y:1}]])assert.deepEqual(validGraphIntervals(a,b,indexed),validGraphIntervals(a,b,source));
+});

@@ -1,0 +1,120 @@
+{
+  "scope": "Generic automatic analysis, without saved API references",
+  "checks": "Inferred geometry validity and placement constraints; not physical ground truth",
+  "limitation": "Provisional scale; rasterization changes candidate counts. Unlabeled symbols and ambiguous drawing lines require review.",
+  "floors": [
+    {
+      "file": "FIFTH FLOOR (L-06) Model (1).pdf",
+      "method": "bounded-raster-topology",
+      "detected": {
+        "boundaries": 1,
+        "walkableRegions": 2,
+        "walls": 3594,
+        "roomCandidates": 81,
+        "labeledLandmarks": 0
+      },
+      "nodes": 274,
+      "edges": 273,
+      "beacons": 40,
+      "sampledWalkableCoveragePercent": 96.3531669865643,
+      "graphCoveragePercent": 99.81226778537247,
+      "elapsedSeconds": 12.278201417,
+      "scale": "provisional 100 m drawing width, not surveyed",
+      "validGeometry": true,
+      "beaconsOutsideBlockedPolygons": true,
+      "noVisibleBeaconClustersWithin3m": true
+    },
+    {
+      "file": "FIRST FLOOR PLAN (L02) Model (1).pdf",
+      "method": "bounded-raster-topology",
+      "detected": {
+        "boundaries": 1,
+        "walkableRegions": 2,
+        "walls": 5122,
+        "roomCandidates": 89,
+        "labeledLandmarks": 0
+      },
+      "nodes": 2075,
+      "edges": 2107,
+      "beacons": 249,
+      "sampledWalkableCoveragePercent": 95.91555759522717,
+      "graphCoveragePercent": 97.77590363074344,
+      "elapsedSeconds": 151.997433292,
+      "scale": "provisional 100 m drawing width, not surveyed",
+      "validGeometry": true,
+      "beaconsOutsideBlockedPolygons": true,
+      "noVisibleBeaconClustersWithin3m": true
+    },
+    {
+      "file": "FOURTH FLOOR PLAN (L05) Model (1).pdf",
+      "method": "bounded-raster-topology",
+      "detected": {
+        "boundaries": 1,
+        "walkableRegions": 1,
+        "walls": 4633,
+        "roomCandidates": 69,
+        "labeledLandmarks": 0
+      },
+      "nodes": 1140,
+      "edges": 1165,
+      "beacons": 119,
+      "sampledWalkableCoveragePercent": 96.94100509832484,
+      "graphCoveragePercent": 97.77546427922802,
+      "elapsedSeconds": 68.01124129100002,
+      "scale": "provisional 100 m drawing width, not surveyed",
+      "validGeometry": true,
+      "beaconsOutsideBlockedPolygons": true,
+      "noVisibleBeaconClustersWithin3m": true
+    },
+    {
+      "file": "SECOND FLOOR PLAN (L03) Model (1).pdf",
+      "method": "bounded-raster-topology",
+      "detected": {
+        "boundaries": 1,
+        "walkableRegions": 3,
+        "walls": 5320,
+        "roomCandidates": 98,
+        "labeledLandmarks": 0
+      },
+      "nodes": 2149,
+      "edges": 2179,
+      "beacons": 267,
+      "sampledWalkableCoveragePercent": 94.66313398940197,
+      "graphCoveragePercent": 97.03851960890589,
+      "elapsedSeconds": 190.63694241699997,
+      "scale": "provisional 100 m drawing width, not surveyed",
+      "validGeometry": true,
+      "beaconsOutsideBlockedPolygons": true,
+      "noVisibleBeaconClustersWithin3m": true
+    },
+    {
+      "file": "THIRD FLOOR PLAN (L04) Model (1).pdf",
+      "method": "bounded-raster-topology",
+      "detected": {
+        "boundaries": 1,
+        "walkableRegions": 4,
+        "walls": 5320,
+        "roomCandidates": 82,
+        "labeledLandmarks": 0
+      },
+      "nodes": 3070,
+      "edges": 3115,
+      "beacons": 391,
+      "sampledWalkableCoveragePercent": 97.30064388311045,
+      "graphCoveragePercent": 98.04207632650265,
+      "elapsedSeconds": 218.38979362499998,
+      "scale": "provisional 100 m drawing width, not surveyed",
+      "validGeometry": true,
+      "beaconsOutsideBlockedPolygons": true,
+      "noVisibleBeaconClustersWithin3m": true
+    }
+  ],
+  "browserDemo": {
+    "file": "FIRST FLOOR PLAN (L02) Model (1).pdf",
+    "roomCandidates": 106,
+    "wallSegments": 5197,
+    "walkableRegions": 2,
+    "navigationBeacons": 158,
+    "sampledCoveragePercent": 95.02
+  }
+}

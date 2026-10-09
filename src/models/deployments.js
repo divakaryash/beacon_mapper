@@ -10,6 +10,7 @@ export function deploymentInputSignature(project) {
   let hash=2166136261;for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619);
   return (hash>>>0).toString(16);
 }
+import {normalizeBeaconPlan} from "./drawing.js";
 import {coverageSummary} from "./deploymentExport.js";
 export function saveDeployment(project,name,id=crypto.randomUUID()) {
   if(!project.beaconPlan)throw new Error("Generate or insert beacons before saving a deployment.");
@@ -19,7 +20,7 @@ export function saveDeployment(project,name,id=crypto.randomUUID()) {
 }
 export function loadDeployment(project,id) {
   const saved=(project.deployments||[]).find(d=>d.id===id);if(!saved)throw new Error("Deployment not found.");
-  return {...project,beaconPlan:structuredClone(saved.plan),beaconProfile:structuredClone(saved.profile),planningSettings:{...structuredClone(saved.settings),beaconPrefix:project.planningSettings?.beaconPrefix||saved.settings?.beaconPrefix||"IW",nextBeaconNumber:Math.max(project.planningSettings?.nextBeaconNumber||1,saved.settings?.nextBeaconNumber||1)},activeDeploymentId:id,coverageAnalysis:null,placementNeedsReview:!saved.plan.geometryValidation||saved.inputSignature!==deploymentInputSignature(project)};
+  return {...project,beaconPlan:normalizeBeaconPlan(structuredClone(saved.plan)),beaconProfile:structuredClone(saved.profile),planningSettings:{...structuredClone(saved.settings),beaconPrefix:project.planningSettings?.beaconPrefix||saved.settings?.beaconPrefix||"IW",nextBeaconNumber:Math.max(project.planningSettings?.nextBeaconNumber||1,saved.settings?.nextBeaconNumber||1)},activeDeploymentId:id,coverageAnalysis:null,placementNeedsReview:!saved.plan.geometryValidation||saved.inputSignature!==deploymentInputSignature(project)};
 }
 export function duplicateDeployment(project,id) {
   const saved=(project.deployments||[]).find(d=>d.id===id);if(!saved)throw new Error("Deployment not found.");

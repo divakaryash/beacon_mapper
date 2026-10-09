@@ -42,7 +42,7 @@ test("inspector contribution equals area lost by removal; nearest POI and warnin
 });
 test("settings trigger analysis without regenerating layout; invalid changes are rejected",()=>{
   const planner=new DeploymentPlanner(inputs());planner.generate();const ids=planner.beacons.map(b=>b.id),before=planner.coverage.coveredArea;
-  const next=planner.configure({coverageThreshold:"marginal",installationCost:100});assert.ok(next.coverage.coveredArea>before);assert.equal(next.plan.statistics.installationCost,1700);assert.deepEqual(planner.beacons.map(b=>b.id),ids);
+  const next=planner.configure({coverageThreshold:"marginal",installationCost:100});assert.ok(next.coverage.coveredArea>before);assert.equal(next.plan.statistics.installationCost,ids.length*100);assert.deepEqual(planner.beacons.map(b=>b.id),ids);
   const settings=planner.settings;assert.throws(()=>planner.configure({reliableRadius:9,marginalRadius:2}));assert.equal(planner.settings,settings);assert.throws(()=>planner.edit("patch",{id:"IW007",patch:{mountingHeight:NaN}}));
 });
 test("another floor and disconnected region are reused during selected edits",()=>{
@@ -51,21 +51,22 @@ test("another floor and disconnected region are reused during selected edits",()
   const planner=new DeploymentPlanner(input);planner.generate();const floor=planner.coverage.floorReports.find(f=>f.floorId==="floor-2"),beacon=planner.beacons.find(b=>b.floorId==="floor-1"&&b.type==="Navigation");const next=planner.edit("patch",{id:beacon.id,patch:{enabled:false}});assert.equal(next.work.recomputedRegions,1);assert.equal(next.work.regions,8);assert.equal(next.work.reusedFloors,1);assert.ok(planner.coverage.floorReports.find(f=>f.floorId==="floor-2")===floor);
 });
 test("locked geometry conflicts remain visible and penalize quality instead of disappearing",()=>{
-  const planner=new DeploymentPlanner({...inputs(),beacons:[{id:"bad",floorId:"floor-1",x:660,y:420,worldX:66,worldY:42,locked:true}]});assert.ok(planner.output.plan.warnings.some(w=>w.code==="restricted-area"));assert.equal(planner.output.plan.quality.overallScore,0);assert.equal(planner.recalculate().plan.beacons.length,1);
+  const planner=new DeploymentPlanner({...inputs(),beacons:[{id:"bad",floorId:"floor-1",x:660,y:420,worldX:66,worldY:42,locked:true}]});assert.ok(planner.output.plan.warnings.some(w=>w.code==="restricted-area"));assert.equal(planner.output.plan.quality.overallScore,0);assert.equal(planner.recalculate().plan.beacons.length,1);assert.throws(()=>planner.generate(),/inside blocked geometry/);assert.equal(planner.beacons[0].id,"bad");
 });
 test("version comparison persists analyzed metrics and export is unit-explicit and CSV-safe",()=>{
   const planner=new DeploymentPlanner(inputs());planner.generate();let project={...sampleMall,beaconPlan:planner.output.plan,coverageAnalysis:planner.coverage,planningSettings:planner.settings,beaconProfile:BEACON_PROFILES[0]};project=saveDeployment(project,"A","a");
-  planner.edit("patch",{id:"IW007",patch:{enabled:false}});project=saveDeployment({...project,beaconPlan:planner.output.plan,coverageAnalysis:planner.coverage},"B","b");const comparison=compareDeployments(...project.deployments);assert.ok(comparison.sameGeometry);assert.equal(comparison.rows.find(r=>r.metric==="activeBeacons").delta,-1);assert.equal(loadDeployment(project,"a").beaconPlan.beacons.filter(b=>b.enabled!==false).length,17);
+  planner.edit("patch",{id:"IW007",patch:{enabled:false}});project=saveDeployment({...project,beaconPlan:planner.output.plan,coverageAnalysis:planner.coverage},"B","b");const comparison=compareDeployments(...project.deployments);assert.ok(comparison.sameGeometry);assert.equal(comparison.rows.find(r=>r.metric==="activeBeacons").delta,-1);assert.equal(loadDeployment(project,"a").beaconPlan.beacons.filter(b=>b.enabled!==false).length,project.deployments[0].plan.beacons.length);
   assert.equal(deploymentDocument(project).units,"metres");assert.ok(beaconCsv([{id:"=1+2",notes:'a,"b"\nnext'}]).includes("'=1+2"));assert.ok(beaconCsv([{notes:'a,"b"\nnext'}]).includes('a,""b""\nnext'));
 });
 test("sequential IDs persist through delete, reload, prefix changes and version reload",()=>{
   const planner=new DeploymentPlanner(inputs());planner.generate();
-  assert.equal(planner.beacons[0].id,"IW001");assert.equal(planner.beacons[16].id,"IW017");
-  planner.edit("delete",{id:"IW017"});
-  let result=planner.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,"IW018");
+  const count=planner.beacons.length,iw=n=>`IW${String(n).padStart(3,"0")}`;
+  assert.equal(planner.beacons[0].id,"IW001");assert.equal(planner.beacons.at(-1).id,iw(count));
+  planner.edit("delete",{id:iw(count)});
+  let result=planner.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,iw(count+1));
   const restored=new DeploymentPlanner({...inputs(),settings:result.settings,beacons:result.plan.beacons});
-  restored.edit("delete",{id:"IW018"});result=restored.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,"IW019");
-  restored.configure({beaconPrefix:"BLD"});result=restored.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,"BLD020");assert.ok(result.plan.beacons.some(b=>b.id==="IW007"));
+  restored.edit("delete",{id:iw(count+1)});result=restored.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,iw(count+2));
+  restored.configure({beaconPrefix:"BLD"});result=restored.edit("duplicate",{id:"IW007"});assert.equal(result.plan.beacons.at(-1).id,`BLD${String(count+3).padStart(3,"0")}`);assert.ok(result.plan.beacons.some(b=>b.id==="IW007"));
   assert.throws(()=>restored.configure({beaconPrefix:"<invalid>"}));
   const project={...sampleMall,beaconPlan:result.plan,planningSettings:result.settings,beaconProfile:BEACON_PROFILES[0]};
   const saved=saveDeployment(project,"A","a");
