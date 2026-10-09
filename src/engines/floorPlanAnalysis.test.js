@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import {analyzeFloorPlan,maskContours} from './floorPlanAnalysis.js';
 import {compileFloorGeometry,geometryConflict,validGraphIntervals} from './floorGeometry.js';
 import {DeploymentPlanner} from './deploymentPlanner.js';
+import {readFileSync} from 'node:fs';
+import {gunzipSync} from 'node:zlib';
+import {pointInPolygon} from './floorGeometry.js';
+
+test('AC02 pale coloured CAD raster maps classrooms without enclosing the title or blank sheet',()=>{
+  // Original AC02 GF.png, downsampled to the importer's 800 x 365 analysis raster.
+  const data=new Uint8ClampedArray(gunzipSync(readFileSync(new URL('./fixtures/ac02-ground-800x365.rgba.gz',import.meta.url))));
+  const result=analyzeFloorPlan({data,width:800,height:365,metersPerPixel:.1,excludeDrawingFrame:true});
+  const boundaries=result.objects.filter(o=>o.type==='buildingBoundary');
+  for(const point of [{x:275,y:190},{x:389,y:260},{x:610,y:160}])assert.ok(boundaries.some(o=>pointInPolygon(point,o.points)));
+  for(const point of [{x:280,y:350},{x:400,y:100},{x:700,y:250}])assert.ok(!boundaries.some(o=>pointInPolygon(point,o.points)));
+  for(const point of [{x:389,y:260},{x:433,y:283},{x:481,y:260}])assert.ok(result.objects.some(o=>o.type==='room'&&pointInPolygon(point,o.points)));
+  assert.ok(result.graph.edges.length>0);
+  const floor=compileFloorGeometry({objects:result.objects,metersPerPixel:.1}).get('floor-1');
+  for(const node of result.graph.nodes)assert.equal(geometryConflict({x:node.worldX,y:node.worldY},floor),null);
+  const nodes=new Map(result.graph.nodes.map(node=>[node.id,node]));
+  for(const edge of result.graph.edges){
+    const a=nodes.get(edge.source),b=nodes.get(edge.target);
+    assert.ok(validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor).reduce((sum,[start,end])=>sum+end-start,0)>.99999);
+  }
+});
+
+test('transparent coloured strokes cannot create enclosed geometry',()=>{
+  const input=fixture();
+  for(let i=3;i<input.data.length;i+=4)input.data[i]=0;
+  assert.throws(()=>analyzeFloorPlan(input),/No enclosed/);
+});
 
 function fixture(){
   const width=64,height=48,data=new Uint8ClampedArray(width*height*4).fill(255);

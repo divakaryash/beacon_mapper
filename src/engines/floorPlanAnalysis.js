@@ -1,23 +1,24 @@
 import {facilityBlocks} from "./facilityBlocks.js";
 import {simplifyContour} from "./geometry.js";
-import { segmentProjection,pointInPolygon } from './floorGeometry.js';
+import { segmentProjection,pointInPolygon,selfIntersects,compileFloorGeometry,geometryConflict,validGraphIntervals } from './floorGeometry.js';
 import { NavigationGraph } from './navigationGraph.js';
 
 const rectangle=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
 const category=text=>[/\bescalator/i,'Escalator',/\b(lift|elevator)\b/i,'Lift',/\bstair/i,'Stairs',/\bexit\b/i,'Exit',/\bentrance\b/i,'Entrance',/\batrium\b/i,'Atrium',/\b(shop|store|outlet)\b/i,'Store'].reduce((found,value,i,list)=>found||(i%2===0&&value.test(text)?list[i+1]:null),null);
 
-// ponytail: bounded monochrome segmentation, not semantic vision; use a trained detector for coloured plans and unlabeled symbols.
+// shortcut: raster segmentation cannot distinguish every CAD annotation from a wall; review the draft before deployment.
 export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHeight=height,metersPerPixel,labels=[],excludeDrawingFrame=false,crossMarksRemoved=false}) {
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<3||width*height>400000||![drawingWidth,drawingHeight].every(v=>Number.isFinite(v)&&v>0)||!Array.isArray(labels)||data.length!==width*height*4||!(metersPerPixel>0)||!Number.isFinite(metersPerPixel))throw new Error('Invalid analysis raster or scale.');
   const size=width*height,ink=new Uint8Array(size),closed=new Uint8Array(size),outside=new Uint8Array(size),free=new Uint8Array(size),sx=drawingWidth/width,sy=drawingHeight/height;
   const neighbors=i=>[i-width,i+1,i+width,i-1].filter(j=>j>=0&&j<size&&(Math.floor(i/width)===Math.floor(j/width)||i%width===j%width));
-  for(let i=0;i<size;i++){const p=i*4,alpha=data[p+3]/255;ink[i]=((.2126*data[p]+.7152*data[p+1]+.0722*data[p+2])*alpha+255*(1-alpha))<180?1:0;}
+  // Pale CAD walls can be bright in luminance while retaining contrast in one colour channel.
+  for(let i=0;i<size;i++){const p=i*4,alpha=data[p+3]/255;ink[i]=(Math.min(data[p],data[p+1],data[p+2])*alpha+255*(1-alpha))<235?1:0;}
   if(excludeDrawingFrame){
     const columns=[];
     for(let x=0;x<width;x++)if(x<width*.15||x>width*.85){let count=0,branches=0;for(let y=0;y<height;y++)if(ink[y*width+x]){count++;if((x>1&&ink[y*width+x-2])||(x<width-2&&ink[y*width+x+2]))branches++;}if(count>height*.35&&branches<=Math.max(4,height*.025))columns.push(x);}
     const left=columns.find(x=>x<width*.15),right=columns.findLast(x=>x>width*.85);
     if(left!==undefined&&right!==undefined&&right-left>width*.75)for(const x of columns)if(x<=left+2||x>=right-2)for(let y=0;y<height;y++)ink[y*width+x]=0;
-    for(let y=0;y<height;y++)if(y<height*.03||y>height*.97)for(let x=0;x<width;){if(!ink[y*width+x]){x++;continue;}const start=x;let branches=0;while(x<width&&ink[y*width+x]){if((y>1&&ink[(y-2)*width+x])||(y<height-2&&ink[(y+2)*width+x]))branches++;x++;}if(x-start>width*.25&&branches<=Math.max(4,width*.025))for(let i=start;i<x;i++)ink[y*width+i]=0;}
+    for(let y=0;y<height;y++)if(y<height*.03||y>height*.97)for(let x=0;x<width;){if(!ink[y*width+x]){x++;continue;}const start=x;let branches=0;while(x<width&&ink[y*width+x]){if((y>1&&ink[(y-2)*width+x])||(y<height-2&&ink[(y+2)*width+x]))branches++;x++;}if(x-start>width*.25&&branches<=Math.max(4,width*.04))for(let i=start;i<x;i++)ink[y*width+i]=0;}
   }
   // Reject isolated glyph-sized strokes; retain solid columns and long structural lines.
   const glyphCandidates=[];
@@ -112,6 +113,13 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   for(const object of objects)if(object.type==='nonWalkableArea'&&!object.category)object.category='Wall';
   for(const block of facilities)add('nonWalkableArea',rectangle(block.x*sx,block.y*sy,block.w*sx,block.h*sy),{category:block.type,name:block.name,metadata:{sourceType:block.type,groupedAssembly:true,needsReview:!!block.needsReview}});
   const graph=graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel});
+  // Smoothed outlines can shift across a raster route; keep routes inside the final editable geometry.
+  const floor=compileFloorGeometry({objects,metersPerPixel}).get('floor-1');
+  for(const node of [...graph.nodes.values()])if(geometryConflict({x:node.worldX,y:node.worldY},floor))graph.removeNode(node.id);
+  for(const edge of [...graph.edges.values()]){
+    const a=graph.nodes.get(edge.source),b=graph.nodes.get(edge.target);
+    if(validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor).reduce((sum,[start,end])=>sum+end-start,0)<.99999)graph.removeEdge(edge.id);
+  }
   for(const node of graph.nodes.values())if(graph.adjacency.get(node.id).size>=3)node.type='Junction';
   for(const block of facilities){
     const x=(block.x+block.w/2)*sx,y=(block.y+block.h/2)*sy;
@@ -193,7 +201,11 @@ export function maskContours(mask,width,height,sx=1,sy=1,tolerance=.8) {
       }
       if(split)continue;
     const simplified=loop.filter((p,i)=>{const a=loop[(i+loop.length-1)%loop.length],b=loop[(i+1)%loop.length];return Math.abs((p.x-a.x)*(b.y-p.y)-(p.y-a.y)*(b.x-p.x))>1e-8;});
-    if(simplified.length>=3){const signed=simplified.reduce((sum,p,i)=>{const n=simplified[(i+1)%simplified.length];return sum+p.x*n.y-n.x*p.y;},0);contours.push({points:simplifyContour(simplified,tolerance*Math.min(sx,sy)),hole:signed<0});}
+    if(simplified.length>=3){
+      const signed=contourArea(simplified),smoothed=simplifyContour(simplified,tolerance*Math.min(sx,sy));
+      // Smoothing narrow CAD recesses must not introduce crossing edges.
+      contours.push({points:selfIntersects(smoothed)?simplified:smoothed,hole:signed<0});
+    }
     }
   }
   return contours;

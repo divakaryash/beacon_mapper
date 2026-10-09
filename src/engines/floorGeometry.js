@@ -23,7 +23,7 @@ const inPolygons=(point,polygons,bounds,index)=>polygonCandidates(polygons,index
   return (!box||(point.x>=box.x-EPS&&point.x<=box.x+box.width+EPS&&point.y>=box.y-EPS&&point.y<=box.y+box.height+EPS))&&pointInPolygon(point,p);
 });
 const inPaths=(point,paths)=>paths.some(path=>path.points.slice(1).some((b,i)=>segmentProjection(point,path.points[i],b).distance<=path.width/2+EPS));
-function selfIntersects(polygon) {
+export function selfIntersects(polygon) {
   const points=polygon.length>3&&Math.hypot(polygon[0].x-polygon.at(-1).x,polygon[0].y-polygon.at(-1).y)<EPS?polygon.slice(0,-1):polygon;
   for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++) {
     if(j===i+1||(i===0&&j===points.length-1))continue;

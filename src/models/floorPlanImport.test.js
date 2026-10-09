@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isPdf, rasterSize, floorPlanFingerprint, matchingFloorReference, geometryOperationsFilter } from "./floorPlanImport.js";
+import { isPdf, rasterSize, analysisRasterSize, floorPlanFingerprint, matchingFloorReference, geometryOperationsFilter } from "./floorPlanImport.js";
+
+test('analysis retains CAD detail within the worker pixel budget',()=>{
+  assert.deepEqual(analysisRasterSize(3891,1777),{width:800,height:365});
+  assert.deepEqual(analysisRasterSize(64,48),{width:64,height:48});
+  for(const dimensions of [[4000,4000],[10000,5000],[5000,10000]]){
+    const {width,height}=analysisRasterSize(...dimensions);
+    assert.ok(width*height<=400000);
+    assert.ok(Math.max(width,height)<=800);
+    assert.ok(Math.abs(width/height-dimensions[0]/dimensions[1])<.01);
+  }
+  assert.throws(()=>analysisRasterSize(Infinity,10),/Invalid/);
+});
 
 test("PDF detection and bounded, aspect-preserving raster dimensions", () => {
   assert.ok(isPdf({ name: "GROUND FLOOR.PDF", type: "" }));

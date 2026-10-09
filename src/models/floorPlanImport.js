@@ -1,6 +1,12 @@
 import {recognizeFloorLabels} from "./floorPlanLabels.js";
 export const isPdf = file => file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
 
+export function analysisRasterSize(width,height) {
+  if (![width,height].every(value=>Number.isFinite(value)&&value>0)) throw new Error('Invalid floor-plan dimensions');
+  const ratio=Math.min(1,800/Math.max(width,height),Math.sqrt(400000/(width*height)));
+  return {width:Math.max(3,Math.floor(width*ratio)),height:Math.max(3,Math.floor(height*ratio))};
+}
+
 export function rasterSize(width, height) {
   if (!(width > 0 && height > 0 && Number.isFinite(width) && Number.isFinite(height))) throw new Error("Invalid floor-plan dimensions");
   // ponytail: one bounded raster per PDF page; tiled rendering if deeper zoom is needed.
@@ -67,7 +73,7 @@ export async function analyzeImportedFloor(imported,metersPerPixel) {
   try {
     const image=new Image();
     await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('Could not rasterize the floor plan'));image.src=source;});
-    const ratio=Math.min(1,512/Math.max(image.naturalWidth,image.naturalHeight)),width=Math.max(3,Math.round(image.naturalWidth*ratio)),height=Math.max(3,Math.round(image.naturalHeight*ratio));
+    const {width,height}=analysisRasterSize(image.naturalWidth,image.naturalHeight);
     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
     const context=canvas.getContext('2d',{willReadFrequently:true});context.fillStyle='white';context.fillRect(0,0,width,height);context.drawImage(image,0,0,width,height);
     let labels=imported.floorPlanLabels||[];
@@ -82,7 +88,7 @@ export async function analyzeImportedFloor(imported,metersPerPixel) {
     // Text is annotation, not a wall. Only remove positioned, unrotated label boxes.
     for(const label of labels)if(label.source!=="ocr"&&!geometryPreview&&!/\.svg$/i.test(imported.file.name)&&imported.file.type!=='image/svg+xml'&&label.width>0&&label.height>0)context.fillRect(label.x*width/imported.drawingWidthPixels,(label.y-label.height)*height/imported.drawingHeightPixels,label.width*width/imported.drawingWidthPixels,label.height*height/imported.drawingHeightPixels);
     const raster=context.getImageData(0,0,width,height);
-    return await runFloorAnalysis({data:raster.data,width,height,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,metersPerPixel,labels,excludeDrawingFrame:isPdf(imported.file)},[raster.data.buffer]);
+    return await runFloorAnalysis({data:raster.data,width,height,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,metersPerPixel,labels,excludeDrawingFrame:true},[raster.data.buffer]);
   } finally {URL.revokeObjectURL(source);}
 }
 
