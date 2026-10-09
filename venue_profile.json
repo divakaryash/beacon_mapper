@@ -1,0 +1,13 @@
+{
+  "venueType": "mall",
+  "presets": {"mall":"Store","hospital":"Room","airport":"Gate","campus":"Classroom","monument":"Exhibit","zoo":"Enclosure","office":"Office","other":"Room"},
+  "keywords": {"Female Washroom":["women","ladies","female"],"Male Washroom":["men","gents","male"],"Lift":["lift","elevator"],"Stairs":["stair","steps"],"Escalator":["escalator"],"Travelator":["travelator"],"Ramp":["ramp"],"Restricted Area":["staff","service","store room","electrical","shaft","duct","plant","storage"],"Non Walkable":["atrium","void","water","tracks","pit"]},
+  "namePatterns": ["\\b[A-Z]\\d{3}[A-Z]?\\b","\\b\\dK\\d{1,3}[A-Z]?\\b","\\b[GS]L-\\d{2}\\b","^(Room|Ward|Gate|Office|Classroom|Counter|Exhibit|Enclosure|Lift) [A-Z0-9-]+$"],
+  "dictionary": ["reception","emergency","pharmacy","cafeteria","library","laboratory","security","information"],
+  "colors": {"Store":"#a4d3df","Room":"#a4d3df","Lift":"#f0e67a","Male Washroom":"#8fdb88","Female Washroom":"#8fdb88","Restricted Area":"#c36969","Wall":"#767676","Non Walkable":"#121212","Boundary":"#ffffff"},
+  "defaultHeight":"3","minimumArea":2,"minimumAreas":{"Lift":1},
+  "simplifyMeters":0.3,"snapMeters":0.2,"orthogonalDegrees":5,"mergeSharedBoundaryMeters":1,
+  "overlapAreaMeters":0.1,"overlapFraction":0.005,"minimumWallWidthMeters":0.5,"minimumWallAreaMeters":8,
+  "maximumAspectRatio":40,"doorOffsetMeters":0.05,"doorEdgeToleranceMeters":1,"registrationResidualMeters":3,"minimumRoutingMeters":2,
+  "doorPreferences":["source-opening","corridor-facing-edge"],"units":"metres","scaleSource":null
+}

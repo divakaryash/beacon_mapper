@@ -1,0 +1,24 @@
+{
+  "sample": "SECOND FLOOR PLAN (L03) Model (1).pdf",
+  "scale": "Diagnostic 100 m drawing width only; not a verified physical scale.",
+  "counts": {
+    "Boundary": 1,
+    "Room": 93,
+    "Void": 40,
+    "Wall": 88,
+    "Vertical circulation": 19,
+    "Navigation Path": 1957
+  },
+  "areaFeatures": 235,
+  "overlappingPairs": 222,
+  "overlapArea": 1692.132740763088,
+  "placeholderNames": 72,
+  "stringFloors": 2198,
+  "missingHeight": 2198,
+  "missingLocalCoordinates": 2198,
+  "doorPoints": 0,
+  "centroidPoints": 0,
+  "microSegments": 1866,
+  "navigationSegments": 1957,
+  "registration": "No surveyed control points available; not georeferenced."
+}
