@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import json,sys,statistics
 from pathlib import Path
-from shapely.ops import transform,unary_union
+from shapely.ops import unary_union
+from shapely import transform
 from shapely.geometry import shape,Point
 from professional_annotation import REQUIRED,ENTRY_TYPES,load_profile
 
@@ -22,7 +23,7 @@ def validate(data,profile=None,require_registration=True,adjacent_floors=()):
     def metres(g):
         if not registration:return g
         east=registration['eastMetersPerDegree'];north=registration['northMetersPerDegree'];lon,lat=registration['origin']
-        return transform(lambda x,y:((x-lon)*east,(y-lat)*north),g)
+        return transform(g,lambda x,y:((x-lon)*east,(y-lat)*north),interleaved=False)
     for f in features:
         id=f.get('id');p=f.get('properties',{})
         if id is None:errors.append('Feature id required')
@@ -35,7 +36,7 @@ def validate(data,profile=None,require_registration=True,adjacent_floors=()):
         elif p.get('floor')!=floor:errors.append(f'{id}: inconsistent floor')
         if p.get('level')!=p.get('floor'):errors.append(f'{id}: level and floor differ')
         name=p.get('name')
-        if name is not None and (len(name.strip())<2 or name.lower().startswith('detected')):errors.append(f'{id}: invalid name')
+        if name is not None and (not isinstance(name,str) or len(name.strip())<2 or name.lower().startswith('detected')):errors.append(f'{id}: invalid name')
         if require_registration and (not p.get('global') or 'coordinnatesLocal' not in f.get('geometry',{})):errors.append(f'{id}: global/source coordinates missing')
         if p.get('type') in ENTRY_TYPES and f.get('geometry',{}).get('type')!='Polygon':errors.append(f'{id}: room/lift/washroom must be an area')
         try:g=metres(shape(f['geometry']))
@@ -56,6 +57,7 @@ def validate(data,profile=None,require_registration=True,adjacent_floors=()):
     for f,g in areas:
         id=f['id'];p=f['properties'];centroids=[c for c in features if c['properties'].get('type')=='Centroid' and c['properties'].get('associatedPolygons')==[id]]
         if len(centroids)!=1:errors.append(f'{id}: exactly one centroid required')
+        elif p.get('associatedCentroid')!=centroids[0]['id']:errors.append(f'{id}: centroid link missing')
         elif not g.covers(metres(shape(centroids[0]['geometry']))):errors.append(f'{id}: centroid outside area')
         if p['type'] not in ENTRY_TYPES:continue
         doors=[d for d in features if d['properties'].get('type')=='Point' and d['properties'].get('associatedPolygons')==[id]]
@@ -88,6 +90,8 @@ def validate(data,profile=None,require_registration=True,adjacent_floors=()):
     for t,values in stats.items():
         for area,_ in values:
             if t in ENTRY_TYPES and (area<3 or t=='Lift' and area>30):warnings.append(f'{t}: unusual area {area:.2f} m²')
+    review_fraction=sum(bool(f['properties'].get('needsReview')) for f in features)/max(1,len(features))
+    if review_fraction>.25:warnings.append(f'{review_fraction:.1%} of features require review; geometry validity is not detection accuracy')
     return {'valid':not errors,'errors':errors,'warnings':warnings,'counts':{t:sum(f['properties']['type']==t for f in features) for t in sorted({f['properties']['type'] for f in features})},'nullNameFraction':sum(f['properties'].get('name') is None for f in features)/max(1,len(features)),'reviewFraction':sum(bool(f['properties'].get('needsReview')) for f in features)/max(1,len(features)),'areaStatistics':{t:{'medianArea':statistics.median(a for a,v in values),'medianVertices':statistics.median(v for a,v in values)} for t,values in stats.items()},'corridorReachableFraction':corridor_fraction,'nonWalkableAreaFraction':sum(g.area for f,g in nonboundary if f['properties']['type']=='Non Walkable')/max(boundary.area,1e-9),'restrictedAreaFraction':sum(g.area for f,g in nonboundary if f['properties']['type']=='Restricted Area')/max(boundary.area,1e-9),'wallAreaFraction':wall/max(total,1e-9),'registration':registration}
 
 def report(data,result):
@@ -101,3 +105,19 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('file');p.add_argument('--local-diagnostic',action='store_true');p.add_argument('--report');p.add_argument('--adjacent-floor',action='append',default=[]);a=p.parse_args();data=json.loads(Path(a.file).read_text());result=validate(data,require_registration=not a.local_diagnostic,adjacent_floors=[json.loads(Path(path).read_text()) for path in a.adjacent_floor])
     if a.report:Path(a.report).write_text(report(data,result))
     print(json.dumps(result,indent=2));sys.exit(0 if result['valid'] else 1)
+
+def validate_routing(annotation,routes):
+    features=routes['features'];nodes={f['id']:shape(f['geometry']) for f in features if f['geometry']['type']=='Point'}
+    boundary=unary_union([shape(f['geometry']) for f in annotation['features'] if f['properties']['type']=='Boundary'])
+    blockers=unary_union([shape(f['geometry']) for f in annotation['features'] if f['geometry']['type']=='Polygon' and f['properties']['type']!='Boundary']+[shape(f['properties']['blockedFootprint']) for f in annotation['features'] if f['properties'].get('blockedFootprint')])
+    errors=[]
+    if len({f['id'] for f in features})!=len(features):errors.append('Duplicate routing ids')
+    for f in features:
+        g=shape(f['geometry'])
+        if not g.is_valid or g.is_empty or not boundary.buffer(1e-7).covers(g):errors.append(f"{f['id']}: invalid routing geometry / outside boundary")
+        if g.geom_type=='LineString':
+            if g.length<=0 or g.intersection(blockers).length>1e-7:errors.append(f"{f['id']}: route crosses blocked geometry")
+            for key,coordinate in [('source',g.coords[0]),('target',g.coords[-1])]:
+                id=f['properties'].get(key)
+                if id not in nodes or nodes[id].distance(Point(coordinate))>1e-6:errors.append(f"{f['id']}: unresolved / displaced endpoint")
+    return {'valid':not errors,'errors':errors,'featureCount':len(features)}

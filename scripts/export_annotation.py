@@ -2,7 +2,7 @@
 import argparse,json,sys
 from pathlib import Path
 from professional_annotation import *
-from validate_annotation import validate,report
+from validate_annotation import validate,report,validate_routing
 
 def export(source,config):
     profile=load_profile(config.get('profile'));scale=config.get('metersPerPixel')
@@ -13,12 +13,18 @@ def export(source,config):
         factor=math.hypot(fitted['a'],fitted['b'])
         def resize(value):return [value[0]*factor,value[1]*factor] if isinstance(value[0],(int,float)) else [resize(v) for v in value]
         for f in source['features']:f['geometry']['coordinates']=resize(f['geometry']['coordinates'])
-        for label in config.get('labels',[]):label['x']*=factor;label['y']*=factor
+        for label in config.get('labels',[]):
+            for key in ['x','y','width','height']:
+                if key in label:label[key]*=factor
         scale*=factor;config['scaleSource']={'kind':'surveyed-control-points','count':len(config['controlPoints'])}
     data=taxonomy(source,config['floor'],profile,scale)
     data['metadata']['scaleSource']=config.get('scaleSource');data['metadata']['metersPerPixel']=scale
     data=naming(data,profile,config.get('labels',[]));data=cleanup(data,profile);data=circulation(data,profile);data=linked_points(data,profile)
     routes=routing(data,{},profile) if config.get('routing') else None
+    if routes is not None:
+        route_validation=validate_routing(data,routes)
+        if not route_validation['valid']:raise ValueError('Routing validation failed: '+'; '.join(route_validation['errors']))
+        routes['metadata']['validation']=route_validation
     if not config.get('localDiagnostic'):data=register(data,config.get('controlPoints',[]),scale,profile)
     else:
         def pixels(v):return [v[0]/scale,-v[1]/scale] if isinstance(v[0],(int,float)) else [pixels(w) for w in v]

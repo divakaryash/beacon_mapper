@@ -48,10 +48,10 @@ class AnnotationTests(unittest.TestCase):
         controls[3]['latitude']+=.001
         with self.assertRaises(ValueError):register(data,controls,1,load_profile())
     def test_routing(self):
-        data=linked_points(taxonomy(sample(),0),load_profile())
-        graph={'nodes':[{'id':str(i),'x':i,'y':-15} for i in range(2,25)],'edges':[{'id':str(i),'source':str(i),'target':str(i+1)} for i in range(2,24)]}
-        result=routing(data,graph,load_profile());edges=[f for f in result['features'] if f['geometry']['type']=='LineString']
-        self.assertLess(len(edges),5)
+        source=sample();source['features'].append(feature('second',[(18,2),(26,2),(26,10),(18,10)],'Room 102'))
+        data=linked_points(taxonomy(source,0),load_profile())
+        result=routing(data,{},load_profile());edges=[f for f in result['features'] if f['geometry']['type']=='LineString']
+        self.assertGreater(len(edges),0);self.assertLess(len(edges),20)
         for edge in edges:self.assertLess(shape(edge['geometry']).intersection(shape(data['features'][1]['geometry'])).length,1e-7)
     def test_validator(self):
         from validate_annotation import validate
@@ -71,6 +71,32 @@ class AnnotationTests(unittest.TestCase):
     def test_ungendered_washroom(self):
         self.assertEqual(classify('WC', 'Room', load_profile()),'Washroom')
         self.assertEqual(classify('Women Toilet','Room',load_profile()),'Female Washroom')
+    def test_thin_wall_network(self):
+        source=sample();network=unary_union([Polygon([(1,1),(29,1),(29,1.4),(1,1.4)]),Polygon([(1,1),(1.4,1),(1.4,29),(1,29)]),Polygon([(18,18),(23,18),(23,23),(18,23)])])
+        source['features'].append({'type':'Feature','id':'walls','properties':{'type':'Wall','name':None},'geometry':mapping(network)})
+        source['features'][-1]['geometry']=mapping(Polygon([(1,1),(23,1),(23,23),(18,23),(18,1.4),(1,1.4)]))
+        output=cleanup(taxonomy(source,0),load_profile());walls=[shape(f['geometry']) for f in output['features'] if f['properties']['type']=='Wall']
+        self.assertTrue(all(g.area>=8 for g in walls));self.assertTrue(all(not g.covers(Point(2,1.2)) for g in walls))
+    def test_entry_prefers_main_corridor_component(self):
+        source=sample();source['features'][1]=feature('room',[(8,0),(12,0),(12,30),(8,30)])
+        output=linked_points(taxonomy(source,0),load_profile());door=next(f for f in output['features'] if f['properties']['type']=='Point')
+        self.assertGreater(door['geometry']['coordinates'][0],12)
+    def test_unlabeled_small_cell(self):
+        source=sample();source['features'][1]=feature('cell',[(2,2),(5,2),(5,5),(2,5)],None)
+        output=naming(taxonomy(source,0),load_profile())
+        self.assertEqual(output['features'][1]['properties']['type'],'Restricted Area')
+    def test_gap_snapping(self):
+        source=sample();source['features'].append(feature('second',[(10.1,2),(18,2),(18,10),(10.1,10)],'Room 102'))
+        result=cleanup(taxonomy(source,0),load_profile());rooms=[shape(f['geometry']) for f in result['features'] if f['properties']['type']!='Boundary']
+        self.assertEqual(rooms[0].distance(rooms[1]),0)
+    def test_routing_validator_rejects_room_crossing(self):
+        from validate_annotation import validate_routing
+        data=linked_points(taxonomy(sample(),0),load_profile());routes={'features':[{'id':'a','properties':{},'geometry':mapping(Point(1,6))},{'id':'b','properties':{},'geometry':mapping(Point(20,6))},{'id':'edge','properties':{'source':'a','target':'b'},'geometry':mapping(LineString([(1,6),(20,6)]))}]}
+        self.assertFalse(validate_routing(data,routes)['valid'])
+    def test_embedded_label_box_center(self):
+        data=taxonomy(sample(),0);labels=[{'text':'Room 777','x':1.5,'y':6,'width':5,'height':1,'source':'pdf-text','confidence':100}]
+        result=naming(data,load_profile(),labels)
+        self.assertEqual(result['features'][1]['properties']['name'],'Room 777')
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):

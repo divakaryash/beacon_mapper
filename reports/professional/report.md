@@ -8,17 +8,21 @@ Coordinate system: local metres diagnostic; not georeferenced
 
 - Boundary: 1
 
-- Centroid: 119
+- Centroid: 124
 
 - Non Walkable: 24
 
-- Point: 92
+- Point: 62
+
+- Restricted Area: 30
 
 - Stairs: 13
 
-- Store: 92
+- Store: 61
 
-- Wall: 2
+- Wall: 7
+
+- Washroom: 1
 
 ## Errors
 
@@ -27,6 +31,8 @@ Coordinate system: local metres diagnostic; not georeferenced
 Physical scale unverified: areas/distances diagnostic only
 
 Corridor area reachable from every inferred entry: 0.0%; review segmentation and entries
+
+92.9% of features require review; geometry validity is not detection accuracy
 
 ## Review queue
 
@@ -74,9 +80,19 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-nonWalkableArea-12-centroid | None | (64.6790878100388, -47.3756906077348)
 
-- auto-nonWalkableArea-137-part-3-centroid | None | (55.041436464088406, -96.2707182320442)
+- auto-nonWalkableArea-137-part-19-centroid | None | (17.403314917292818, -58.70165745841713)
 
-- auto-nonWalkableArea-137-part-5-centroid | None | (20.511049723756905, -69.1988950276243)
+- auto-nonWalkableArea-137-part-26-centroid | None | (46.891728583677384, -93.52223914514748)
+
+- auto-nonWalkableArea-137-part-27-centroid | None | (40.331491713000005, -90.92344119949999)
+
+- auto-nonWalkableArea-137-part-39-centroid | None | (50.21032144652273, -11.6712707185)
+
+- auto-nonWalkableArea-137-part-41-centroid | None | (67.60666052805962, -115.74585635359117)
+
+- auto-nonWalkableArea-137-part-43-centroid | None | (75.97312908093802, -99.03314917102003)
+
+- auto-nonWalkableArea-137-part-50-centroid | None | (53.73348628564983, -91.05277540420036)
 
 - auto-nonWalkableArea-14-centroid | None | (50.23020257826887, -51.933701657458556)
 
@@ -108,27 +124,19 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-115-centroid | None | (60.06560773480663, -94.06077348066299)
 
-- auto-room-115-entry | None | (60.95899902995161, -95.28572245792402)
-
 - auto-room-116-centroid | None | (52.14088397790056, -94.33701657458562)
 
-- auto-room-116-entry | None | (51.42353291735967, -95.63859190878163)
+- auto-room-116-entry | None | (51.607458563535914, -94.7513812154696)
 
 - auto-room-117-centroid | None | (79.8342541436464, -95.99447513812154)
 
-- auto-room-117-entry | None | (84.41083472718788, -98.94145145885365)
+- auto-room-117-entry | None | (72.04944751381215, -95.44198895027623)
 
 - auto-room-118-centroid | None | (33.01598263614838, -97.09944751381215)
 
-- auto-room-118-entry | None | (35.54195892861077, -96.70744355270318)
-
 - auto-room-119-centroid | None | (71.61720262548992, -97.9281767955801)
 
-- auto-room-119-entry | None | (72.83877480840351, -98.2156628648377)
-
 - auto-room-120-centroid | None | (20.4376726519337, -99.03314917127071)
-
-- auto-room-120-entry | None | (21.306073571103525, -97.8254105876781)
 
 - auto-room-121-centroid | None | (45.331491712707184, -100.41436464088397)
 
@@ -140,7 +148,7 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-123-centroid | D325A,D326 FAB INDIA D 324,D325 PANTALOONS | (74.2797947908445, -112.15469613259668)
 
-- auto-room-123-entry | D325A,D326 FAB INDIA D 324,D325 PANTALOONS | (80.12805340964849, -120.53329403835912)
+- auto-room-123-entry | D325A,D326 FAB INDIA D 324,D325 PANTALOONS | (80.98263867644323, -112.31762462647583)
 
 - auto-room-124-centroid | None | (58.25726639442709, -102.62430939226519)
 
@@ -148,7 +156,7 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-125-centroid | None | (85.98624878128047, -102.76243093922652)
 
-- auto-room-125-entry | None | (83.95493588042262, -104.75945220214984)
+- auto-room-125-entry | None | (86.61115421666138, -100.50329269234031)
 
 - auto-room-126-centroid | PALL MALL F371 F372 | (51.169429097605885, -105.24861878453038)
 
@@ -156,23 +164,17 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-127-centroid | None | (63.88121546961326, -110.77348066298342)
 
-- auto-room-127-entry | None | (63.27276137337229, -111.44859790066793)
-
 - auto-room-128-centroid | None | (46.06353591160221, -112.15469613259668)
 
 - auto-room-128-entry | None | (45.822523346359674, -112.76937911147232)
 
 - auto-room-129-centroid | None | (53.59116022099448, -109.94475138121547)
 
-- auto-room-129-entry | None | (48.52044862709947, -109.17532449632597)
-
 - auto-room-130-centroid | None | (61.27532228360958, -112.15469613259668)
 
 - auto-room-130-entry | None | (57.62608043783877, -111.7600141426403)
 
 - auto-room-131-centroid | None | (42.80705482362941, -111.46408839779005)
-
-- auto-room-131-entry | None | (42.3644353665997, -111.75419939527316)
 
 - auto-room-132-centroid | None | (53.24585635359116, -112.15469613259668)
 
@@ -182,41 +184,33 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-134-centroid | None | (20.05004663844442, -118.92265193370164)
 
-- auto-room-134-entry | None | (20.329592191086295, -117.22231872388012)
-
 - auto-room-135-centroid | None | (39.31682957926052, -121.13259668508287)
-
-- auto-room-135-entry | None | (41.61458563535911, -119.30701657458563)
 
 - auto-room-136-centroid | None | (23.361665958351047, -123.06629834254144)
 
-- auto-room-136-entry | None | (23.336846135475806, -125.44177590138895)
+- auto-room-136-entry | None | (24.9015096524939, -122.48332661665364)
 
-- auto-room-2-entry | A 301/A302/A303 LIFESTYLE | (62.55049123966296, -29.328191790345368)
+- auto-room-2-entry | A 301/A302/A303 LIFESTYLE | (66.90082872928177, -20.303867403314918)
 
 - auto-room-27-centroid | None | (67.42633517495395, -40.19337016574586)
 
-- auto-room-27-entry | None | (73.048349388576, -36.55554266444123)
+- auto-room-27-entry | None | (69.038412800888, -37.386217866969346)
 
 - auto-room-28-centroid | None | (42.81767955801105, -40.88397790055249)
 
-- auto-room-28-entry | None | (41.71270718232044, -43.81654698550643)
-
 - auto-room-29-centroid | None | (47.22309918442515, -41.29834254143647)
-
-- auto-room-29-entry | None | (46.61891225152137, -44.75138121546961)
 
 - auto-room-3-centroid | None | (45.58011049723757, -8.701657458563536)
 
-- auto-room-3-entry | None | (32.32044198895027, -9.668508287292818)
+- auto-room-3-entry | None | (45.58011049723757, -7.684806629834254)
 
 - auto-room-30-centroid | None | (24.55110497237569, -41.71270718232044)
 
-- auto-room-30-entry | None | (21.368839779005526, -42.018950276243096)
+- auto-room-30-entry | None | (26.24309392265193, -38.90027624309393)
 
 - auto-room-31-centroid | None | (70.79304788213628, -44.889502762430936)
 
-- auto-room-31-entry | None | (69.76262419080456, -49.358111824978096)
+- auto-room-31-entry | None | (72.69835753620173, -40.4510437258508)
 
 - auto-room-32-centroid | None | (33.47145488029466, -43.0939226519337)
 
@@ -232,19 +226,17 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-35-centroid | None | (30.11049723756906, -43.370165745856355)
 
-- auto-room-35-entry | None | (28.906836351138672, -43.87007455207293)
-
 - auto-room-36-centroid | None | (62.93207253152005, -45.44198895027624)
 
 - auto-room-36-entry | None | (62.98342541436464, -49.8998525736252)
 
 - auto-room-37-centroid | None | (77.33550979407333, -46.408839779005525)
 
-- auto-room-37-entry | None | (74.81846629593245, -44.08558042758082)
+- auto-room-37-entry | None | (78.63731406714832, -44.455907352316196)
 
 - auto-room-38-centroid | None | (20.303867403314914, -47.651933701657455)
 
-- auto-room-38-entry | None | (19.15889502762431, -43.34016574585635)
+- auto-room-38-entry | None | (16.16022099447514, -44.97762430939227)
 
 - auto-room-39-centroid | None | (28.689818468823994, -48.89502762430939)
 
@@ -252,7 +244,7 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-40-centroid | None | (20.58011049723757, -51.24309392265193)
 
-- auto-room-40-entry | None | (14.640883977900552, -53.81740331491713)
+- auto-room-40-entry | None | (20.16741159786522, -55.98919876468597)
 
 - auto-room-41-centroid | None | (40.331491712707184, -50.414364640883974)
 
@@ -262,45 +254,33 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-43-centroid | None | (72.85911602209944, -51.93370165745856)
 
-- auto-room-43-entry | None | (74.90348096775557, -48.1766848796915)
+- auto-room-43-entry | None | (78.17679558011051, -51.05497237569061)
 
 - auto-room-44-entry | HILD F346 | (33.90318860792879, -55.86549624932152)
 
 - auto-room-45-centroid | None | (57.31180939226519, -53.17679558011049)
 
-- auto-room-45-entry | None | (54.789281023133505, -53.287069837011636)
-
 - auto-room-46-centroid | None | (14.640883977900552, -69.06077348066299)
 
-- auto-room-46-entry | None | (10.723480662983423, -70.30386740331491)
+- auto-room-46-entry | None | (18.254404878670027, -70.53538913768757)
 
 - auto-room-47-centroid | None | (28.550536236594084, -58.83977900552486)
 
-- auto-room-47-entry | None | (27.62066439104391, -59.56670725272851)
-
 - auto-room-48-centroid | None | (26.968232044198896, -64.08839779005525)
-
-- auto-room-48-entry | None | (26.379384981008577, -61.819877403324256)
 
 - auto-room-49-centroid | None | (30.216246546961326, -59.806629834254146)
 
-- auto-room-49-entry | None | (30.485800392649868, -57.88886518691109)
-
 - auto-room-50-centroid | None | (54.2817679558011, -59.254143646408835)
-
-- auto-room-50-entry | None | (53.899591483561025, -61.049723756906076)
 
 - auto-room-52-centroid | None | (75.94247643808905, -63.535911602209936)
 
-- auto-room-52-entry | None | (73.48651004614761, -64.47328859299833)
+- auto-room-52-entry | None | (73.15727037282362, -63.69067415505802)
 
 - auto-room-53-centroid | None | (21.270718232044196, -64.08839779005524)
 
-- auto-room-53-entry | None | (18.23204419889503, -64.72018997320133)
+- auto-room-53-entry | None | (21.270718232044196, -62.38093922651934)
 
 - auto-room-54-centroid | None | (28.509912252193693, -64.3646408839779)
-
-- auto-room-54-entry | None | (27.413930397210024, -64.95448789880406)
 
 - auto-room-55-entry | E348A | (35.08287292817679, -67.12707182320442)
 
@@ -318,8 +298,6 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-60-centroid | None | (76.3713496448303, -67.26519337016575)
 
-- auto-room-60-entry | None | (75.08661496952536, -68.60425736571443)
-
 - auto-room-61-centroid | None | (69.99309392265192, -71.13259668508287)
 
 - auto-room-61-entry | None | (69.29101674228343, -71.33000035935243)
@@ -330,49 +308,37 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-63-centroid | None | (64.60635359116021, -68.78453038674033)
 
-- auto-room-63-entry | None | (61.63740611369285, -69.41736554957936)
-
 - auto-room-64-centroid | None | (77.43685872138911, -69.61325966850829)
-
-- auto-room-64-entry | None | (75.75408344663452, -69.31467632797457)
 
 - auto-room-65-centroid | None | (79.58103130755065, -71.68508287292818)
 
-- auto-room-65-entry | None | (77.0718232044199, -72.04944751381215)
-
 - auto-room-66-centroid | None | (22.651933701657455, -71.54696132596686)
-
-- auto-room-66-entry | None | (18.784530386740332, -73.66489230746859)
 
 - auto-room-67-centroid | D334A THE LOOM | (79.8281828668569, -74.86187845303868)
 
-- auto-room-67-entry | D334A THE LOOM | (77.3125898946416, -76.09610327476537)
+- auto-room-67-entry | D334A THE LOOM | (82.78352618961898, -74.73499988141228)
 
 - auto-room-68-centroid | None | (20.234806629834292, -75.27624309392266)
 
-- auto-room-68-entry | None | (16.987815802891628, -75.30125296852003)
+- auto-room-68-entry | None | (16.708180395018317, -75.32603775424604)
 
 - auto-room-69-centroid | None | (78.90193370165746, -78.17679558011051)
 
-- auto-room-69-entry | None | (80.76151401249224, -78.97560823565048)
+- auto-room-69-entry | None | (83.02813687691125, -77.02483353324547)
 
 - auto-room-70-centroid | None | (21.132596685082873, -77.90055248618785)
 
-- auto-room-70-entry | None | (21.54945820681404, -78.91734093186102)
-
 - auto-room-71-centroid | None | (28.66022099447514, -79.69613259668509)
 
-- auto-room-71-entry | None | (27.577084552429884, -79.71255862793215)
+- auto-room-71-entry | None | (28.591160220994475, -76.46933701657458)
 
 - auto-room-72-centroid | None | (34.90791896869245, -80.52486187845304)
 
-- auto-room-72-entry | None | (34.87803417294512, -84.39736550327666)
+- auto-room-72-entry | None | (33.425414364640886, -77.29806629834255)
 
 - auto-room-73-centroid | None | (64.04523480662984, -78.59116022099448)
 
-- auto-room-73-entry | None | (61.87845303867403, -78.61523041776348)
-
-- auto-room-74-entry | B312,B314 AHUJA SONS | (16.386636800485547, -82.87708045078827)
+- auto-room-74-entry | B312,B314 AHUJA SONS | (15.607734806629836, -77.57430939226519)
 
 - auto-room-75-centroid | None | (26.964558598800988, -87.01657458563535)
 
@@ -380,79 +346,69 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
 
 - auto-room-76-centroid | None | (29.972375690607734, -83.83977900552486)
 
-- auto-room-76-entry | None | (29.92545853476688, -80.50757661051168)
+- auto-room-76-entry | None | (30.989226519337016, -83.5635359116022)
 
 - auto-room-77-centroid | None | (70.61628518810839, -86.60220994475137)
 
-- auto-room-77-entry | None | (69.33701657458563, -93.29764113583887)
+- auto-room-77-entry | None | (69.57165715379139, -79.1159113990285)
 
-- auto-room-78-entry | F378A,378B,379A JAYPORE | (58.726204748167724, -85.6353591160221)
+- auto-room-78-entry | F378A,378B,379A JAYPORE | (58.83977900552486, -85.6853591160221)
 
 - auto-room-79-centroid | None | (80.91078973025677, -82.32044198895028)
 
-- auto-room-79-entry | None | (80.95734883239476, -80.47826164487597)
+- auto-room-79-entry | None | (75.36555528787477, -80.23777226163945)
 
 - auto-room-80-centroid | None | (67.78561562746646, -86.32596685082873)
 
-- auto-room-80-entry | None | (68.8344985294577, -88.11976238480034)
+- auto-room-80-entry | None | (65.29613637364785, -93.47293195375835)
 
 - auto-room-81-centroid | None | (39.3646408839779, -83.83977900552486)
 
-- auto-room-81-entry | None | (38.251431347732634, -84.79015551314482)
-
 - auto-room-82-centroid | None | (77.0718232044199, -83.5635359116022)
-
-- auto-room-82-entry | None | (74.58563535911603, -84.25414364640882)
 
 - auto-room-83-centroid | None | (55.516574585635354, -87.01657458563535)
 
-- auto-room-83-entry | None | (53.0018327957924, -89.96294696663323)
+- auto-room-83-entry | None | (58.28729281767956, -87.79530386740332)
 
 - auto-room-84-centroid | None | (42.40331491712707, -86.87845303867402)
 
-- auto-room-84-entry | None | (41.16022099447514, -89.50932954883429)
+- auto-room-84-entry | None | (42.21519337016575, -88.25966850828729)
 
 - auto-room-85-centroid | None | (49.08719673312515, -88.12154696132596)
 
-- auto-room-85-entry | None | (46.96132596685082, -85.57926125953422)
+- auto-room-85-entry | None | (47.513812154696126, -86.1378453038674)
 
 - auto-room-86-centroid | None | (79.67311233885819, -87.29281767955801)
 
-- auto-room-86-entry | None | (79.84734475565674, -88.75669992229497)
+- auto-room-86-entry | None | (83.84846827222032, -87.10545695465579)
 
 - auto-room-87-centroid | None | (20.303867403314914, -87.84530386740332)
 
-- auto-room-87-entry | None | (17.29292837997701, -85.31751350738256)
+- auto-room-87-entry | None | (16.539230296299788, -85.32376068304012)
 
 - auto-room-88-centroid | None | (28.798342541436465, -88.12154696132596)
 
-- auto-room-88-entry | None | (28.89513832472839, -85.31751350738256)
+- auto-room-88-entry | None | (28.85076230903037, -93.4173152625355)
 
 - auto-room-89-centroid | None | (38.820787292817684, -88.25966850828729)
 
-- auto-room-89-entry | None | (38.27833144174035, -90.2120330991989)
-
 - auto-room-90-centroid | None | (61.883385951065506, -88.12154696132596)
-
-- auto-room-90-entry | None | (62.16807832578599, -87.10652023711519)
 
 - auto-room-91-centroid | None | (78.38743093922655, -89.91712707182322)
 
-- auto-room-91-entry | None | (81.7402207912937, -92.03055279095997)
+- auto-room-91-entry | None | (73.15561053649355, -88.52506507931902)
 
-- auto-room-92-entry | F375,376 ABHYATA | (58.51353591160221, -90.74585635359117)
+- auto-room-92-entry | F375,376 ABHYATA | (62.17705681237169, -92.58615782363839)
 
 - auto-room-93-centroid | None | (79.87569060773481, -93.50828729281767)
 
-- auto-room-93-entry | None | (83.14917127071823, -94.42513812154696)
+- auto-room-93-entry | None | (87.06508171064262, -91.4485908696496)
 
 - auto-room-94-centroid | None | (19.625816172777505, -94.61325966850828)
 
-- auto-room-94-entry | None | (21.621230770219114, -95.8343137829161)
+- auto-room-94-entry | None | (18.093922651933703, -95.90635359116021)
 
 - auto-room-95-centroid | None | (32.09294767630809, -92.95580110497238)
-
-- auto-room-95-entry | None | (31.294844755781252, -91.67615942086545)
 
 ## Transformations
 
@@ -461,6 +417,2601 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
   "coordinateSystem": "local metres diagnostic; not georeferenced",
   "scaleSource": null,
   "transformations": [
+    {
+      "id": "auto-room-2",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "A 301/A302/A303 LIFESTYLE",
+      "name": "A 301/A302/A303 LIFESTYLE"
+    },
+    {
+      "id": "auto-room-3",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 2",
+      "name": null
+    },
+    {
+      "id": "auto-nonWalkableArea-4",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-6",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-7",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-8",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-9",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-10",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-11",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-12",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-13",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-14",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-15",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-16",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-17",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-18",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-19",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-20",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-21",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-22",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-23",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-24",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-25",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-26",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-room-27",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "AND GLOB DESI",
+      "name": "AND GLOB DESI"
+    },
+    {
+      "id": "auto-room-28",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 4",
+      "name": null
+    },
+    {
+      "id": "auto-room-29",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 5",
+      "name": null
+    },
+    {
+      "id": "auto-room-30",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "EENA",
+      "name": "EENA"
+    },
+    {
+      "id": "auto-room-31",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "BATA",
+      "name": "BATA"
+    },
+    {
+      "id": "auto-room-32",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "AYA",
+      "name": "AYA"
+    },
+    {
+      "id": "auto-room-33",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "ALAS",
+      "name": "ALAS"
+    },
+    {
+      "id": "auto-room-34",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 10",
+      "name": null
+    },
+    {
+      "id": "auto-room-35",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 11",
+      "name": null
+    },
+    {
+      "id": "auto-room-36",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 12",
+      "name": null
+    },
+    {
+      "id": "auto-room-37",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 13",
+      "name": null
+    },
+    {
+      "id": "auto-room-38",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B-305A,305B MOHAN LAL SONS",
+      "name": "B-305A,305B MOHAN LAL SONS"
+    },
+    {
+      "id": "auto-room-39",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 15",
+      "name": null
+    },
+    {
+      "id": "auto-room-40",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B MANYAVAR",
+      "name": "B MANYAVAR"
+    },
+    {
+      "id": "auto-room-41",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 17",
+      "name": null
+    },
+    {
+      "id": "auto-room-42",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "E340 MEENA BAZAAR",
+      "name": "E340 MEENA BAZAAR"
+    },
+    {
+      "id": "auto-room-43",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 19",
+      "name": null
+    },
+    {
+      "id": "auto-room-44",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "HILD F346",
+      "name": "HILD F346"
+    },
+    {
+      "id": "auto-room-45",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "E USTARD",
+      "name": "E USTARD"
+    },
+    {
+      "id": "auto-room-46",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 22",
+      "name": null
+    },
+    {
+      "id": "auto-room-47",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 23",
+      "name": null
+    },
+    {
+      "id": "auto-room-48",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 24",
+      "name": null
+    },
+    {
+      "id": "auto-room-49",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 25",
+      "name": null
+    },
+    {
+      "id": "auto-room-50",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 26",
+      "name": null
+    },
+    {
+      "id": "auto-room-51",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Stairs",
+      "previousName": "E357,E358 VENUS STEPS",
+      "name": "E357,E358 VENUS STEPS"
+    },
+    {
+      "id": "auto-room-52",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 28",
+      "name": null
+    },
+    {
+      "id": "auto-room-53",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "SIMRAN",
+      "name": "SIMRAN"
+    },
+    {
+      "id": "auto-room-54",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 30",
+      "name": null
+    },
+    {
+      "id": "auto-room-55",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "E348A",
+      "name": "E348A"
+    },
+    {
+      "id": "auto-room-56",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "L Aarke RITU",
+      "name": "L Aarke RITU"
+    },
+    {
+      "id": "auto-room-57",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "E352 THIRD AVE OFFEE",
+      "name": "E352 THIRD AVE OFFEE"
+    },
+    {
+      "id": "auto-room-58",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "E 350,E351",
+      "name": "E 350,E351"
+    },
+    {
+      "id": "auto-room-59",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "LIBAS",
+      "name": "LIBAS"
+    },
+    {
+      "id": "auto-room-60",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 36",
+      "name": null
+    },
+    {
+      "id": "auto-room-61",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 37",
+      "name": null
+    },
+    {
+      "id": "auto-room-62",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 38",
+      "name": null
+    },
+    {
+      "id": "auto-room-63",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 39",
+      "name": null
+    },
+    {
+      "id": "auto-room-64",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 40",
+      "name": null
+    },
+    {
+      "id": "auto-room-65",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 41",
+      "name": null
+    },
+    {
+      "id": "auto-room-66",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B31",
+      "name": "B31"
+    },
+    {
+      "id": "auto-room-67",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "D334A THE LOOM",
+      "name": "D334A THE LOOM"
+    },
+    {
+      "id": "auto-room-68",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 44",
+      "name": null
+    },
+    {
+      "id": "auto-room-69",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "ABEL STREE",
+      "name": "ABEL STREE"
+    },
+    {
+      "id": "auto-room-70",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B-311 OPTICALS",
+      "name": "B-311 OPTICALS"
+    },
+    {
+      "id": "auto-room-71",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "YAS",
+      "name": "YAS"
+    },
+    {
+      "id": "auto-room-72",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F covu",
+      "name": "F covu"
+    },
+    {
+      "id": "auto-room-73",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 49",
+      "name": null
+    },
+    {
+      "id": "auto-room-74",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B312,B314 AHUJA SONS",
+      "name": "B312,B314 AHUJA SONS"
+    },
+    {
+      "id": "auto-room-75",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 51",
+      "name": null
+    },
+    {
+      "id": "auto-room-76",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 52",
+      "name": null
+    },
+    {
+      "id": "auto-room-77",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "ESS]",
+      "name": "ESS]"
+    },
+    {
+      "id": "auto-room-78",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F378A,378B,379A JAYPORE",
+      "name": "F378A,378B,379A JAYPORE"
+    },
+    {
+      "id": "auto-room-79",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 55",
+      "name": null
+    },
+    {
+      "id": "auto-room-80",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 56",
+      "name": null
+    },
+    {
+      "id": "auto-room-81",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 57",
+      "name": null
+    },
+    {
+      "id": "auto-room-82",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 58",
+      "name": null
+    },
+    {
+      "id": "auto-room-83",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F",
+      "name": null
+    },
+    {
+      "id": "auto-room-84",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F ANCESTRY",
+      "name": "F ANCESTRY"
+    },
+    {
+      "id": "auto-room-85",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 61",
+      "name": null
+    },
+    {
+      "id": "auto-room-86",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 62",
+      "name": null
+    },
+    {
+      "id": "auto-room-87",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B",
+      "name": null
+    },
+    {
+      "id": "auto-room-88",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 64",
+      "name": null
+    },
+    {
+      "id": "auto-room-89",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 65",
+      "name": null
+    },
+    {
+      "id": "auto-room-90",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 66",
+      "name": null
+    },
+    {
+      "id": "auto-room-91",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 67",
+      "name": null
+    },
+    {
+      "id": "auto-room-92",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F375,376 ABHYATA",
+      "name": "F375,376 ABHYATA"
+    },
+    {
+      "id": "auto-room-93",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "r=",
+      "name": "r="
+    },
+    {
+      "id": "auto-room-94",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "B",
+      "name": null
+    },
+    {
+      "id": "auto-room-95",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 71",
+      "name": null
+    },
+    {
+      "id": "auto-nonWalkableArea-96",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-98",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-99",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-100",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-101",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-102",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-103",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-104",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-105",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-106",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-107",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-108",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-109",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-110",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-111",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-112",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-113",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-nonWalkableArea-114",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Void",
+      "type": "Non Walkable",
+      "previousName": "Void",
+      "name": "Void"
+    },
+    {
+      "id": "auto-room-115",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 72",
+      "name": null
+    },
+    {
+      "id": "auto-room-116",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Washroom",
+      "previousName": "TOILET (F)",
+      "name": "TOILET (F)"
+    },
+    {
+      "id": "auto-room-117",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "A Bl A KIDS",
+      "name": "A Bl A KIDS"
+    },
+    {
+      "id": "auto-room-118",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 75",
+      "name": null
+    },
+    {
+      "id": "auto-room-119",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 76",
+      "name": null
+    },
+    {
+      "id": "auto-room-120",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 77",
+      "name": null
+    },
+    {
+      "id": "auto-room-121",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "F VIP",
+      "name": "F VIP"
+    },
+    {
+      "id": "auto-room-122",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 79",
+      "name": null
+    },
+    {
+      "id": "auto-room-123",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "D325A,D326 FAB INDIA D 324,D325 PANTALOONS",
+      "name": "D325A,D326 FAB INDIA D 324,D325 PANTALOONS"
+    },
+    {
+      "id": "auto-room-124",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "RAYMOND",
+      "name": "RAYMOND"
+    },
+    {
+      "id": "auto-room-125",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 82",
+      "name": null
+    },
+    {
+      "id": "auto-room-126",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "PALL MALL F371 F372",
+      "name": "PALL MALL F371 F372"
+    },
+    {
+      "id": "auto-room-127",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 84",
+      "name": null
+    },
+    {
+      "id": "auto-room-128",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 85",
+      "name": null
+    },
+    {
+      "id": "auto-room-129",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 86",
+      "name": null
+    },
+    {
+      "id": "auto-room-130",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 87",
+      "name": null
+    },
+    {
+      "id": "auto-room-131",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 88",
+      "name": null
+    },
+    {
+      "id": "auto-room-132",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 89",
+      "name": null
+    },
+    {
+      "id": "auto-room-133",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "C321",
+      "name": "C321"
+    },
+    {
+      "id": "auto-room-134",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 91",
+      "name": null
+    },
+    {
+      "id": "auto-room-135",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 92",
+      "name": null
+    },
+    {
+      "id": "auto-room-136",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Room",
+      "type": "Store",
+      "previousName": "Detected room 93",
+      "name": null
+    },
+    {
+      "id": "auto-nonWalkableArea-225",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-226",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-227",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-228",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-229",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-230",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-231",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-232",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-233",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-234",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-235",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-236",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-237",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-238",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-facility-poi-238",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-facility-poi-239",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-facility-poi-240",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-facility-poi-241",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-facility-poi-242",
+      "action": "semantic taxonomy / placeholder removal",
+      "previousType": "Vertical circulation",
+      "type": "Stairs",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": "Stair / escalator assembly (review)"
+    },
+    {
+      "id": "auto-nonWalkableArea-4",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-6",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-7",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-8",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-9",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-10",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-11",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-12",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-13",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-14",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-15",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-16",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-17",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-18",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-19",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-20",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-21",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-22",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-23",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-24",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-25",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-26",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-room-27",
+      "action": "validated naming / text classification",
+      "previousName": "AND GLOB DESI",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-28",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-29",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-30",
+      "action": "validated naming / text classification",
+      "previousName": "EENA",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-31",
+      "action": "validated naming / text classification",
+      "previousName": "BATA",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-32",
+      "action": "validated naming / text classification",
+      "previousName": "AYA",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-33",
+      "action": "validated naming / text classification",
+      "previousName": "ALAS",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-35",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-38",
+      "action": "validated naming / text classification",
+      "previousName": "B-305A,305B MOHAN LAL SONS",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-40",
+      "action": "validated naming / text classification",
+      "previousName": "B MANYAVAR",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-45",
+      "action": "validated naming / text classification",
+      "previousName": "E USTARD",
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-47",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-48",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-49",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-50",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-53",
+      "action": "validated naming / text classification",
+      "previousName": "SIMRAN",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-54",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-56",
+      "action": "validated naming / text classification",
+      "previousName": "L Aarke RITU",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-59",
+      "action": "validated naming / text classification",
+      "previousName": "LIBAS",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-60",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-63",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-64",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-65",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-66",
+      "action": "validated naming / text classification",
+      "previousName": "B31",
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-69",
+      "action": "validated naming / text classification",
+      "previousName": "ABEL STREE",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-70",
+      "action": "validated naming / text classification",
+      "previousName": "B-311 OPTICALS",
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-71",
+      "action": "validated naming / text classification",
+      "previousName": "YAS",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-72",
+      "action": "validated naming / text classification",
+      "previousName": "F covu",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-73",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-77",
+      "action": "validated naming / text classification",
+      "previousName": "ESS]",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-81",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-82",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-84",
+      "action": "validated naming / text classification",
+      "previousName": "F ANCESTRY",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-89",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-90",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-93",
+      "action": "validated naming / text classification",
+      "previousName": "r=",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-95",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-nonWalkableArea-96",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-98",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-99",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-100",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-101",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-102",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-103",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-104",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-105",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-106",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-107",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-108",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-109",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-110",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-111",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-112",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-113",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-nonWalkableArea-114",
+      "action": "validated naming / text classification",
+      "previousName": "Void",
+      "name": null,
+      "type": "Non Walkable"
+    },
+    {
+      "id": "auto-room-115",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-116",
+      "action": "validated naming / text classification",
+      "previousName": "TOILET (F)",
+      "name": null,
+      "type": "Washroom"
+    },
+    {
+      "id": "auto-room-117",
+      "action": "validated naming / text classification",
+      "previousName": "A Bl A KIDS",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-118",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-119",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-120",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-121",
+      "action": "validated naming / text classification",
+      "previousName": "F VIP",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-124",
+      "action": "validated naming / text classification",
+      "previousName": "RAYMOND",
+      "name": null,
+      "type": "Store"
+    },
+    {
+      "id": "auto-room-127",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-129",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-131",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-134",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-room-135",
+      "action": "validated naming / text classification",
+      "previousName": null,
+      "name": null,
+      "type": "Restricted Area"
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-138",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-139",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-140",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-141",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-142",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-143",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-144",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-145",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-146",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-147",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-148",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-149",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-150",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-151",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-152",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-153",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-154",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-155",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-156",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-157",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-158",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-159",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-160",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-161",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-162",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-163",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-164",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-165",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-166",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-167",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-168",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-169",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-170",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-171",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-172",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-173",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-174",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-175",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-176",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-177",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-178",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-179",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-180",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-181",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-182",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-183",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-184",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-185",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-186",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-187",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-188",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-189",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-190",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-191",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-192",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-193",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-194",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-195",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-196",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-197",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-198",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-199",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-200",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-201",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-202",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-203",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-204",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-205",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-206",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-207",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-208",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-209",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-210",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-211",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-212",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-213",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-214",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-215",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-216",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-217",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-218",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-219",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-220",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-221",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-222",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-223",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-224",
+      "action": "validated naming / text classification",
+      "previousName": "Wall",
+      "name": null,
+      "type": "Wall"
+    },
+    {
+      "id": "auto-nonWalkableArea-225",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-226",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-227",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-228",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-229",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-230",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-231",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-232",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-233",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-234",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-235",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-236",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-237",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-nonWalkableArea-238",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-facility-poi-238",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-facility-poi-239",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-facility-poi-240",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-facility-poi-241",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
+    {
+      "id": "auto-facility-poi-242",
+      "action": "validated naming / text classification",
+      "previousName": "Stair / escalator assembly (review)",
+      "name": null,
+      "type": "Stairs"
+    },
     {
       "id": "auto-nonWalkableArea-9",
       "action": "simplified / near-orthogonal outline",
@@ -624,6 +3175,11 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 184
     },
     {
+      "id": "auto-nonWalkableArea-137",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 796.9381565932646
+    },
+    {
       "id": "auto-nonWalkableArea-138",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 11,
@@ -636,10 +3192,20 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 21
     },
     {
+      "id": "auto-nonWalkableArea-143",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 18.31881073704349
+    },
+    {
       "id": "auto-nonWalkableArea-145",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 31,
       "verticesAfter": 17
+    },
+    {
+      "id": "auto-nonWalkableArea-145",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 53.248830713474625
     },
     {
       "id": "auto-nonWalkableArea-146",
@@ -648,10 +3214,20 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 14
     },
     {
+      "id": "auto-nonWalkableArea-146",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 40.482586001648244
+    },
+    {
       "id": "auto-nonWalkableArea-150",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 126,
       "verticesAfter": 90
+    },
+    {
+      "id": "auto-nonWalkableArea-150",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 53.231931097369
     },
     {
       "id": "auto-nonWalkableArea-157",
@@ -660,16 +3236,31 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 57
     },
     {
+      "id": "auto-nonWalkableArea-157",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 43.06236757570771
+    },
+    {
       "id": "auto-nonWalkableArea-158",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 24,
       "verticesAfter": 8
     },
     {
+      "id": "auto-nonWalkableArea-158",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 19.715887866089297
+    },
+    {
       "id": "auto-nonWalkableArea-159",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 58,
       "verticesAfter": 48
+    },
+    {
+      "id": "auto-nonWalkableArea-159",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 34.45473601032373
     },
     {
       "id": "auto-nonWalkableArea-160",
@@ -696,6 +3287,16 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 25
     },
     {
+      "id": "auto-nonWalkableArea-174",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 13.923562599872248
+    },
+    {
+      "id": "auto-nonWalkableArea-175",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 4.843692516294215
+    },
+    {
       "id": "auto-nonWalkableArea-182",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 18,
@@ -720,16 +3321,31 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "verticesAfter": 7
     },
     {
+      "id": "auto-nonWalkableArea-197",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 14.312807971706471
+    },
+    {
       "id": "auto-nonWalkableArea-198",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 52,
       "verticesAfter": 39
     },
     {
+      "id": "auto-nonWalkableArea-198",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 33.95440739725053
+    },
+    {
       "id": "auto-nonWalkableArea-199",
       "action": "simplified / near-orthogonal outline",
       "verticesBefore": 32,
       "verticesAfter": 24
+    },
+    {
+      "id": "auto-nonWalkableArea-199",
+      "action": "remove thin partition network; retain thick structural masses",
+      "removedArea": 18.337352341164173
     },
     {
       "id": "auto-nonWalkableArea-202",
@@ -837,12 +3453,12 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
     {
       "id": "auto-nonWalkableArea-21",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 31.40166661579319
+      "removedArea": 31.401666615793182
     },
     {
       "id": "auto-nonWalkableArea-9",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 21.74842037788833
+      "removedArea": 21.748420377888323
     },
     {
       "id": "auto-nonWalkableArea-99",
@@ -852,67 +3468,150 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
     {
       "id": "auto-nonWalkableArea-137",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 67.35676591056995
+      "removedArea": 32.53578814312314
     },
     {
       "id": "auto-nonWalkableArea-143",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 35.78950581484077
+      "removedArea": 17.470695077797284
     },
     {
       "id": "auto-nonWalkableArea-145",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 71.66905772107083
+      "removedArea": 21.00416702824251
     },
     {
       "id": "auto-nonWalkableArea-146",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 49.3345746466835
+      "removedArea": 8.851988645035252
     },
     {
       "id": "auto-nonWalkableArea-150",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 95.08145204030411
+      "removedArea": 42.117722454110066
     },
     {
       "id": "auto-nonWalkableArea-157",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 96.83770336680809
+      "removedArea": 54.34450497775944
     },
     {
       "id": "auto-nonWalkableArea-158",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 29.074204084124393
+      "removedArea": 9.358316218035096
     },
     {
       "id": "auto-nonWalkableArea-159",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 58.49180427947873
+      "removedArea": 24.037068269154993
     },
     {
       "id": "auto-nonWalkableArea-174",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 28.489013817386986
+      "removedArea": 15.417727348542059
     },
     {
       "id": "auto-nonWalkableArea-175",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 19.308297664446915
+      "removedArea": 14.853787407546488
     },
     {
       "id": "auto-nonWalkableArea-197",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 30.18070266475386
+      "removedArea": 15.867894693047388
     },
     {
       "id": "auto-nonWalkableArea-198",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 58.00850604885887
+      "removedArea": 24.992396729607577
     },
     {
       "id": "auto-nonWalkableArea-199",
       "action": "clipped overlapping lower-priority area",
-      "removedArea": 25.249607183919355
+      "removedArea": 7.684441865361916
+    },
+    {
+      "id": "auto-facility-poi-238",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-facility-poi-239",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-facility-poi-240",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-facility-poi-241",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-facility-poi-242",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-227",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-228",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-229",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-230",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-232",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-233",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-nonWalkableArea-237",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "id": "auto-room-51",
+      "action": "circulation footprint converted to point",
+      "type": "Stairs",
+      "travelDirection": null
+    },
+    {
+      "action": "add linked centroid and inferred entry points",
+      "centroidCount": 124,
+      "entryCount": 62
     }
   ],
   "dropped": [
@@ -9192,169 +11891,403 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "id": "auto-nonWalkableArea-137",
       "part": 0,
       "reason": "minimum area / extreme sliver",
-      "area": 0.15262049387992208
+      "area": 2.879318856742371
     },
     {
       "id": "auto-nonWalkableArea-137",
       "part": 1,
       "reason": "minimum area / extreme sliver",
-      "area": 0.6995105969496266
+      "area": 2.663227618191147
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 2,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.839866367227038
     },
     {
       "id": "auto-nonWalkableArea-137",
       "part": 3,
       "reason": "minimum area / extreme sliver",
-      "area": 12.781966362443088
+      "area": 1.907756172972433
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 4,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.2893074064421044
     },
     {
       "id": "auto-nonWalkableArea-137",
       "part": 5,
       "reason": "minimum area / extreme sliver",
-      "area": 0.6501633039284345
+      "area": 1.9745276397606941
     },
     {
       "id": "auto-nonWalkableArea-137",
       "part": 6,
       "reason": "minimum area / extreme sliver",
-      "area": 0.6104819755196736
+      "area": 1.8314459266612713
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 7,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.7471688880620326
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 8,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.52620493913037
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 9,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.3206156282493881
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 10,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.831445926209523
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 11,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2209639501526115
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 12,
+      "reason": "minimum area / extreme sliver",
+      "area": 5.033529356654369
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 13,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.3888464946140275
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 14,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.043744947104607
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 15,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.6501633024826993
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 16,
+      "reason": "minimum area / extreme sliver",
+      "area": 6.753965588577355
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 17,
+      "reason": "minimum area / extreme sliver",
+      "area": 4.921243739108252
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 19,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.1903982744200166
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 20,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.429154317344005
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 21,
+      "reason": "minimum area / extreme sliver",
+      "area": 6.350203083242382
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 22,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.0159203600225215
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 23,
+      "reason": "minimum area / extreme sliver",
+      "area": 7.325783703934588
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 24,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.0063591872275379135
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 27,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.4626130658685352
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 28,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.5266235528930876
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 29,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.1366869142837333
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 30,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.960759842746464
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 31,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.5945483952168766
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 32,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2781966356814523
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 33,
+      "reason": "minimum area / extreme sliver",
+      "area": 5.37987240732295
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 34,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2209639495131466
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 35,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2209639504471803
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 36,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2209639503647614
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 37,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.2209639503647693
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 39,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.7042621806405203
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 41,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.9558217181137385
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 43,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.6098326065998352
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 44,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.3039691507518576
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 45,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.1022110980331986e-20
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 46,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.075648431170829e-10
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 47,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.5723268516559101
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 48,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.6553453563378626
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 50,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.254898153775346
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 51,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.4103710735787178
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 52,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.0814804469485226
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 53,
+      "reason": "minimum area / extreme sliver",
+      "area": 3.204416818798969
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 54,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.6848186031979147
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 55,
+      "reason": "minimum area / extreme sliver",
+      "area": 2.5824504289851022
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 56,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.982270884601016
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 57,
+      "reason": "minimum area / extreme sliver",
+      "area": 5.289276003014462
+    },
+    {
+      "id": "auto-nonWalkableArea-137",
+      "part": 58,
+      "reason": "minimum area / extreme sliver",
+      "area": 1.4825990833347424
     },
     {
       "id": "auto-nonWalkableArea-145",
       "part": 0,
       "reason": "minimum area / extreme sliver",
-      "area": 3.1149842800891405
+      "area": 1.5281829621183185e-16
     },
     {
       "id": "auto-nonWalkableArea-145",
       "part": 1,
       "reason": "minimum area / extreme sliver",
-      "area": 0.11446537040993861
+      "area": 0.645509629852771
     },
     {
       "id": "auto-nonWalkableArea-150",
       "part": 0,
       "reason": "minimum area / extreme sliver",
-      "area": 0.13253884994835252
+      "area": 4.391018798566293e-18
     },
     {
       "id": "auto-nonWalkableArea-150",
       "part": 1,
       "reason": "minimum area / extreme sliver",
-      "area": 0.1356626612265926
+      "area": 2.688821387764051e-17
+    },
+    {
+      "id": "auto-nonWalkableArea-150",
+      "part": 2,
+      "reason": "minimum area / extreme sliver",
+      "area": 8.500145032286355e-16
     },
     {
       "id": "auto-nonWalkableArea-157",
       "part": 0,
       "reason": "minimum area / extreme sliver",
-      "area": 0.9157229632795107
+      "area": 0.3465537766204345
     },
     {
-      "id": "auto-nonWalkableArea-159",
-      "part": 0,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.1526204938799201
-    },
-    {
-      "id": "auto-nonWalkableArea-159",
+      "id": "auto-nonWalkableArea-157",
       "part": 1,
       "reason": "minimum area / extreme sliver",
-      "area": 0.1526204938799201
+      "area": 1.7767905202692447e-15
     },
     {
-      "id": "auto-nonWalkableArea-174",
-      "part": 0,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.023537251491223904
-    },
-    {
-      "id": "auto-nonWalkableArea-174",
-      "part": 1,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.21825690401642417
-    },
-    {
-      "id": "auto-nonWalkableArea-174",
+      "id": "auto-nonWalkableArea-157",
       "part": 2,
       "reason": "minimum area / extreme sliver",
-      "area": 0.15262049387991816
+      "area": 2.2898349882893854e-16
     },
     {
-      "id": "auto-nonWalkableArea-174",
-      "part": 3,
+      "id": "auto-nonWalkableArea-159",
+      "part": 0,
       "reason": "minimum area / extreme sliver",
-      "area": 0.4578614816397545
+      "area": 0.1526204938799201
+    },
+    {
+      "id": "auto-nonWalkableArea-159",
+      "part": 1,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.1526204938799201
     },
     {
       "id": "auto-nonWalkableArea-175",
       "part": 0,
+      "reason": "minimum area / extreme sliver",
+      "area": 0.03179593622497804
+    },
+    {
+      "id": "auto-nonWalkableArea-175",
+      "part": 1,
       "reason": "minimum area / extreme sliver",
       "area": 0.03507809738369205
     },
     {
-      "id": "auto-nonWalkableArea-175",
-      "part": 1,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.2670858642898558
-    },
-    {
-      "id": "auto-nonWalkableArea-175",
-      "part": 2,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.15389233132890884
-    },
-    {
       "id": "auto-nonWalkableArea-198",
       "part": 0,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.08902862142995259
-    },
-    {
-      "id": "auto-nonWalkableArea-198",
-      "part": 1,
       "reason": "minimum area / extreme sliver",
       "area": 0.15262049387991422
     },
     {
       "id": "auto-nonWalkableArea-198",
-      "part": 2,
+      "part": 1,
       "reason": "minimum area / extreme sliver",
-      "area": 0.6104819755196883
+      "area": 0.09348005250145101
     },
     {
       "id": "auto-nonWalkableArea-198",
-      "part": 3,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.43242473265975256
-    },
-    {
-      "id": "auto-nonWalkableArea-199",
-      "part": 0,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.2861634260248475
-    },
-    {
-      "id": "auto-nonWalkableArea-199",
-      "part": 1,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.15262049387992208
-    },
-    {
-      "id": "auto-nonWalkableArea-199",
       "part": 2,
       "reason": "minimum area / extreme sliver",
-      "area": 0.15262049387991422
-    },
-    {
-      "id": "auto-nonWalkableArea-199",
-      "part": 3,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.17169805561490645
-    },
-    {
-      "id": "auto-nonWalkableArea-199",
-      "part": 4,
-      "reason": "minimum area / extreme sliver",
-      "area": 0.009084553207141443
+      "area": 0.10015719910870732
     }
   ],
   "profile": {
@@ -9413,6 +12346,12 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
         "water",
         "tracks",
         "pit"
+      ],
+      "Washroom": [
+        "wc",
+        "toilet",
+        "restroom",
+        "washroom"
       ]
     },
     "namePatterns": [
@@ -9440,7 +12379,8 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "Restricted Area": "#c36969",
       "Wall": "#767676",
       "Non Walkable": "#121212",
-      "Boundary": "#ffffff"
+      "Boundary": "#ffffff",
+      "Washroom": "#8fdb88"
     },
     "defaultHeight": "3",
     "minimumArea": 2,
@@ -9465,6 +12405,8 @@ Corridor area reachable from every inferred entry: 0.0%; review segmentation and
       "corridor-facing-edge"
     ],
     "units": "metres",
-    "scaleSource": null
-  }
+    "scaleSource": null,
+    "unlabeledEnclosureMaximumArea": 12
+  },
+  "metersPerPixel": 0.08396305625524769
 }

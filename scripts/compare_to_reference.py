@@ -16,15 +16,16 @@ def compare(mine,reference):
         if np.linalg.matrix_rank(source-source.mean(axis=0))==2:
             for (x,y),(u,v) in zip(source,target):rows.extend([[x,-y,1,0],[y,x,0,1]]);values.extend([u,v])
             c,s,tx,ty=np.linalg.lstsq(rows,values,rcond=None)[0];matrix=[c,-s,s,c,tx,ty];registration='similarity from matched names'
-    elif a and b:
+    if registration.startswith('none') and a and b:
         # Deterministic overlap search: translation and rotation, without fabricating matches.
         ac=np.mean([(g.centroid.x,g.centroid.y) for f,g in a],axis=0);bc=np.mean([(g.centroid.x,g.centroid.y) for f,g in b],axis=0)
         best=(-1,None)
+        area_scale=math.sqrt(sum(g.area for f,g in b)/max(sum(g.area for f,g in a),1e-20))
         for degrees in range(0,360,15):
-            c=math.cos(math.radians(degrees));s=math.sin(math.radians(degrees));m=[c,-s,s,c,bc[0]-c*ac[0]+s*ac[1],bc[1]-s*ac[0]-c*ac[1]]
+            c=area_scale*math.cos(math.radians(degrees));s=area_scale*math.sin(math.radians(degrees));m=[c,-s,s,c,bc[0]-c*ac[0]+s*ac[1],bc[1]-s*ac[0]-c*ac[1]]
             score=sum(max((affine_transform(g,m).intersection(h).area/max(affine_transform(g,m).union(h).area,1e-20) for _,h in b),default=0) for _,g in a)
             if score>best[0]:best=(score,m)
-        matrix=best[1];registration='coarse overlap optimizer; review alignment'
+        matrix=best[1];registration='coarse overlap optimizer with area-derived scale; review alignment'
     a=[(f,affine_transform(g,matrix)) for f,g in a];candidates=[]
     for i,(f,g) in enumerate(a):
         for j,(h,p) in enumerate(b):
