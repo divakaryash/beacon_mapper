@@ -1,0 +1,195 @@
+{
+  "contractedJunctions": [
+    {
+      "from": "gap-516",
+      "into": "gap-1002",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-698",
+      "into": "gap-1083",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-953",
+      "into": "gap-1105",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-744",
+      "into": "gap-1105",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-957",
+      "into": "gap-1108",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1125",
+      "into": "gap-1124",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1778",
+      "into": "gap-1136",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1785",
+      "into": "gap-1136",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1565",
+      "into": "gap-1154",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-743",
+      "into": "gap-1218",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1536",
+      "into": "gap-1233",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-656",
+      "into": "gap-1280",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-431",
+      "into": "gap-1471",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1813",
+      "into": "gap-1505",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1681",
+      "into": "gap-1669",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1722",
+      "into": "gap-1672",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1837",
+      "into": "gap-1669",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-803",
+      "into": "gap-1684",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-488",
+      "into": "gap-1705",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1739",
+      "into": "gap-1725",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-489",
+      "into": "gap-1743",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-645",
+      "into": "gap-1811",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1823",
+      "into": "gap-1816",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-541",
+      "into": "gap-1859",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-1874",
+      "into": "gap-1867",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-674",
+      "into": "gap-245",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-723",
+      "into": "gap-342",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-601",
+      "into": "gap-52",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-65",
+      "into": "gap-52",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-602",
+      "into": "gap-598",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-60",
+      "into": "gap-598",
+      "reason": "short junction link"
+    },
+    {
+      "from": "gap-869",
+      "into": "gap-71",
+      "reason": "short junction link"
+    }
+  ],
+  "discardedEdges": [],
+  "unreachableDoors": [
+    "auto-room-121-entry",
+    "auto-room-122-entry",
+    "auto-room-124-entry",
+    "auto-room-126-entry",
+    "auto-room-128-entry",
+    "auto-room-130-entry",
+    "auto-room-132-entry",
+    "auto-room-32-entry",
+    "auto-room-33-entry",
+    "auto-room-34-entry",
+    "auto-room-36-entry",
+    "auto-room-39-entry",
+    "auto-room-41-entry",
+    "auto-room-42-entry",
+    "auto-room-44-entry",
+    "auto-room-55-entry",
+    "auto-room-56-entry",
+    "auto-room-57-entry",
+    "auto-room-58-entry",
+    "auto-room-59-entry",
+    "auto-room-61-entry",
+    "auto-room-62-entry"
+  ],
+  "doorReachableFraction": 0.6451612903225806,
+  "validation": {
+    "valid": true,
+    "errors": [],
+    "featureCount": 449
+  }
+}

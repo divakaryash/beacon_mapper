@@ -14,7 +14,7 @@ export function useDeploymentPlanner(project, onResult, onError) {
       if(message.error){source.current=null;current.current.onError(message.error);task.resolve(null);}
       else {
         const p=current.current.project;
-        const stale=(task.preview&&queued.current.some(t=>t.preview||t.action==="move"))||task.base.graph!==p.graph||task.base.objects!==p.objects||task.base.widthMeters!==p.widthMeters||task.base.heightMeters!==p.heightMeters||task.base.beaconProfiles!==p.beaconProfiles||(p.beaconPlan!==task.base.beaconPlan&&p.beaconPlan!==expectedPlan.current);
+        const stale=!p||(task.preview&&queued.current.some(t=>t.preview||t.action==="move"))||task.base.graph!==p.graph||task.base.objects!==p.objects||task.base.widthMeters!==p.widthMeters||task.base.heightMeters!==p.heightMeters||task.base.beaconProfiles!==p.beaconProfiles||(p.beaconPlan!==task.base.beaconPlan&&p.beaconPlan!==expectedPlan.current);
         if(stale)source.current=null;
         if(!stale){setInspector(message.inspector);setWork(message.output.work);if(task.action!=="inspect"){if(!task.preview)expectedPlan.current=message.output.plan;current.current.onResult(message.output,task.preview,task.action);}}
         task.resolve(message.output);

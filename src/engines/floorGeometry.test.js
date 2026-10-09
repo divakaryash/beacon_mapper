@@ -9,3 +9,64 @@ test("rotated drawing geometry converts pixels to metres and retains floor scope
 test("nearest valid relocation stays on same floor and handles a fully blocked graph",()=>{const graph={nodes:[{id:"a",floorId:"G",x:20,y:50,worldX:2,worldY:5},{id:"b",floorId:"G",x:70,y:50,worldX:7,worldY:5}],edges:[{id:"e",source:"a",target:"b",distance:5}]};const moved=nearestValidGraphPosition({floorId:"G",worldX:5,worldY:5},graph,new Map([["G",floor]]));assert.ok(Math.abs(moved.worldX-5)>.1);assert.equal(moved.edgeId,"e");assert.equal(nearestValidGraphPosition({floorId:"L2",worldX:5,worldY:5},graph,new Map([["G",floor]])),null);});
 test("walkable paths are buffered by their actual width",()=>{const paths={...floor,walkableAreas:[],walls:[],walkablePaths:[{points:[{x:1,y:2},{x:18,y:2}],width:2}]};assert.equal(geometryConflict({x:3,y:2.9},paths),null);assert.equal(geometryConflict({x:3,y:3.1},paths),"non-walkable-area");});
 test("invalid scale and geometry widths are rejected",()=>{assert.throws(()=>compileFloorGeometry({objects:[],metersPerPixel:0}));assert.throws(()=>compileFloorGeometry({floors:[{...floor,walls:[{points:[{x:0,y:0},{x:1,y:1}],width:-1}]}]}));});
+
+test("ordinary room and polygon interiors and edges block placement inside walkable geometry",()=>{
+  for(const type of ["room","polygon","rectangle"]) {
+    const geometry=compileFloorGeometry({metersPerPixel:1,defaultFloorId:"G",objects:[
+      {type:"buildingBoundary",points:box(0,0,20,20)},
+      {type:"walkableArea",points:box(0,0,20,20)},
+      {type,points:box(5,5,4,4)}
+    ]}).get("G");
+    assert.equal(geometryConflict({x:6,y:6},geometry),"non-walkable-area");
+    assert.equal(geometryConflict({x:5,y:6},geometry),"non-walkable-area");
+    assert.equal(geometryConflict({x:4,y:6},geometry),null);
+  }
+});
+
+test("indexed geometry agrees with exact unindexed checks at cell boundaries and across large polygons",()=>{
+  const source={floorId:"G",boundaries:[box(-100,-100,200,200)],walkableAreas:[box(-100,-100,200,200)],nonWalkableAreas:Array.from({length:120},(_,i)=>box((i%12)*5,Math.floor(i/12)*5,.1,2)),restrictedAreas:[box(-30,-30,20,20)],walls:[],walkablePaths:[]};
+  const indexed=compileFloorGeometry({floors:[source]}).get("G");
+  for(const point of [{x:5,y:1},{x:5.1,y:1},{x:4.999,y:1},{x:50,y:20},{x:-20,y:-20},{x:70,y:60}])assert.equal(geometryConflict(point,indexed),geometryConflict(point,source));
+  for(const [a,b] of [[{x:-1,y:1},{x:60,y:1}],[{x:-80,y:-80},{x:80,y:80}],[{x:4.9,y:1},{x:5.2,y:1}]])assert.deepEqual(validGraphIntervals(a,b,indexed),validGraphIntervals(a,b,source));
+});
+
+
+test("restricted types and polygon layers block placement even with stale drawing-only or walkable roles",()=>{
+  for(const object of [
+    {type:"restrictedArea",geometryRole:"none"},
+    {type:"restrictedArea",geometryRole:"walkableArea"},
+    {type:"polygon",layerId:"restrictedAreas",geometryRole:"none"},
+    {type:"room",layerId:"restrictedAreas",geometryRole:"walkableArea"}
+  ]){
+    const geometry=compileFloorGeometry({metersPerPixel:1,defaultFloorId:"G",objects:[
+      {type:"buildingBoundary",points:box(0,0,20,20)},
+      {type:"walkableArea",points:box(0,0,20,20)},
+      {...object,points:box(5,5,4,4)}
+    ]}).get("G");
+    assert.equal(geometryConflict({x:6,y:6},geometry),"restricted-area");
+    assert.equal(geometryConflict({x:5,y:6},geometry),"restricted-area");
+    assert.equal(geometryConflict({x:4,y:6},geometry),null);
+    assert.deepEqual(validGraphIntervals({x:4,y:6},{x:10,y:6},geometry),[[0,1/6],[5/6,1]]);
+  }
+});
+
+test('vertical transport and restricted reference polygons override conflicting walkable roles',()=>{
+  for(const category of ['Restricted Area','Steps','Stairs','Escalator','Lift']){
+    const geometry=compileFloorGeometry({metersPerPixel:1,objects:[
+      {type:'buildingBoundary',points:box(0,0,20,20)},
+      {type:'walkableArea',points:box(0,0,20,20)},
+      {type:'walkableArea',category,geometryRole:'walkableArea',points:box(5,5,4,4)}
+    ]}).get('floor-1');
+    assert.ok(geometryConflict({x:6,y:6},geometry));
+    assert.ok(geometryConflict({x:5,y:6},geometry));
+  }
+});
+
+test('connected wall polygons preserve open holes and block their actual edge footprint',()=>{
+  const objects=[{type:'buildingBoundary',points:box(0,0,20,20)},{type:'walkableArea',points:box(0,0,20,20)},{type:'nonWalkableArea',category:'Wall',points:box(4,4,12,12),holes:[box(5,5,10,10)]}];
+  const floor=compileFloorGeometry({objects,metersPerPixel:1}).get('floor-1');
+  assert.equal(geometryConflict({x:10,y:10},floor),null);
+  assert.equal(geometryConflict({x:4.5,y:10},floor),'non-walkable-area');
+  assert.equal(geometryConflict({x:5,y:10},floor),'non-walkable-area');
+  assert.deepEqual(validGraphIntervals({x:3,y:10},{x:17,y:10},floor),[[0,1/14],[2/14,12/14],[13/14,1]]);
+});

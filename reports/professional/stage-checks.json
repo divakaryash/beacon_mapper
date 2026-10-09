@@ -1,0 +1,93 @@
+[
+  {
+    "stage": 1,
+    "features": 241,
+    "integerFloors": true,
+    "placeholderNames": 0,
+    "overlappingPairs": 222
+  },
+  {
+    "stage": 2,
+    "features": 137,
+    "integerFloors": true,
+    "placeholderNames": 0,
+    "overlappingPairs": 0
+  },
+  {
+    "stage": 3,
+    "features": 137,
+    "integerFloors": true,
+    "placeholderNames": 0,
+    "overlappingPairs": 0
+  },
+  {
+    "stage": 4,
+    "features": 137,
+    "integerFloors": true,
+    "placeholderNames": 0,
+    "overlappingPairs": 0
+  },
+  {
+    "stage": 5,
+    "features": 323,
+    "integerFloors": true,
+    "placeholderNames": 0,
+    "overlappingPairs": 0,
+    "validation": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Physical scale unverified: areas/distances diagnostic only",
+        "Corridor area reachable from every inferred entry: 0.0%; review segmentation and entries"
+      ],
+      "counts": {
+        "Boundary": 1,
+        "Centroid": 124,
+        "Non Walkable": 24,
+        "Point": 62,
+        "Restricted Area": 30,
+        "Stairs": 13,
+        "Store": 61,
+        "Wall": 7,
+        "Washroom": 1
+      },
+      "nullNameFraction": 0.8328173374613003,
+      "reviewFraction": 0.9287925696594427,
+      "areaStatistics": {
+        "Boundary": {
+          "medianArea": 7151.376636854796,
+          "medianVertices": 433
+        },
+        "Non Walkable": {
+          "medianArea": 32.374622264277676,
+          "medianVertices": 12.0
+        },
+        "Wall": {
+          "medianArea": 15.75286301891149,
+          "medianVertices": 38
+        },
+        "Restricted Area": {
+          "medianArea": 9.214462318000066,
+          "medianVertices": 6.0
+        },
+        "Washroom": {
+          "medianArea": 6.906077348066247,
+          "medianVertices": 26
+        },
+        "Store": {
+          "medianArea": 25.869173712646166,
+          "medianVertices": 11
+        }
+      },
+      "corridorReachableFraction": 0.0,
+      "nonWalkableAreaFraction": 0.11256430192475313,
+      "restrictedAreaFraction": 0.03790768771107989,
+      "wallAreaFraction": 0.02701923218893678,
+      "registration": null
+    }
+  },
+  {
+    "stage": 6,
+    "geographicExport": "blocked: real mall has no surveyed control points"
+  }
+]

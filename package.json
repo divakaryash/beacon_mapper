@@ -10,9 +10,12 @@
     "benchmark": "node --test --test-name-pattern='10,000 nodes' src/engines/navigationGraph.test.js"
   },
   "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
     "pdfjs-dist": "6.4.299",
+    "polygon-clipping": "^0.15.7",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

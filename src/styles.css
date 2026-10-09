@@ -6,7 +6,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 1100px; min-height: 100vh; overflow: hidden; }
+body { margin: 0; min-width: 0; min-height: 100vh; overflow: hidden; }
 button, input, select { font: inherit; }
 button { border: 0; cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.42; }
@@ -130,3 +130,51 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
   .tool-rail button small { display: none; }
 }
 .beacon-id-label { font-size: 13px; font-weight: 700; fill: #172033; paint-order: stroke; stroke: white; stroke-width: 3px; stroke-linejoin: round; }
+
+/* Keep the aligned reference readable at whole-floor scale. */
+.floor-source.reference-source { opacity: 1; }
+.object-group[data-origin="reference"] .drawing-object { fill: rgb(210 160 130 / 18%); stroke: #a26353; stroke-width: .5; }
+.object-group[data-source-type="Store"] .drawing-object,
+.object-group[data-source-type="Outlet"] .drawing-object { fill: rgb(100 195 220 / 22%); stroke: #4193a5; }
+.object-group[data-source-type="Green Area"] .drawing-object { fill: rgb(120 225 150 / 18%); stroke: #6ca781; }
+.object-group[data-source-type="Wall"] .drawing-object { fill: rgb(255 70 70 / 15%); stroke: #ff4444; }
+.object-group[data-source-type="Lift"] .drawing-object { fill: rgb(250 215 45 / 35%); stroke: #d0aa24; }
+.object-group[data-object-id="reference-boundary"] .drawing-object { fill: none; stroke: none; }
+.object-group[data-origin="reference"] .reference-hit-target { fill: transparent; stroke: none; }
+.object-group[data-origin="reference"] .poi-core { fill: #ff3434; stroke: none; }
+.object-group[data-origin="reference"].is-selected .drawing-object { stroke: #087f69; }
+
+.reference-canvas .navigation-graph line { stroke-width: 1; opacity: .65; }
+.reference-canvas .navigation-graph line.route-edge { stroke-width: 3; opacity: 1; }
+.reference-canvas .navigation-graph circle:not(.selected-node) { fill: transparent; stroke: transparent; }
+
+@media (max-width: 1100px) {
+  .app-shell { grid-template-columns: 48px 190px minmax(240px, 1fr) 230px; }
+  .app-header { gap: .75rem; padding: 0 .75rem; }
+  .app-header h1 { max-width: 270px; font-size: .9rem; }
+  .project-stats span:not(:last-child) { display: none; }
+  .tool-rail { padding: 5px; }
+  .tool-rail button small { display: none; }
+  .left-panel, .right-panel { padding: 10px; }
+}
+
+.polygon-size-label { fill: #172033; stroke: white; stroke-width: 1.5px; paint-order: stroke; font-weight: 600; }
+
+/* Automatic outlines must not obscure the original drawing with thick wall fragments. */
+.object-group[data-origin="automatic"] .drawing-object { stroke-width: .6; }
+.object-group[data-origin="automatic"][data-category="Wall"] .drawing-object { fill: rgb(71 85 105 / 20%); stroke: none; }
+.object-group[data-origin="automatic"][data-object-type="buildingBoundary"] .drawing-object { fill: none; stroke: #d84b55; stroke-width: 1.2; }
+.object-group[data-origin="automatic"][data-object-type="room"] .drawing-object { fill: rgb(100 195 220 / 22%); stroke: #4193a5; }
+
+/* Category colours keep inferred wall fragments from painting the whole floor red. */
+.object-group[data-origin="automatic"][data-object-type="walkableArea"] .drawing-object { fill: rgb(120 225 150 / 18%); stroke: #6ca781; }
+.object-group[data-origin="automatic"][data-category="Void"] .drawing-object { fill: rgb(217 169 123 / 22%); stroke: #ad8061; }
+.object-group[data-origin="automatic"][data-category="Wall"].is-selected .drawing-object { stroke: #087f69; stroke-width: 1.2; }
+.polygon-legend { position: absolute; top: 12px; left: 12px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px 12px; max-width: calc(100% - 140px); padding: 7px 9px; background: rgb(255 255 255 / 94%); border-radius: 5px; color: #334155; font-size: 10px; pointer-events: none; }
+.polygon-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.polygon-legend i { width: 10px; height: 10px; border: 1px solid; }
+.legend-room { background: #d9eff5; border-color: #4193a5 !important; }
+.legend-walkable { background: #e2f7e7; border-color: #6ca781 !important; }
+.legend-wall { background: #cbd0d6; border-color: #64748b !important; }
+.legend-void { background: #f0e2d5; border-color: #ad8061 !important; }
+.legend-boundary { background: transparent; border-color: #d84b55 !important; }

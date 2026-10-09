@@ -56,3 +56,65 @@ Verified locally at `http://localhost:5191/` using the hand-modelled sample mall
 - Selected recalculation preserved X=51.2 m with no coverage resampling. Reload preserved the off-center generated layout and rebuilt topology context.
 - Native canvas PNG and JSON downloads were invoked, but new files were not found in Downloads; do not count these browser downloads as verified. A similarly named PNG was an older centerline export and its accidental copy was removed. Unit checks cover JSON/CSV serialization data; the Milestone 8 diagrams are generated from real engine coordinates, not browser screenshots.
 - All requested strategies and geometry/manual/radius cases are covered by automated tests. The narrow-corridor 10,001-node generation benchmark was approximately 0.8 seconds in an isolated run; engine-only, not a browser-rendering claim.
+
+## Automatic upload-to-deployment workflow — 2026-10-08
+
+Tested in an isolated preview origin (port 5188) so the previously saved sample was preserved. Uploaded a synthetic SVG with an enclosing building wall, an interior divider and door gap, and a positioned Lift label. Upload automatically created editable boundary/walkable/wall-mask geometry, a connected navigation graph, a lift landmark and an initial IW deployment with area coverage/dead-zone overlays. Positioned text masking reduced spurious text-driven route branches.
+
+Confirmed a 32 m full drawing width: graph world coordinates and edge distances were rescaled, the deployment regenerated automatically with IW001–IW011, 11 total beacons, 93.03% sampled walkable coverage and 100% sampled graph coverage. Warnings remain visible for short branches/spacing and uncovered walkable samples. Confirmed exports become available after scale confirmation. Screenshot: `screenshots/automatic-floor-draft.png`.
+
+`npm run check`: 80 tests passed, TypeScript check and production build passed. Additional final text masking/calibration changes passed a production build and browser smoke verification.
+
+This verifies the synthetic upload path only. It does not establish arbitrary-plan semantic recognition, raster OCR, unlabeled lift/escalator/stair symbols, private/public room classification, accurate atrium void interpretation, or surveyed installation suitability. These remain the active project priority.
+
+## DLF API reference correction — 2026-10-08
+
+Fetched the user-provided floor-0 venue API and compared its geographic outlines to the supplied ground-floor PDF. Saved a sanitized reference snapshot without the API key or outlet account/descriptive data. PDF fingerprint matching selects this reference automatically on upload and when correcting a previously saved inferred DLF map; the previous map remains in undo history. Reference Point coordinates are preserved; 219 centroid labels and stale local coordinates are excluded. Matched 73 shop polygons, 49 wall polygons and 131 access landmarks. Shop/shaft/restricted/green footprints block corridor placement.
+
+Direct engine validation: 131 API access points preserved and attached to a single connected graph, every route interval walkable, every beacon outside blocked footprints, and Zara's interior excluded. The bounded draft has 457 beacons, 90.05% sampled walkable coverage and 100% sampled route coverage; 303 engineering warnings remain, including short/long spacing. The count is not a minimum or approved installation plan. See `reports/dlf-reference-validation.json`, `screenshots/dlf-api-reference-alignment.png` and `screenshots/dlf-reference-deployment.png`.
+
+`npm run check`: 83 tests, TypeScript check and production build passed. Browser file upload to the isolated preview was declined; it was not retried or worked around, and the real-PDF browser integration is not claimed as verified. The API Boundary is empty, so facade tracing and geographic scale remain review items. No underlying model weights were retrained.
+
+
+## Reference-style upload result (2026-10-08)
+
+- The matched DLF PDF now defaults to opaque source imagery, category-coloured API polygons and small red access points with hover/selection labels. The broad facade/public-floor fill and dense graph, beacon, warning and coverage overlays no longer obscure the initial result.
+- Automatic deployment preserves this initial layer visibility; beacon totals remain available. Saved layer choices are retained on reload; the older-reference correction applies the same defaults.
+- Validation: the existing full check passed 83 tests, TypeScript and production build. Two additional model tests passed for annotation defaults, immutable input, deployment preservation and saved/manual layer choices. Diff whitespace check passed.
+- No browser upload re-test: the previous real-file upload was declined. The reference screenshot predates this UI styling change; it demonstrates alignment rather than verifying the current browser rendering.
+
+
+## Basement/L00 empty-report correction (2026-10-08)
+
+- The user confirmed the failing upload was the basement/L00 PDF. The prior calibrated reference covered ground floor only, so that file used generic detection and could leave empty geometry.
+- Retrieved floor -1 from the same authorized venue API. Saved only sanitized features and calibration; no API key or account fields. L00 now selects its separate reference by exact PDF fingerprint, including on restoration of older failed imports.
+- Actual local L00 PDF fingerprint matches the basement fixture. Its PDF page has the same 595.22 × 842 pt dimensions, rendered analysis coordinates 1191 × 1684. Fifteen manually matched shaft centres fit an independent affine calibration; median preview residual 2.3 px. The alignment PNG was visually inspected.
+- Full checks: 90 tests passed, TypeScript passed, production build passed. Regression checks cover L00 reference selection, nonempty geometry-safe deployment with unique IW IDs, route exclusion geometry, explicit empty-input failures and diagnostic reports.
+- Initial engine result: 59 shops, 25 walls, 110 attached access points, 634 beacons, 17,026.8 m² inferred walkable area, 92.4% sampled coverage. Three navigation components and spacing warnings remain; the draft is not a proven optimal or approved installation layout.
+- Browser file upload was not repeated after the previously declined upload. Engine results and the alignment image are not browser-upload verification.
+
+
+## Real L00 browser upload and visible deployment (2026-10-08)
+
+- The user explicitly requested a demonstration with the attached L00 PDF. Uploaded that file through the browser file chooser to the locally running planner at `http://127.0.0.1:5190/`.
+- This exposed a real browser failure: dynamic JSON imports declared `type: json` while Vite served transformed `text/javascript` modules. Converted the two sanitized references to ordinary JavaScript data modules, removing import attributes. Fingerprint matching and data are unchanged.
+- The failed saved upload recovered on reload. Then performed a fresh upload of the same L00 PDF; automatic analysis and placement completed without drawing or clicking Generate.
+- Verified visible source plan, coloured geometry, graph lines, blue navigation beacons, orange anchors, IW IDs and total count. Header and beacon panel showed 634 IW beacons; floor panel showed 59 shops, 25 walls and 110 landmarks. Coverage panel showed 92.4% walkable and 100% sampled graph coverage. Three components and spacing warnings remain.
+- Selected IW001 through the beacon selector; inspector showed Medium Corridor strategy, X/Y position and a 3 m ceiling mounting height. No manual coordinates were changed.
+- Saved actual browser screenshots `screenshots/l00-upload-browser-demo.png` (overview) and `screenshots/l00-upload-browser-detail.png` (zoomed IDs). The planner tab was retained for user review; server remains running.
+- Reference uploads now show navigation/beacon layers by default; coverage/warnings remain available as layer toggles. Labels on graph nodes show only when selected, keeping the floor readable. The pane layout fits the observed 855px browser width, which previously clipped the entire deployment panel.
+- Validation after all changes: 90 tests, TypeScript and production build passed; whitespace diff check passed. This verifies the exact L00 reference workflow, not semantic detection on arbitrary maps or a globally optimized installation count.
+
+## Navigation-only beacon update — 2026-10-08
+Reloaded the local L00 browser deployment at http://127.0.0.1:5190/: 634 IW beacons retained, one blue Navigation style, no Anchor layer or type selector. Screenshot: screenshots/l00-navigation-beacons-only.png. Legacy current and saved deployments migrate types without changing IDs or coordinates. Ordinary room/polygon/rectangle geometry and automatically proposed room polygons now exclude beacon placement, including polygon edges. Building boundaries and public walkable polygons remain allowed. Generation refuses to retain an enabled locked/manual beacon inside blocked geometry; its existing data remains available for correction.
+
+## Automatic polygon measurements — 2026-10-08
+Every visible closed polygon now renders calibrated area (m²), bounding extent (width × height in metres), and perimeter (P, metres). Labels update with polygon edits and scale changes, rotate with the shape, and ignore pointer input. Missing, nonfinite or nonpositive scales hide measurements; heuristic assumed-scale areas use ≈. Irregular polygon area and perimeter use actual vertices, not the bounding rectangle. Verified the live L00 deployment in the local browser at readable zoom; screenshot: screenshots/l00-polygon-measurements.png. Beacon IDs were hidden for this preview; all 634 Navigation beacon markers remain present. Full check: 93 tests, TypeScript and production build pass.
+
+## Automatic beacon cluster prevention — 2026-10-08
+The default automatic topology generator merges route candidates closer than 3 m in the same visible space before area optimization. Added area candidates obey the same separation, and final post-relocation validation repeats it. Landmark references are transferred to the retained beacon; coverage is recalculated after merging. Walls and different floors prevent merging. Existing locked/manual beacons are preserved, while new automatic candidates avoid them. Regenerated L00 in the local browser: 470 beacons (previous original draft 634). Screenshot: screenshots/l00-beacon-clusters-fixed.png. Full check: 95 tests, TypeScript and build pass; both DLF ground and L00 reference regressions additionally assert no generated same-space pair closer than 3 m. Coverage radius overlap remains intentional and is distinct from stacked installation positions.
+
+## Generic automatic floor mapping — 2026-10-08
+PDF analysis now uses a separate structural rendering, with text and small CAD glyph strokes filtered before detection. Closed cell contours become editable boundary, walkable, room and void polygons; rooms and voids exclude beacon placement. Tiny wall segments do not display measurement labels by default. Open areas receive a valid initial route when skeleton thinning otherwise produces no edges. Geometry lookup uses bounded spatial indexing for dense CAD drawings.
+
+Verified fresh FIRST FLOOR PLAN (L02) upload in the local browser without API reference data: 106 room candidates, 2 walkable regions, 5197 wall segments and 158 Navigation beacons generated automatically. Overview: screenshots/first-floor-generic-auto-mapping.png; detail: screenshots/first-floor-generic-auto-mapping-detail.png. All five upper DLF floors additionally passed native PDF rasterization and deployment checks for valid inferred geometry, beacons outside detected blocked polygons, and no visible beacon clusters within 3 m. Results: reports/generic-floor-validation.json. Native/browser counts differ with rasterization. Scale remains provisional; checks do not certify physical coverage or semantic accuracy. Unlabeled symbols and ambiguous/scanned drawings still require review. Full check: 100 tests, TypeScript and production build pass.

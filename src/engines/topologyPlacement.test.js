@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {planBeacons,analyzePlacement,BEACON_PROFILES} from './beaconPlacement.js';
 import {analyzeFloorTopology,referenceBeacon,validateTopologySettings} from './topologyPlacement.js';
-import {compileFloorGeometry,geometryConflict} from './floorGeometry.js';
+import {compileFloorGeometry,geometryConflict,visibleGeometrySegment} from './floorGeometry.js';
 import {analyzeCoverage} from './coverage.js';
 import {DeploymentPlanner} from './deploymentPlanner.js';
 import {sampleMall} from '../samples/sampleMall.js';
@@ -32,14 +32,14 @@ test('nearby POIs and explicit entrances are reported; malformed POIs and thresh
   const input=fixture(4),pois=[{id:'store',floorId:'G',worldX:11,worldY:1,category:'Store'}];const r=planBeacons({...input,pois});assert.ok(r.topology.edges[0].adjacentRoomEntrances.includes('store'));assert.ok(r.beacons.some(b=>b.placementStrategy==='Store Entrance'));
   assert.throws(()=>planBeacons({...input,pois:[{...pois[0],worldX:NaN}]}));assert.throws(()=>validateTopologySettings({narrowWidth:10}));assert.throws(()=>validateTopologySettings({additionalBeaconBudget:201}));
 });
-test('wide-area candidates improve coverage at the same route count, then stop at a configured budget',()=>{
+test('wide-area candidates improve coverage with fewer clustered route beacons, then stop at a configured budget',()=>{
   const geometry=geometryForProject(sampleMall),baseline=planBeacons({graph:sampleMall.graph,floorGeometry:geometry,configuration:{placementStrategy:'centerline'}});
   const oldCoverage=analyzeCoverage({graph:sampleMall.graph,floorGeometry:geometry,beacons:baseline.beacons,profile:BEACON_PROFILES[0]});
-  const planner=new DeploymentPlanner({graph:sampleMall.graph,floorGeometry:geometry,settings:{additionalBeaconBudget:0}}),sameCount=planner.generate();assert.equal(sameCount.plan.beacons.length,baseline.beacons.length);assert.ok(sameCount.coverage.coveragePercentage>oldCoverage.coveragePercentage);assert.equal(sameCount.coverage.graphCoveragePercentage,100);
+  const planner=new DeploymentPlanner({graph:sampleMall.graph,floorGeometry:geometry,settings:{placementStrategy:"topology",additionalBeaconBudget:0}}),sameCount=planner.generate();assert.ok(sameCount.plan.beacons.length<=baseline.beacons.length);assert.ok(sameCount.coverage.coveragePercentage>oldCoverage.coveragePercentage);assert.equal(sameCount.coverage.graphCoveragePercentage,100);
   planner.configure({additionalBeaconBudget:3});const expanded=planner.generate();assert.ok(expanded.plan.topology.optimization.areaBeacons<=3);assert.ok(expanded.coverage.coveragePercentage>sameCount.coverage.coveragePercentage);assert.equal(expanded.coverage.graphCoveragePercentage,100);assert.ok(expanded.plan.beacons.filter(b=>b.placementRole==='area').every(b=>b.referenceDistance>0));
 });
 test('moving, reloading and recalculating off-graph beacons preserves coordinates, IDs and live coverage',()=>{
-  const input=fixture(4),planner=new DeploymentPlanner({...input,settings:{additionalBeaconBudget:0}});planner.generate();const id=planner.beacons[2].id;planner.edit('move',{id,floorId:'G',worldX:11,worldY:1,x:110,y:10});planner.recalculate('selected',id);const before=planner.beacons.find(b=>b.id===id);assert.equal(before.worldY,1);assert.ok(!planner.output.plan.warnings.some(w=>w.code==='invalid-graph-reference'));
+  const input=fixture(4),planner=new DeploymentPlanner({...input,settings:{placementStrategy:"topology",additionalBeaconBudget:0}});planner.generate();const id=planner.beacons[2].id;planner.edit('move',{id,floorId:'G',worldX:11,worldY:1,x:110,y:10});planner.recalculate('selected',id);const before=planner.beacons.find(b=>b.id===id);assert.equal(before.worldY,1);assert.ok(!planner.output.plan.warnings.some(w=>w.code==='invalid-graph-reference'));
   const reload=new DeploymentPlanner({...input,beacons:planner.beacons,settings:planner.settings});reload.recalculate('project');assert.deepEqual(reload.beacons.find(b=>b.id===id),before);assert.equal(reload.coverage.coveredArea,planner.coverage.coveredArea);
 });
 test('blocked and missing geometry never become installation candidates; multi-floor references stay local',()=>{
@@ -51,4 +51,26 @@ test('10,001-node topology generation stays bounded and remains independent from
   const count=10001,polygon=box(-1,-2,count+1,4),graph={nodes:Array.from({length:count},(_,i)=>node(String(i),i)),edges:Array.from({length:count-1},(_,i)=>({id:String(i),source:String(i),target:String(i+1),distance:1}))};
   const start=performance.now(),r=planBeacons({graph,floorGeometry:{floors:[{floorId:'G',boundaries:[polygon],walkableAreas:[polygon]}]},configuration:{additionalBeaconBudget:0}}),elapsed=performance.now()-start;
   console.log(`topology benchmark: ${count} nodes, ${r.topology.edges.length} edges, ${r.beacons.length} beacons, ${elapsed.toFixed(1)} ms`);assert.equal(r.topology.edges.length,10000);assert.ok(r.beacons.length>1000);assert.ok(r.beacons.some(b=>Math.abs(b.worldY)>1));assert.equal(r.coverage.estimatedPercent,100);assert.ok(elapsed<10000);
+});
+
+test('automatic generation merges clustered access points and retains a single navigation beacon per visible 3 m neighbourhood',()=>{
+  const input=fixture(2);
+  input.graph.nodes=[node('a',0,'Entrance'),node('b',.7,'Exit'),node('c',1.3,'Lift'),node('d',1.9,'Escalator'),node('end',22)];
+  input.graph.edges=input.graph.nodes.slice(1).map((n,i)=>({id:`edge-${i}`,source:input.graph.nodes[i].id,target:n.id,distance:n.worldX-input.graph.nodes[i].worldX}));
+  const result=planBeacons(input),floor=compileFloorGeometry(input.floorGeometry).get('G');
+  assert.ok(result.beacons.length>1);
+  assert.equal(result.beacons.filter(b=>b.worldX<2).length,1);
+  for(let i=0;i<result.beacons.length;i++)for(const b of result.beacons.slice(i+1)) {
+    const a=result.beacons[i];
+    if(visibleGeometrySegment({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor))assert.ok(Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY)>=3-1e-6);
+  }
+  assert.ok(!result.warnings.some(w=>w.code==='missing-anchor'));
+});
+
+test('nearby beacons separated by walls or floors cannot be merged',async()=>{
+  const {nearbyVisibleBeacon}=await import('./topologyPlacement.js');
+  const floors=compileFloorGeometry({floors:[{floorId:'G',boundaries:[box(-5,-5,10,10)],walkableAreas:[box(-5,-5,10,10)],walls:[{points:[{x:0,y:-5},{x:0,y:5}],width:.2}]}]});
+  const candidate={floorId:'G',worldX:1,worldY:0};
+  assert.equal(nearbyVisibleBeacon([{floorId:'G',worldX:-1,worldY:0}],candidate,floors),undefined);
+  assert.equal(nearbyVisibleBeacon([{floorId:'L1',worldX:1,worldY:0}],candidate,floors),undefined);
 });

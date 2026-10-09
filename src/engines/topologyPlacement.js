@@ -98,9 +98,25 @@ export function placeByTopology({graph,floors,beacons,profile,pois=[],settings={
     if(!(scale>0)||!Number.isFinite(scale))throw new Error('Topology placement requires a valid pixel-to-metre scale.');
     const result={...b,x:b.x+(chosen.x-center.x)/scale,y:b.y+(chosen.y-center.y)/scale,worldX:chosen.x,worldY:chosen.y,referenceDistance:Math.hypot(chosen.x-center.x,chosen.y-center.y),placementStrategy:strategy,walkablePolygonIds:context.walkablePolygons.map(p=>p.id)};indexBeacon(result);return result;
   });
-  const optimized=completeAreaCoverage({graph,floors,beacons:placed,profile,settings:{...settings,...s},edges});
+  const optimized=completeAreaCoverage({graph,floors,beacons:mergeNearbyBeacons(placed,floors,Math.min(settings.minimumSpacing??5,automaticBeaconSeparationMeters)),profile,settings:{...settings,...s},edges});
   warnings.push(...optimized.warnings);
-  return {beacons:optimized.beacons,topology:{method:'geometry-cross-sections-greedy-area-coverage',edges,strategies:Object.fromEntries([...new Set(optimized.beacons.map(b=>b.placementStrategy))].map(strategy=>[strategy,optimized.beacons.filter(b=>b.placementStrategy===strategy).length])),optimization:optimized.statistics,objective:'Preserve route stations; greedily cover uncovered walkable samples using perimeter candidates, then remove redundant area beacons. Bounded heuristic, not a global optimum.'},warnings};
+  return {beacons:optimized.beacons,topology:{method:'geometry-cross-sections-greedy-area-coverage',edges,strategies:Object.fromEntries([...new Set(optimized.beacons.map(b=>b.placementStrategy))].map(strategy=>[strategy,optimized.beacons.filter(b=>b.placementStrategy===strategy).length])),optimization:optimized.statistics,objective:'Merge nearby visible route stations; greedily cover uncovered walkable samples using perimeter candidates, then remove redundant area beacons. Bounded heuristic, not a global optimum.'},warnings};
+}
+
+export const automaticBeaconSeparationMeters=3;
+
+export function nearbyVisibleBeacon(beacons, candidate, floors, minimum=automaticBeaconSeparationMeters) {
+  return beacons.find(b=>b.enabled!==false&&b.floorId===candidate.floorId&&Math.hypot(b.worldX-candidate.worldX,b.worldY-candidate.worldY)<minimum-1e-6&&visibleGeometrySegment(point(b),point(candidate),floors.get(b.floorId)));
+}
+
+function mergeNearbyBeacons(beacons, floors, minimum) {
+  const kept=[];
+  for(const beacon of beacons) {
+    const existing=nearbyVisibleBeacon(kept,beacon,floors,minimum);
+    if(existing)existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,...(beacon.anchorNodeIds||[]),beacon.nodeId].filter(Boolean))];
+    else kept.push({...beacon});
+  }
+  return kept;
 }
 
 function completeAreaCoverage({graph,floors,beacons,profile,settings,edges}) {
@@ -122,14 +138,14 @@ function completeAreaCoverage({graph,floors,beacons,profile,settings,edges}) {
       const edge=edgeContexts.get(ref.edgeId),strategy=floor.walkableRegionMetadata?.[polygonIndex]?.category==='Food Court'?'Food Court':edge?.classification==='open-area'?'Atrium':'Wide Corridor';
       const sourceEdge=sourceEdges.get(ref.edgeId),na=nodes.get(sourceEdge.source),nb=nodes.get(sourceEdge.target),scale=Number(settings.metersPerPixel)||sourceEdge.distance/Math.hypot(nb.x-na.x,nb.y-na.y);
       const candidate={...ref,x:p.x/scale,y:p.y/scale,type:'Navigation',origin:'automatic',enabled:true,placementRole:'area',placementStrategy:strategy,profileId:profile.id,coverageRadius:profile.coverageRadius,reliableRadius:radius,walkablePolygonIds:[floor.walkableRegionMetadata?.[polygonIndex]?.id||`${floorId}:walkable-${polygonIndex+1}`]};
-      candidates.push({beacon:candidate,footprint:footprint(candidate)});
+      if(!nearbyVisibleBeacon(beacons,candidate,floors,Math.min(settings.minimumSpacing??5,automaticBeaconSeparationMeters)))candidates.push({beacon:candidate,footprint:footprint(candidate)});
     }
   }
   if(candidates.length>=2000)warnings.push({code:'topology-candidate-limit',message:'Perimeter candidates capped at 2,000; remaining uncovered area requires review.'});
   let covered=counts.filter(n=>n>0).length,added=0;const extras=[];
   // ponytail: bounded greedy set cover (2,000 candidates, 200 additions); no global minimum claim.
   while(points.length&&100*covered/points.length<target&&added<settings.additionalBeaconBudget){
-    let best=null,gain=0;for(const candidate of candidates){if(candidate.used)continue;const value=candidate.footprint.reduce((sum,id)=>sum+(counts[id]===0),0);if(value>gain){gain=value;best=candidate;}}
+    let best=null,gain=0;for(const candidate of candidates){if(candidate.used||nearbyVisibleBeacon(extras.map(c=>c.beacon),candidate.beacon,floors,Math.min(settings.minimumSpacing??5,automaticBeaconSeparationMeters)))continue;const value=candidate.footprint.reduce((sum,id)=>sum+(counts[id]===0),0);if(value>gain){gain=value;best=candidate;}}
     if(!best||gain===0)break;best.used=true;for(const id of best.footprint){if(counts[id]===0)covered++;counts[id]++;}extras.push({...best,beacon:{...best.beacon,id:`area-beacon-${++added}`}});
   }
   let removed=0;for(let i=extras.length-1;i>=0;i--){const candidate=extras[i];if(candidate.footprint.every(id=>counts[id]>1)){for(const id of candidate.footprint)counts[id]--;extras.splice(i,1);removed++;}}

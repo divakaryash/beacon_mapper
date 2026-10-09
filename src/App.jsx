@@ -1,3 +1,4 @@
+import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
 import GraphPanel from "./components/GraphPanel.jsx";
@@ -12,7 +13,7 @@ import { useHistory } from "./hooks/useHistory.js";
 import { defaultLayers, LAYERS, normalizeProject, POI_CATEGORIES, TOOLS } from "./models/drawing.js";
 import { clearProject, loadProject, saveProject } from "./storage/projectStore.js";
 import {sampleMall,sampleFloorSvg} from "./samples/sampleMall.js";
-import { isPdf, readFloorPlan } from "./models/floorPlanImport.js";
+import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference } from "./models/floorPlanImport.js";
 import {useDeploymentPlanner} from "./hooks/useDeploymentPlanner.js";
 
 const acceptedTypes = ".png,.jpg,.jpeg,.svg,.pdf";
@@ -88,16 +89,26 @@ export default function App() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const importRequest = useRef(0);
+  const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
+  let uploadReady=false;
+  try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch {}
+  const uploadFields=<div><p><small>Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins.</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
   const [focusLocation,setFocusLocation]=useState(null);
   const [planningError,setPlanningError]=useState("");
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
   const planner=useDeploymentPlanner(committedProject,(output,preview,action)=>{
     const current=committedRef.current;if(!current)return;
     const profile=[...BEACON_PROFILES,...(current.beaconProfiles||[])].find(p=>p.id===output.settings.defaultProfileId);
-    const next={...current,beaconPlan:output.plan,coverageAnalysis:output.coverage,planningSettings:output.settings,coverageSettings:{...current.coverageSettings,cellSize:output.settings.cellSize},beaconProfile:profile,placementNeedsReview:false,layers:action==="generate"?{...current.layers,beacons:{visible:true,locked:false},coverage:{...current.layers.coverage,visible:true}}:current.layers};
+    const next={...current,beaconPlan:output.plan,coverageAnalysis:output.coverage,planningSettings:output.settings,coverageSettings:{...current.coverageSettings,cellSize:output.settings.cellSize},beaconProfile:profile,autoPlanPending:false,deploymentError:null,placementNeedsReview:!!current.floorAnalysis?.scaleAssumed,layers:action==="generate"?{...current.layers,beacons:{visible:true,locked:false},coverage:{...current.layers.coverage,visible:!current.floorAnalysis}}:current.layers};
     setPlanningError("");if(preview)setLiveProject(next);else {setLiveProject(null);history.commit(next);}
-  },error=>{setPlanningError(error);setLiveProject(null);});
+  },error=>{setPlanningError(error);setLiveProject(null);if(committedRef.current)history.commit({...committedRef.current,autoPlanPending:false,deploymentError:error});});
   useEffect(()=>setLiveProject(null),[committedProject]);
+  const autoPlanning=useRef(null);
+  useEffect(()=>{
+    if(!committedProject?.autoPlanPending||autoPlanning.current===committedProject.graph)return;
+    autoPlanning.current=committedProject.graph;
+    planner.command("generate");
+  },[committedProject]);
   useEffect(()=>{if(beaconSelection&&committedProject?.beaconPlan)planner.command("inspect",{}, {selection:beaconSelection});},[beaconSelection,committedProject?.beaconPlan]);
 
   useEffect(() => {
@@ -109,8 +120,20 @@ export default function App() {
           saved = { ...saved, floorPlanPreview: rendered.floorPlanPreview, pdfPageCount: rendered.pdfPageCount };
         } catch (error) { setImportError(`PDF could not be opened: ${error.message}. Re-import the file to retry.`); }
       }
-      history.reset(normalizeProject(saved));
+      const restored=normalizeProject(saved);
+      history.reset(restored);
       setStatus(saved ? "Restored from this browser" : "No project loaded");
+      if(saved&&saved.floorAnalysis?.method!=="aligned-venue-reference"){
+        try {
+          const reference=await matchingFloorReference(saved);
+          if(reference){
+            const detected=await analyzeImportedFloor(saved,Number(saved.widthMeters)/saved.drawingWidthPixels);
+            if(committedRef.current?.objects!==restored.objects)return;
+            // Keep the previous drawing in undo history when replacing a bad inferred map.
+            history.commit(normalizeProject({...restored,referencePresentationInitialized:false,objects:detected.objects,graph:detected.graph,widthMeters:detected.widthMeters,heightMeters:detected.heightMeters,floorAnalysis:detected.analysis,beaconPlan:null,coverageAnalysis:null,activeDeploymentId:null,placementNeedsReview:false,planningSettings:{...restored.planningSettings,nextBeaconNumber:1,cellSize:1,additionalBeaconBudget:100},autoPlanPending:true,layers:{...restored.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
+          }
+        }catch(error){setImportError(`Reference correction could not be applied: ${error.message}`);}
+      }
     }).catch(() => setStatus("Local storage is unavailable"));
   }, []);
 
@@ -141,6 +164,10 @@ export default function App() {
 
   function update(next) {
     const changed=project&&(next.graph!==project.graph||next.objects!==project.objects||next.widthMeters!==project.widthMeters||next.heightMeters!==project.heightMeters||next.drawingWidthPixels!==project.drawingWidthPixels||next.drawingHeightPixels!==project.drawingHeightPixels);
+    if(project?.floorAnalysis&&next.widthMeters!==project.widthMeters&&Number(next.widthMeters)>0){
+      const scale=Number(next.widthMeters)/next.drawingWidthPixels;
+      next={...next,heightMeters:next.drawingHeightPixels*scale,graph:{...next.graph,nodes:next.graph.nodes.map(n=>({...n,worldX:n.x*scale,worldY:n.y*scale})),edges:next.graph.edges.map(e=>{const a=next.graph.nodes.find(n=>n.id===e.source),b=next.graph.nodes.find(n=>n.id===e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*scale};})},beaconPlan:null,coverageAnalysis:null,planningSettings:{...next.planningSettings,nextBeaconNumber:1},autoPlanPending:next.graph.edges.length>0,floorAnalysis:{...next.floorAnalysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters:Number(next.widthMeters),heightMeters:next.drawingHeightPixels*scale}}};
+    }
     history.commit(changed?{...next,placementNeedsReview:!!next.beaconPlan,coverageAnalysis:null}:next);
   }
   function beaconAction(action,data,preview=false){
@@ -182,18 +209,33 @@ export default function App() {
     const request = ++importRequest.current;
     setImporting(true);
     setImportError("");
-    const base = project || { objects: [], layers: defaultLayers(), gridSize: 20, snapToGrid: true };
+    setPlanningError("");
+    setLiveProject(null);
+    const base = { objects: [], graph:{nodes:[],edges:[]}, layers: defaultLayers(), gridSize: 20, snapToGrid: false };
     try {
+      const setup=validateFloorPlanSetup(uploadSetup);
       const imported = await readFloorPlan(file);
+      const originalHeight=imported.drawingHeightPixels;
+      imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
+      imported.floorPlanLabels=imported.floorPlanLabels?.map(label=>({...label,y:label.y*imported.drawingHeightPixels/originalHeight,height:label.height*imported.drawingHeightPixels/originalHeight}));
       if (request !== importRequest.current) return;
-      history.reset(normalizeProject({ ...base, ...imported, name: file.name, coverageAnalysis: null, placementNeedsReview: !!base.beaconPlan, layers: { ...base.layers, floorPlan: { ...base.layers.floorPlan, visible: true } } }));
+      setStatus("Analyzing geometry and navigation paths…");
+      // User dimensions establish scale before geometry and placement are generated.
+      const widthMeters=setup.widthMeters,metersPerPixel=widthMeters/imported.drawingWidthPixels;
+      let detected;
+      try {detected=await analyzeImportedFloor(imported,metersPerPixel);}
+      catch(error){detected={objects:[],graph:{nodes:[],edges:[]},analysis:{method:"bounded-raster-topology",status:"failed",warnings:[error.message]}};}
+      if(request!==importRequest.current)return;
+      const detectedNodes=new Map(detected.graph.nodes.map(n=>[n.id,n]));
+      detected.graph={...detected.graph,nodes:detected.graph.nodes.map(n=>({...n,worldX:n.x*metersPerPixel,worldY:n.y*metersPerPixel})),edges:detected.graph.edges.map(e=>{const a=detectedNodes.get(e.source),b=detectedNodes.get(e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*metersPerPixel};})};
+      history.reset(normalizeProject({...base,...imported,name:file.name,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},widthMeters,heightMeters:setup.heightMeters,planningSettings:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters,heightMeters:setup.heightMeters}},autoPlanPending:detected.graph.edges.length>0,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
       setSelectedId(null); setGraphSelection(null); setBeaconSelection(null); setRoute(null);
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
     } finally { if (request === importRequest.current) setImporting(false); }
   }
 
-  async function reset() { await clearProject(); history.reset(null); setSelectedId(null); setStatus("No project loaded"); }
+  async function reset() { ++importRequest.current;setImporting(false);await clearProject(); history.reset(null); setSelectedId(null); setStatus("No project loaded"); }
 
   const projectStats = useMemo(() => project ? {
     rooms: project.objects.filter((object) => object.type === "room").length,
@@ -203,9 +245,9 @@ export default function App() {
 
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
-      <p className="eyebrow">INPS · Local planning workspace</p><h1>Model the building before placing a beacon.</h1>
-      <p>Import a floor plan to start a project. Everything stays in this browser.</p>
-      <label className="upload"><span>{importing ? "Opening floor plan…" : "Choose floor plan"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label><small>PNG, JPG, SVG, or PDF (first page)</small>
+      <p className="eyebrow">INPS · Local planning workspace</p><h1>Upload a floor plan. Review an initial deployment.</h1>
+      <p>Automatically infer geometry and navigation paths, then place IW Beacons. Everything stays in this browser.</p>
+      {uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label><small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
     </section></main>
@@ -215,7 +257,7 @@ export default function App() {
     <main className="app-shell">
       <header className="app-header">
         <div><p className="eyebrow">Indoor Navigation Planning Studio</p><h1>{project.name || "Untitled floor"}</h1></div>
-        <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span></div>
+        <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span>{project.beaconPlan&&<span>{project.beaconPlan.beacons.length} IW beacons</span>}</div>
         <div className="header-actions"><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
       </header>
 
@@ -226,12 +268,13 @@ export default function App() {
       <aside className="left-panel">
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
-          <label className="upload compact"><span>{importing ? "Opening floor plan…" : "Replace source"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
+          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
+          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
           <div className="field-grid">
             <label>Width (m)<input type="number" min="0" step="0.1" value={project.widthMeters ?? ""} onChange={(event) => update({ ...project, widthMeters: event.target.value })} /></label>
-            <label>Height (m)<input type="number" min="0" step="0.1" value={project.heightMeters ?? ""} onChange={(event) => update({ ...project, heightMeters: event.target.value })} /></label>
+            <label>Height (m)<input readOnly={!!project.floorAnalysis} type="number" min="0" step="0.1" value={project.heightMeters ?? ""} onChange={(event) => update({ ...project, heightMeters: event.target.value })} /></label>
           </div>
           <div className="field-grid">
             <label>Grid (px)<input type="number" min="2" value={project.gridSize} onChange={(event) => update({ ...project, gridSize: Math.max(2, Number(event.target.value)) })} /></label>
@@ -244,7 +287,7 @@ export default function App() {
       </aside>
 
       <section className="canvas-area"><StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><SimulationPanel project={committedProject} onVisualization={setSimulation}/><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );
 }

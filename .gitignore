@@ -2,3 +2,8 @@ node_modules/
 dist/
 .npm-cache/
 .DS_Store
+
+.venv-annotation/
+reports/professional/*-source.json
+
+__pycache__/

@@ -4,6 +4,12 @@
 
 INPS is a personal, local-first engineering tool for accurate indoor-navigation planning. Simplicity, correctness, and maintainability take priority over collaboration or enterprise features.
 
+## Current priority — automatic floor-plan analysis
+
+The primary workflow is upload PDF/PNG/JPG/SVG → detect building geometry and landmarks → generate an editable graph → plan IW Beacon locations from real walkable geometry → display count, IDs, installation positions, navigation paths, coverage and dead zones → review minor corrections. Non-essential UI, simulation extensions and unrelated features are paused until this workflow is reliable.
+
+An initial local heuristic implementation now connects upload to geometry segmentation, skeleton graph generation and the existing topology/coverage engines. PDF/SVG labels identify landmark candidates. Arbitrary raster symbol recognition and semantic corridor/room/atrium separation remain required work; the workflow is not yet reliably review-only for all plans. Drawing scale is explicitly provisional until confirmed by the user.
+
 ## Milestone 1 — Project foundation ✅
 
 - Floor-plan import and preview
@@ -80,6 +86,6 @@ Independent graph-following placement, profiles, anchors, manual/hybrid editing,
 - Automated strategy/geometry/persistence checks and same-count sample comparison
 - No RF, Bluetooth or mobile integration
 
-Future backlog: Installed Beacon CSV import and BLE Survey Log analysis/optimization only. RF simulation will be a later, explicitly approved milestone after the planner is stable. Milestone 8 was explicitly requested; wait for approval before proceeding beyond it.
+Future backlog: Installed Beacon CSV import and BLE Survey Log analysis/optimization only. RF simulation will be a later, explicitly approved milestone after the planner is stable. Automatic analysis is now explicitly requested and takes precedence over the previous milestone sequence.
 
-AI-assisted floor analysis remains outside the plan until the manual workflow is stable.
+Automatic floor analysis is the highest priority; manual drawing is a correction fallback.

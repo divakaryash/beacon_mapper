@@ -1,0 +1,52 @@
+{
+  "source": "User-provided floor-0 venue API; credential omitted",
+  "pdfSha256": "0b3984e99060fe85f3a7ef5bad399ed4ebaba5f1eac31abd9aa9b250f01ddaa2",
+  "referenceCounts": {
+    "Wall": 49,
+    "Store": 73,
+    "Restricted Area": 44,
+    "Female Washroom": 2,
+    "Lift": 19,
+    "Male Washroom": 2,
+    "Green Area": 25,
+    "Non Walkable": 4,
+    "Steps": 10,
+    "Reception": 1
+  },
+  "apiAccessPoints": 131,
+  "attachedAccessPoints": 131,
+  "connectedComponents": 1,
+  "graphNodes": 524,
+  "graphEdges": 538,
+  "statistics": {
+    "navigationBeacons": 239,
+    "anchorBeacons": 218,
+    "totalBeacons": 457,
+    "activeBeacons": 457,
+    "disabledBeacons": 0,
+    "averageSpacing": 4.160377648920953,
+    "minimumSpacing": 0.26014831845226666,
+    "maximumSpacing": 9.505698491553687,
+    "coveragePercent": 90.05281690140845,
+    "deadZonePercent": 9.94718309859155,
+    "overlapPercent": 70.4225352112676,
+    "maximumGap": 0,
+    "minimumGap": 0,
+    "deploymentQuality": 75.73704850759056,
+    "installationCost": 0,
+    "warnings": 303
+  },
+  "referenceWarnings": [
+    "Outer facade traced from supplied PDF; API boundary is empty",
+    "API geographic coordinates aligned to this exact PDF. Local coordinates and Centroid features are intentionally excluded.",
+    "Public walkable space is inferred from the reviewed outer facade minus shops, walls, shafts, greenery and restricted footprints. The API supplies no corridor graph.",
+    "Physical scale is estimated from API geographic distances; confirm it against the drawing/site survey."
+  ],
+  "browserUploadVerified": false,
+  "limitations": [
+    "Boundary was traced from the PDF because the API Boundary feature is empty.",
+    "Walkable floor is inferred by exclusion; API supplies no corridor graph.",
+    "API geodetic scale is approximate. Beacon count is a draft, not an approved minimum.",
+    "Browser upload verification was declined."
+  ]
+}
