@@ -173,3 +173,32 @@ def linked_points(data,profile):
         id=str(f['id'])+'-entry';p['associatedPoints']=[id]
         output.append({'type':'Feature','id':id,'properties':dp,'geometry':dict(mapping(door))})
     data['features']=output;data['metadata']['stage']=5;return data
+
+def register(data, controls, meters_per_pixel, profile):
+    import numpy as np
+    if len(controls)<3:raise ValueError('Georeferenced export requires at least three surveyed pixel/latitude/longitude pairs')
+    if not math.isfinite(meters_per_pixel) or meters_per_pixel<=0:raise ValueError('Positive source-frame scale required')
+    lat=sum(c['latitude'] for c in controls)/len(controls);lon=sum(c['longitude'] for c in controls)/len(controls)
+    if any(not -90<c['latitude']<90 or not -180<=c['longitude']<=180 for c in controls):raise ValueError('Invalid geographic control point')
+    earth=6378137; east=earth*math.cos(math.radians(lat))*math.pi/180;north=earth*math.pi/180
+    local=np.array([[c['pixel'][0]*meters_per_pixel,-c['pixel'][1]*meters_per_pixel] for c in controls])
+    if np.linalg.matrix_rank(local-local.mean(axis=0))<2:raise ValueError('Control points must span two dimensions')
+    matrix=[];target=[]
+    for (x,y),c in zip(local,controls):matrix.extend([[x,-y,1,0],[y,x,0,1]]);target.extend([(c['longitude']-lon)*east,(c['latitude']-lat)*north])
+    a,b,tx,ty=np.linalg.lstsq(np.array(matrix),target,rcond=None)[0]
+    errors=np.linalg.norm((np.array(matrix)@[a,b,tx,ty]-target).reshape(-1,2),axis=1)
+    if not np.isfinite(errors).all() or math.hypot(a,b)<1e-9:raise ValueError('Degenerate registration')
+    if max(errors)>profile['registrationResidualMeters']:raise ValueError(f'Registration residual {max(errors):.2f} m exceeds threshold')
+    result=copy.deepcopy(data)
+    def geo(v):return [lon+(a*v[0]-b*v[1]+tx)/east,lat+(b*v[0]+a*v[1]+ty)/north]
+    def nested(v, fn):return fn(v) if isinstance(v[0],(float,int)) else [nested(w,fn) for w in v]
+    for f in result['features']:
+        g=f['geometry'];g['coordinnatesLocal']=nested(g['coordinates'],lambda v:[v[0]/meters_per_pixel,-v[1]/meters_per_pixel]);g['coordinates']=nested(g['coordinates'],geo)
+        p=f['properties'];p['global']=True
+        for key in ['centroid','closestProjection']:
+            if p.get(key) is not None:p[key]=geo(p[key])
+        if p.get('blockedFootprint'):
+            p['blockedFootprint']['coordinates']=nested(p['blockedFootprint']['coordinates'],geo)
+        if p.get('entryDirection') is not None:p['entryDirection']=(p['entryDirection']-math.degrees(math.atan2(b,a)))%360
+    result['metadata'].update(stage=6,coordinateSystem='WGS84',scaleSource={'kind':'surveyed-control-points','count':len(controls)},registration={'a':float(a),'b':float(b),'tx':float(tx),'ty':float(ty),'origin':[lon,lat],'eastMetersPerDegree':east,'northMetersPerDegree':north,'metersPerPixel':meters_per_pixel,'residualMeters':errors.tolist(),'maximumResidualMeters':float(max(errors))})
+    return result

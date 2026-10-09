@@ -40,6 +40,13 @@ class AnnotationTests(unittest.TestCase):
         self.assertEqual(door['properties']['associatedPolygons'],['room'])
         self.assertLess(shape(room['geometry']).boundary.distance(shape(door['geometry'])),1)
         self.assertTrue(shape(room['geometry']).contains(shape(items['room-centroid']['geometry'])))
+    def test_registration(self):
+        data=linked_points(taxonomy(sample(),0),load_profile())
+        controls=[{'pixel':[x,y],'latitude':28-y/111319.490793,'longitude':77+x/(111319.490793*math.cos(math.radians(28)))} for x,y in [(0,0),(30,0),(0,30),(30,30)]]
+        output=register(data,controls,1,load_profile());self.assertLess(output['metadata']['registration']['maximumResidualMeters'],.01)
+        self.assertTrue(all(f['properties']['global'] for f in output['features']))
+        controls[3]['latitude']+=.001
+        with self.assertRaises(ValueError):register(data,controls,1,load_profile())
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):
