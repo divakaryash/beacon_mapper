@@ -1,0 +1,92 @@
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "counts": {
+    "Boundary": 1,
+    "Centroid": 5,
+    "Classroom": 2,
+    "Lift": 1,
+    "Point": 3,
+    "Restricted Area": 1,
+    "Stairs": 1
+  },
+  "nullNameFraction": 0.14285714285714285,
+  "reviewFraction": 0.42857142857142855,
+  "areaStatistics": {
+    "Boundary": {
+      "medianArea": 1199.9980793432221,
+      "medianVertices": 4
+    },
+    "Classroom": {
+      "medianArea": 95.99984634397245,
+      "medianVertices": 5.0
+    },
+    "Lift": {
+      "medianArea": 8.999985592881787,
+      "medianVertices": 4
+    },
+    "Restricted Area": {
+      "medianArea": 48.99992156727286,
+      "medianVertices": 4
+    }
+  },
+  "corridorReachableFraction": 1.0,
+  "nonWalkableAreaFraction": 0.0,
+  "restrictedAreaFraction": 0.040833333328409396,
+  "wallAreaFraction": 0.0,
+  "registration": {
+    "a": 0.9999999999999992,
+    "b": 0.0,
+    "tx": -19.999983994954956,
+    "ty": -14.999987995890168,
+    "origin": [
+      77.00020348099738,
+      28.00013474729262
+    ],
+    "eastMetersPerDegree": 98289.15352656285,
+    "northMetersPerDegree": 111319.49079327358,
+    "metersPerPixel": 0.9999991997128292,
+    "controlPoints": [
+      {
+        "pixel": [
+          0,
+          0
+        ],
+        "latitude": 28.0,
+        "longitude": 77.0
+      },
+      {
+        "pixel": [
+          40,
+          0
+        ],
+        "latitude": 28.0,
+        "longitude": 77.00040696199476
+      },
+      {
+        "pixel": [
+          0,
+          -30
+        ],
+        "latitude": 28.000269494585236,
+        "longitude": 77.0
+      },
+      {
+        "pixel": [
+          40,
+          -30
+        ],
+        "latitude": 28.000269494585236,
+        "longitude": 77.00040696199476
+      }
+    ],
+    "residualMeters": [
+      1.5005406562096368e-05,
+      1.5005406564227996e-05,
+      1.5005406559254198e-05,
+      1.5005406561385826e-05
+    ],
+    "maximumResidualMeters": 1.5005406564227996e-05
+  }
+}

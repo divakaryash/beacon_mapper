@@ -53,6 +53,24 @@ class AnnotationTests(unittest.TestCase):
         result=routing(data,graph,load_profile());edges=[f for f in result['features'] if f['geometry']['type']=='LineString']
         self.assertLess(len(edges),5)
         for edge in edges:self.assertLess(shape(edge['geometry']).intersection(shape(data['features'][1]['geometry'])).length,1e-7)
+    def test_validator(self):
+        from validate_annotation import validate
+        data=linked_points(taxonomy(sample(),0),load_profile())
+        self.assertTrue(validate(data,require_registration=False)['valid'])
+        data['features'][-1]['properties']['associatedPolygons']=['missing']
+        self.assertFalse(validate(data,require_registration=False)['valid'])
+    def test_campus_export(self):
+        from export_annotation import export
+        source=json.loads((Path(__file__).parent/'synthetic_campus.json').read_text())
+        result=export(source,{'floor':0,'metersPerPixel':1,'localDiagnostic':True,'profile':{'venueType':'campus'},'routing':True})
+        self.assertTrue(result['validation']['valid']);self.assertGreater(result['routing']['metadata']['doorReachableFraction'],0)
+    def test_benchmark(self):
+        from compare_to_reference import compare
+        data=taxonomy(sample(),0);r=compare(data,data)
+        self.assertEqual(r['matchedAtIoU0.5'],1);self.assertEqual(r['nameExactMatchRate'],1)
+    def test_ungendered_washroom(self):
+        self.assertEqual(classify('WC', 'Room', load_profile()),'Washroom')
+        self.assertEqual(classify('Women Toilet','Room',load_profile()),'Female Washroom')
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):

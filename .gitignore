@@ -5,3 +5,5 @@ dist/
 
 .venv-annotation/
 reports/professional/*-source.json
+
+__pycache__/

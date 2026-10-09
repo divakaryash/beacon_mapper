@@ -1,0 +1,42 @@
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [
+    "Physical scale unverified: areas/distances diagnostic only",
+    "Corridor area reachable from every inferred entry: 0.0%; review segmentation and entries"
+  ],
+  "counts": {
+    "Boundary": 1,
+    "Centroid": 119,
+    "Non Walkable": 24,
+    "Point": 92,
+    "Stairs": 13,
+    "Store": 92,
+    "Wall": 2
+  },
+  "nullNameFraction": 0.8425655976676385,
+  "reviewFraction": 0.9329446064139941,
+  "areaStatistics": {
+    "Boundary": {
+      "medianArea": 7151.376636854796,
+      "medianVertices": 433
+    },
+    "Non Walkable": {
+      "medianArea": 32.374622264277676,
+      "medianVertices": 12.0
+    },
+    "Wall": {
+      "medianArea": 488.39361229386685,
+      "medianVertices": 522.0
+    },
+    "Store": {
+      "medianArea": 17.55135679619059,
+      "medianVertices": 9.5
+    }
+  },
+  "corridorReachableFraction": 0.0,
+  "nonWalkableAreaFraction": 0.11256430192475311,
+  "restrictedAreaFraction": 0.0,
+  "wallAreaFraction": 0.20010831648815833,
+  "registration": null
+}

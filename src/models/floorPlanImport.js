@@ -38,7 +38,7 @@ export async function readFloorPlan(file) {
       const viewport = page.getViewport({ scale: size.scale });
       const floorPlanLabels = text.items.filter(item => item.str).map(item => {
         const [x,y] = viewport.convertToViewportPoint(item.transform[4],item.transform[5]);
-        return {text:item.str,x,y,...(Math.abs(item.transform[1])<.001?{width:item.width*size.scale,height:item.height*size.scale}: {})};
+        return {text:item.str,x,y,source:"pdf-text",confidence:100,...(Math.abs(item.transform[1])<.001?{width:item.width*size.scale,height:item.height*size.scale}: {})};
       });
       const printedLabels=await matchingFloorReference({file,sourceSha256})?[]:await recognizeFloorLabels(preview,size.width,size.height);
       floorPlanLabels.push(...printedLabels.filter(label=>!floorPlanLabels.some(native=>native.text.trim()===label.text&&Math.hypot(native.x-label.x,native.y-label.y)<label.height)));

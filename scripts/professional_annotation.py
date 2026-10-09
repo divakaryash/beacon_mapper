@@ -7,7 +7,7 @@ from shapely.ops import unary_union
 
 PROFILE_PATH = Path(__file__).resolve().parents[1] / 'venue_profile.json'
 AREA_ALIASES = {'Store', 'Room', 'Ward', 'Gate', 'Exhibit', 'Enclosure', 'Office', 'Classroom', 'Counter'}
-ENTRY_TYPES = AREA_ALIASES | {'Lift', 'Male Washroom', 'Female Washroom'}
+ENTRY_TYPES = AREA_ALIASES | {'Lift', 'Male Washroom', 'Female Washroom', 'Washroom'}
 REQUIRED = {'level','floor','name','type','direction','surface','isWalkable','visible','hideElement','isForAlign','height','centroid','global'}
 
 def load_profile(overrides=None):
@@ -15,8 +15,11 @@ def load_profile(overrides=None):
     for key, value in (overrides or {}).items():
         if isinstance(value, dict) and isinstance(profile.get(key), dict): profile[key].update(value)
         else: profile[key] = value
+    if not math.isfinite(float(profile['defaultHeight'])) or float(profile['defaultHeight'])<=0:raise ValueError('Default height must be positive metres')
     if profile['venueType'] not in profile['presets']: raise ValueError('Unknown venueType')
     for pattern in profile['namePatterns']: re.compile(pattern)
+    for key in ['minimumArea','simplifyMeters','snapMeters','orthogonalDegrees','mergeSharedBoundaryMeters','overlapAreaMeters','overlapFraction','minimumWallWidthMeters','minimumWallAreaMeters','maximumAspectRatio','doorOffsetMeters','doorEdgeToleranceMeters','registrationResidualMeters','minimumRoutingMeters']:
+        if not isinstance(profile[key],(int,float)) or not math.isfinite(profile[key]) or profile[key]<=0:raise ValueError(f'Profile {key} must be positive and finite')
     return profile
 
 def classify(name, current, profile):
@@ -28,7 +31,7 @@ def classify(name, current, profile):
 def taxonomy(source, floor, profile=None, meters_per_pixel=None):
     if type(floor) is not int: raise ValueError('Provide an integer floor number from the sheet or floor configuration')
     profile = profile or load_profile()
-    result = {'type':'FeatureCollection','name':source.get('name'), 'metadata':{'stage':1,'coordinateSystem':'local metres diagnostic; not georeferenced','scaleSource':source.get('scaleSource'),'transformations':[],'dropped':[]},'features':[]}
+    result = {'type':'FeatureCollection','name':source.get('name'), 'metadata':{'stage':1,'coordinateSystem':'local metres diagnostic; not georeferenced','scaleSource':source.get('scaleSource'),'transformations':[],'dropped':[],'profile':profile},'features':[]}
     for item in source['features']:
         f = copy.deepcopy(item); p = f['properties']; category = classify(p.get('name'),p.get('type'),profile)
         if category in {'Navigation Path','Walkable Area'}:
@@ -56,6 +59,19 @@ def area_rank(f):
     t=f['properties']['type']
     return 0 if t in {'Lift','Male Washroom','Female Washroom'} else 1 if t in AREA_ALIASES else {'Restricted Area':2,'Non Walkable':3,'Wall':4}.get(t,2)
 
+def smooth_outline(g, profile):
+    def ring(coords):
+        points=[list(p) for p in coords[:-1]]
+        tolerance=math.tan(math.radians(profile['orthogonalDegrees']))
+        for i,a in enumerate(points):
+            b=points[(i+1)%len(points)];dx=b[0]-a[0];dy=b[1]-a[1]
+            if abs(dx)>0 and abs(dy)/abs(dx)<=tolerance and abs(dy)<=profile['snapMeters']:a[1]=b[1]=(a[1]+b[1])/2
+            elif abs(dy)>0 and abs(dx)/abs(dy)<=tolerance and abs(dx)<=profile['snapMeters']:a[0]=b[0]=(a[0]+b[0])/2
+        return points+[points[0]]
+    candidate=Polygon(ring(list(g.exterior.coords)),[ring(list(r.coords)) for r in g.interiors])
+    if candidate.is_valid and abs(candidate.area-g.area)<=max(.1,g.area*.02):return candidate
+    return g
+
 def cleanup(data, profile):
     data=copy.deepcopy(data); changes=data['metadata']['transformations']; dropped=data['metadata']['dropped']
     boundaries=[shape(f['geometry']) for f in data['features'] if f['properties']['type']=='Boundary']
@@ -66,8 +82,10 @@ def cleanup(data, profile):
         g=shape(f['geometry'])
         if not g.is_valid:
             dropped.append({'id':f['id'],'reason':'invalid source outline; requires redrawing'});continue
-        simplified=g.simplify(profile['simplifyMeters'],preserve_topology=True)
-        if abs(simplified.area-g.area)<=max(.1,g.area*.05): g=simplified
+        simplified=smooth_outline(g.simplify(profile['simplifyMeters'],preserve_topology=True),profile)
+        if abs(simplified.area-g.area)<=max(.1,g.area*.05):
+            if not simplified.equals_exact(g,1e-9):changes.append({'id':f['id'],'action':'simplified / near-orthogonal outline','verticesBefore':len(g.exterior.coords)-1,'verticesAfter':len(simplified.exterior.coords)-1})
+            g=simplified
         if boundary is not None:g=g.intersection(boundary)
         p=f['properties']
         if p['type']=='Wall' and (g.area<profile['minimumWallAreaMeters'] or 2*g.area/max(g.length,1e-9)<profile['minimumWallWidthMeters']):
@@ -126,7 +144,7 @@ def naming(data, profile, labels=()):
         category=classify(' '.join(n for n in candidates if n),p['type'],profile)
         if category in {'Male Washroom','Female Washroom'}:
             counts[category]=counts.get(category,0)+1;name=f'{category}-{counts[category]}'
-        p.update(name=name,type=category,fillColor=profile['colors'].get(category,'#a4d3df'),needsReview=p.get('needsReview',False) or name is None)
+        p.update(name=name,type=category,fillColor=profile['colors'].get(category,'#a4d3df'),needsReview=p.get('needsReview',False) or name is None or category=='Washroom')
     data['metadata']['stage']=3
     return data
 
@@ -138,7 +156,7 @@ def circulation(data, profile):
             data['metadata']['dropped'].append({'id':f['id'],'reason':'unknown circulation assembly; cannot infer stairs versus escalator','needsReview':True});continue
         if t in {'Stairs','Escalator','Travelator','Ramp'}:
             footprint=shape(f['geometry']);point=footprint.representative_point()
-            p['blockedFootprint']=mapping(footprint);f['geometry']=dict(mapping(point))
+            p['blockedFootprint']=mapping(footprint);p['centroid']=list(point.coords[0]);f['geometry']=dict(mapping(point))
             counts[t]=counts.get(t,0)+1
             direction=p.get('travelDirection') if p.get('directionEvidence') else None
             if direction not in {'Up','Down'}:direction=None
@@ -150,7 +168,7 @@ def circulation(data, profile):
 def linked_points(data,profile):
     data=copy.deepcopy(data);areas=[f for f in data['features'] if f['geometry']['type']=='Polygon'];output=list(data['features'])
     boundary=unary_union([shape(f['geometry']) for f in areas if f['properties']['type']=='Boundary'])
-    obstacles=unary_union([shape(f['geometry']) for f in areas if f['properties']['type']!='Boundary'])
+    obstacles=unary_union([shape(f['geometry']) for f in areas if f['properties']['type']!='Boundary']+[shape(f['properties']['blockedFootprint']) for f in data['features'] if f['properties'].get('blockedFootprint')])
     for f in areas:
         p=f['properties'];g=shape(f['geometry']);center=g.representative_point();p['centroid']=list(center.coords[0]);p['associatedPoints']=[]
         cp=copy.deepcopy(p);cp.update(type='Centroid',polygonType=p['type'],associatedPolygons=[f['id']],associatedPoints=[])
@@ -170,7 +188,7 @@ def linked_points(data,profile):
         else:
             projection=g.exterior.interpolate(.5,normalized=True);door=projection;nx=ny=0
         dp=copy.deepcopy(p);dp.update(type='Point',associatedPolygons=[f['id']],associatedPoints=[],closestProjection=list(projection.coords[0]),entryDirection=(math.degrees(math.atan2(-nx,-ny))+360)%360 if nx or ny else None,openingDirection=None,entryConfidence=.25,needsReview=True,entryEvidence='corridor-facing-edge' if candidates else 'no accessible candidate')
-        id=str(f['id'])+'-entry';p['associatedPoints']=[id]
+        id=str(f['id'])+'-entry';p['associatedPoints']=[id];dp['centroid']=list(door.coords[0])
         output.append({'type':'Feature','id':id,'properties':dp,'geometry':dict(mapping(door))})
     data['features']=output;data['metadata']['stage']=5;return data
 
@@ -200,13 +218,14 @@ def register(data, controls, meters_per_pixel, profile):
         if p.get('blockedFootprint'):
             p['blockedFootprint']['coordinates']=nested(p['blockedFootprint']['coordinates'],geo)
         if p.get('entryDirection') is not None:p['entryDirection']=(p['entryDirection']-math.degrees(math.atan2(b,a)))%360
-    result['metadata'].update(stage=6,coordinateSystem='WGS84',scaleSource={'kind':'surveyed-control-points','count':len(controls)},registration={'a':float(a),'b':float(b),'tx':float(tx),'ty':float(ty),'origin':[lon,lat],'eastMetersPerDegree':east,'northMetersPerDegree':north,'metersPerPixel':meters_per_pixel,'residualMeters':errors.tolist(),'maximumResidualMeters':float(max(errors))})
+    result['metadata'].update(stage=6,coordinateSystem='WGS84',scaleSource={'kind':'surveyed-control-points','count':len(controls)},registration={'a':float(a),'b':float(b),'tx':float(tx),'ty':float(ty),'origin':[lon,lat],'eastMetersPerDegree':east,'northMetersPerDegree':north,'metersPerPixel':meters_per_pixel,'controlPoints':copy.deepcopy(controls),'residualMeters':errors.tolist(),'maximumResidualMeters':float(max(errors))})
     return result
 
 def routing(data, graph, profile):
     blockers=unary_union([shape(f['geometry']) for f in data['features'] if f['geometry']['type']=='Polygon' and f['properties']['type']!='Boundary']+[shape(f['properties']['blockedFootprint']) for f in data['features'] if f['properties'].get('blockedFootprint')])
     boundary=unary_union([shape(f['geometry']) for f in data['features'] if f['properties']['type']=='Boundary'])
-    nodes={n['id']:(n['x'], -n['y']) for n in graph.get('nodes',[])}
+    if not graph.get('nodes'):graph=gap_graph(boundary.difference(blockers))
+    nodes={n['id']:(n.get('worldX',n['x']), -n.get('worldY',n['y'])) for n in graph.get('nodes',[])}
     adjacency={id:set() for id in nodes};discarded=[]
     def visible(a,b):
         line=LineString([a,b]);return boundary.covers(line) and line.intersection(blockers).length<1e-7
@@ -216,7 +235,8 @@ def routing(data, graph, profile):
         adjacency[a].add(b);adjacency[b].add(a)
     doors=[f for f in data['features'] if f['properties']['type']=='Point'];unreachable=[]
     for f in doors:
-        point=tuple(f['geometry']['coordinates']);candidates=sorted((math.dist(point,p),id) for id,p in nodes.items() if adjacency[id] and visible(point,p))
+        point=tuple(f['geometry']['coordinates']);nearest=sorted((math.dist(point,p),id) for id,p in nodes.items() if adjacency[id])[:40]
+        candidates=[(d,id) for d,id in nearest if visible(point,nodes[id])]
         if not candidates:unreachable.append(f['id']);continue
         neighbor=candidates[0][1];nodes[f['id']]=point;adjacency[f['id']]={neighbor};adjacency[neighbor].add(f['id'])
     terminals={id for id,v in adjacency.items() if len(v)!=2 and v}|{f['id'] for f in doors if f['id'] in adjacency};visited=set();edges=[]
@@ -236,3 +256,19 @@ def routing(data, graph, profile):
     return {'type':'FeatureCollection','coordinateSystem':'local metres','features':features,'metadata':{'discardedEdges':discarded,'unreachableDoors':unreachable,'doorReachableFraction':(len(doors)-len(unreachable))/max(1,len(doors))}}
 
 def visible_chain(line,boundary,blockers):return boundary.covers(line) and line.intersection(blockers).length<1e-7
+
+
+def gap_graph(free):
+    from shapely import constrained_delaunay_triangles
+    nodes=[];edges=[];shared={}
+    for i,triangle in enumerate(constrained_delaunay_triangles(free).geoms):
+        if triangle.is_empty or not free.covers(triangle.representative_point()):continue
+        center=triangle.centroid;id=f'gap-{i}';nodes.append({'id':id,'x':center.x,'y':-center.y})
+        coords=list(triangle.exterior.coords)
+        for a,b in zip(coords,coords[1:]):
+            key=tuple(sorted((a,b)))
+            if key in shared:
+                other=shared[key];mid=f'gap-edge-{len(edges)}';nodes.append({'id':mid,'x':(a[0]+b[0])/2,'y':-(a[1]+b[1])/2})
+                edges.extend([{'id':mid+'a','source':other,'target':mid},{'id':mid+'b','source':mid,'target':id}])
+            else:shared[key]=id
+    return {'nodes':nodes,'edges':edges}

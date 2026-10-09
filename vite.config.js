@@ -1,10 +1,11 @@
+import {annotationService} from './scripts/annotation-service.mjs';
 import {defineConfig} from 'vite';
 import {createReadStream} from 'node:fs';
 import {copyFile,mkdir,readdir} from 'node:fs/promises';
 import path from 'node:path';
 
 // Serve the same bundled OCR assets in development and production, without CDN requests.
-export default defineConfig({plugins:[{
+export default defineConfig({plugins:[annotationService(),{
   name:'local-ocr-assets',
   async configureServer(server){
     const assets=await ocrAssets();
