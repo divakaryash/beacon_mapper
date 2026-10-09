@@ -16,6 +16,16 @@ class AnnotationTests(unittest.TestCase):
             self.assertFalse(REQUIRED-set(f['properties']))
             self.assertEqual(f['properties']['floor'],2)
             self.assertIn('coordinnatesLocal',f['geometry'])
+    def test_overlap(self):
+        source=sample();source['features'].append(feature('other',[(5,5),(15,5),(15,15),(5,15)],'Room 102'))
+        output=cleanup(taxonomy(source,0),load_profile())
+        rooms=[shape(f['geometry']) for f in output['features'] if f['properties']['type']!='Boundary']
+        self.assertEqual(rooms[0].intersection(rooms[1]).area,0)
+    def test_merge(self):
+        source=sample();source['features'][1]['properties']['noSeparatingPartition']=True
+        f=feature('other',[(10,2),(18,2),(18,10),(10,10)]);f['properties']['noSeparatingPartition']=True;source['features'].append(f)
+        output=cleanup(taxonomy(source,0),load_profile())
+        self.assertEqual(len(output['features']),2)
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):
