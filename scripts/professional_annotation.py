@@ -146,3 +146,30 @@ def circulation(data, profile):
             p['travelDirection']=direction;p['needsReview']=p.get('needsReview',False) or (t=='Escalator' and direction is None)
         output.append(f)
     data['features']=output;data['metadata']['stage']=4;return data
+
+def linked_points(data,profile):
+    data=copy.deepcopy(data);areas=[f for f in data['features'] if f['geometry']['type']=='Polygon'];output=list(data['features'])
+    boundary=unary_union([shape(f['geometry']) for f in areas if f['properties']['type']=='Boundary'])
+    obstacles=unary_union([shape(f['geometry']) for f in areas if f['properties']['type']!='Boundary'])
+    for f in areas:
+        p=f['properties'];g=shape(f['geometry']);center=g.representative_point();p['centroid']=list(center.coords[0]);p['associatedPoints']=[]
+        cp=copy.deepcopy(p);cp.update(type='Centroid',polygonType=p['type'],associatedPolygons=[f['id']],associatedPoints=[])
+        output.append({'type':'Feature','id':str(f['id'])+'-centroid','properties':cp,'geometry':dict(mapping(center))})
+        if p['type'] not in ENTRY_TYPES:continue
+        candidates=[];ring=list(orient(g).exterior.coords)
+        for a,b in zip(ring,ring[1:]):
+            length=math.dist(a,b)
+            if length<.2:continue
+            projection=Point((a[0]+b[0])/2,(a[1]+b[1])/2);nx=(b[1]-a[1])/length;ny=-(b[0]-a[0])/length
+            door=Point(projection.x+nx*profile['doorOffsetMeters'],projection.y+ny*profile['doorOffsetMeters'])
+            probe=LineString([door,Point(projection.x+nx*2,projection.y+ny*2)])
+            if boundary.is_empty or not boundary.covers(door) or obstacles.covers(door):continue
+            candidates.append((probe.difference(obstacles).length,length,door,projection,nx,ny))
+        if candidates:
+            _,_,door,projection,nx,ny=max(candidates,key=lambda c:(c[0],c[1],-c[2].x,-c[2].y))
+        else:
+            projection=g.exterior.interpolate(.5,normalized=True);door=projection;nx=ny=0
+        dp=copy.deepcopy(p);dp.update(type='Point',associatedPolygons=[f['id']],associatedPoints=[],closestProjection=list(projection.coords[0]),entryDirection=(math.degrees(math.atan2(-nx,-ny))+360)%360 if nx or ny else None,openingDirection=None,entryConfidence=.25,needsReview=True,entryEvidence='corridor-facing-edge' if candidates else 'no accessible candidate')
+        id=str(f['id'])+'-entry';p['associatedPoints']=[id]
+        output.append({'type':'Feature','id':id,'properties':dp,'geometry':dict(mapping(door))})
+    data['features']=output;data['metadata']['stage']=5;return data
