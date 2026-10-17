@@ -68,3 +68,24 @@ test('straight-wall fitting removes one-cell jitter and preserves a real room re
   assert.ok(result.length<=9);
   for(const corner of [{x:25,y:28},{x:15,y:28}])assert.ok(result.some(p=>p.x===corner.x&&p.y===corner.y));
 });
+
+import {straightenPillarNotches} from './geometry.js';
+test('small pillar detours become straight walls while genuine recesses remain',()=>{
+  const room=[{x:0,y:0},{x:4,y:0},{x:4,y:.5},{x:4.5,y:.5},{x:4.5,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}];
+  assert.equal(straightenPillarNotches(room,.8).length,4);
+  const recess=room.map(p=>({...p,y:p.y===.5?2:p.y}));
+  assert.equal(straightenPillarNotches(recess,.8).length,8);
+});
+
+test('pillar cutouts at rotated room corners recover the intersection of main walls',()=>{
+  const points=[{x:0,y:0},{x:9,y:0},{x:9,y:1},{x:10,y:1},{x:10,y:2},{x:10,y:10},{x:0,y:10}];
+  const rotated=points.map(p=>({x:p.x*.8-p.y*.6,y:p.x*.6+p.y*.8}));
+  assert.equal(straightenPillarNotches(rotated,1.5).length,4);
+  assert.ok(Math.abs(polygonArea(straightenPillarNotches(rotated,1.5))-100)<1e-6);
+});
+
+test('closely spaced pillar squares flatten together along one wall',()=>{
+  const points=[[0,0],[2,0],[2,.5],[2.5,.5],[2.5,0],[2.7,0],[2.7,.5],[3.2,.5],[3.2,0],[10,0],[10,10],[0,10]].map(([x,y])=>({x,y}));
+  assert.equal(straightenPillarNotches(points,.8).length,4);
+  assert.equal(polygonArea(straightenPillarNotches(points,.8)),100);
+});

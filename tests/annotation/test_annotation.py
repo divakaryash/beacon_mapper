@@ -97,6 +97,14 @@ class AnnotationTests(unittest.TestCase):
         data=taxonomy(sample(),0);labels=[{'text':'Room 777','x':1.5,'y':6,'width':5,'height':1,'source':'pdf-text','confidence':100}]
         result=naming(data,load_profile(),labels)
         self.assertEqual(result['features'][1]['properties']['name'],'Room 777')
+    def test_pillar_notches(self):
+        room=Polygon([(0,0),(4,0),(4,.5),(4.5,.5),(4.5,0),(10,0),(10,10),(0,10)])
+        self.assertEqual(straighten_pillar_notches(room,.8).area,100)
+        recess=Polygon([(0,0),(4,0),(4,2),(4.5,2),(4.5,0),(10,0),(10,10),(0,10)])
+        self.assertTrue(straighten_pillar_notches(recess,.8).equals(recess))
+    def test_corner_pillar_cutout(self):
+        room=Polygon([(0,0),(9,0),(9,1),(10,1),(10,10),(0,10)])
+        self.assertEqual(straighten_pillar_notches(room,1.5).area,100)
     def test_floor(self):
         with self.assertRaises(ValueError):taxonomy(sample(),'floor-1')
     def test_presets(self):

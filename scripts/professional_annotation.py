@@ -61,6 +61,47 @@ def area_rank(f):
     t=f['properties']['type']
     return 0 if t in {'Lift','Male Washroom','Female Washroom'} else 1 if t in AREA_ALIASES else {'Restricted Area':2,'Non Walkable':3,'Wall':4}.get(t,2)
 
+def straighten_pillar_notches(g, maximum):
+    points=list(g.simplify(maximum*.01,preserve_topology=True).exterior.coords)[:-1];epsilon=maximum*.4;changed=True
+    while changed and len(points)>=6:
+        changed=False
+        for i in range(len(points)):
+            before,a,b,c,d,after=[points[(i+k)%len(points)] for k in [-1,0,1,2,3,4]]
+            for span in range(len(points)-3,2,-1):
+                end,following=points[(i+span)%len(points)],points[(i+span+1)%len(points)];length=math.dist(a,end)
+                if length<maximum:continue
+                ux,uy=(end[0]-a[0])/length,(end[1]-a[1])/length
+                def along(p):return (p[0]-a[0])*ux+(p[1]-a[1])*uy
+                def across(p):return (p[0]-a[0])*uy-(p[1]-a[1])*ux
+                if abs(across(before))>epsilon or abs(across(following))>epsilon or along(before)>=0 or along(following)<=length:continue
+                inner=[points[(i+j)%len(points)] for j in range(1,span)]
+                if any(abs(across(p))>maximum or along(p)<-epsilon or along(p)>length+epsilon for p in inner):continue
+                run=[a]+inner+[end]
+                if any(math.dist(u,v)>maximum*.3 and min(abs((v[0]-u[0])*ux+(v[1]-u[1])*uy),abs((v[0]-u[0])*uy-(v[1]-u[1])*ux))/math.dist(u,v)>.18 for u,v in zip(run,run[1:])):continue
+                remove={(i+j)%len(points) for j in range(1,span)};candidate=[p for j,p in enumerate(points) if j not in remove];polygon=Polygon(candidate,[list(r.coords) for r in g.interiors])
+                if polygon.is_valid and abs(polygon.area-g.area)<=g.area*.15:points=candidate;changed=True;break
+            if changed:break
+            vx,vy=a[0]-before[0],a[1]-before[1];wx,wy=d[0]-c[0],d[1]-c[1]
+            vl,wl=math.hypot(vx,vy),math.hypot(wx,wy);cross=vx*wy-vy*wx
+            if vl>=maximum*2 and wl>=maximum*2 and abs(cross)>vl*wl*.8:
+                t=((c[0]-a[0])*wy-(c[1]-a[1])*wx)/cross;corner=(a[0]+t*vx,a[1]+t*vy)
+                if all(math.dist(p,corner)<=maximum for p in [a,c]) and math.dist(b,corner)<=maximum*math.sqrt(2) and all(math.dist(u,v)<=maximum for u,v in [(a,b),(b,c)]):
+                    remove={i,(i+1)%len(points),(i+2)%len(points)}
+                    candidate=[corner if j==i else p for j,p in enumerate(points) if j==i or j not in remove]
+                    polygon=Polygon(candidate,[list(r.coords) for r in g.interiors])
+                    if polygon.is_valid and abs(polygon.area-g.area)<=g.area*.15:points=candidate;changed=True;break
+            length=math.dist(a,d)
+            if not epsilon<length<=maximum:continue
+            ux,uy=(d[0]-a[0])/length,(d[1]-a[1])/length
+            def along(p):return (p[0]-a[0])*ux+(p[1]-a[1])*uy
+            def across(p):return (p[0]-a[0])*uy-(p[1]-a[1])*ux
+            depth=across(b)
+            if not epsilon<abs(depth)<=maximum or abs(across(c)-depth)>epsilon or abs(along(b))>epsilon or abs(along(c)-length)>epsilon or abs(across(before))>epsilon or abs(across(after))>epsilon or along(before)>-length or along(after)<length*2:continue
+            candidate=[p for j,p in enumerate(points) if j not in {(i+1)%len(points),(i+2)%len(points)}]
+            polygon=Polygon(candidate,[list(r.coords) for r in g.interiors])
+            if polygon.is_valid and abs(polygon.area-g.area)<=g.area*.15:points=candidate;changed=True;break
+    return Polygon(points,[list(r.coords) for r in g.interiors])
+
 def smooth_outline(g, profile):
     def ring(coords):
         points=[list(p) for p in coords[:-1]]
@@ -84,6 +125,10 @@ def cleanup(data, profile):
         g=shape(f['geometry'])
         if not g.is_valid:
             dropped.append({'id':f['id'],'reason':'invalid source outline; requires redrawing'});continue
+        if f['properties']['type'] in AREA_ALIASES:
+            straight=straighten_pillar_notches(g,profile.get('pillarNotchMaximumMeters',1.5))
+            if not straight.equals(g):changes.append({'id':f['id'],'action':'straighten small pillar detours'})
+            g=straight
         simplified=smooth_outline(g.simplify(profile['simplifyMeters'],preserve_topology=True),profile)
         if abs(simplified.area-g.area)<=max(.1,g.area*.05):
             if not simplified.equals_exact(g,1e-9):changes.append({'id':f['id'],'action':'simplified / near-orthogonal outline','verticesBefore':len(g.exterior.coords)-1,'verticesAfter':len(simplified.exterior.coords)-1})

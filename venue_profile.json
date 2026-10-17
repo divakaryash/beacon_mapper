@@ -114,5 +114,6 @@
   ],
   "units": "metres",
   "scaleSource": null,
-  "unlabeledEnclosureMaximumArea": 12
+  "unlabeledEnclosureMaximumArea": 12,
+  "pillarNotchMaximumMeters": 1.5
 }

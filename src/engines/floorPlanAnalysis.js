@@ -1,5 +1,5 @@
 import {facilityBlocks} from "./facilityBlocks.js";
-import {simplifyContour} from "./geometry.js";
+import {simplifyContour,straightenPillarNotches} from "./geometry.js";
 import { segmentProjection,pointInPolygon,selfIntersects,compileFloorGeometry,geometryConflict,validGraphIntervals } from './floorGeometry.js';
 import { NavigationGraph } from './navigationGraph.js';
 
@@ -73,7 +73,7 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
       return analyzeFloorPlan({data:cleaned,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,excludeDrawingFrame,crossMarksRemoved:true});
     }
   }
-  const objects=[],add=(type,points,extra={})=>objects.push({id:`auto-${type}-${objects.length+1}`,type,points,layerId:type==='walkableArea'?'walkableAreas':type==='room'?'rooms':'walls',floorId:'floor-1',rotation:0,origin:'automatic',...extra});
+  const objects=[],add=(type,points,extra={})=>{if(type==='room'){const straight=straightenPillarNotches(points,1.5/metersPerPixel);if(!selfIntersects(straight))points=straight;}objects.push({id:`auto-${type}-${objects.length+1}`,type,points,layerId:type==='walkableArea'?'walkableAreas':type==='room'?'rooms':'walls',floorId:'floor-1',rotation:0,origin:'automatic',...extra});};
   const envelope=new Uint8Array(size),interior=regions.flat();
   for(const i of interior)envelope[i]=1;
   // Only include nearby wall thickness, not an entire connected exterior annotation/frame network.
@@ -146,7 +146,7 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
     objects.push({id:`auto-poi-${objects.length}`,type:'poi',layerId:'pois',floorId:'floor-1',x:node.x,y:node.y,name:label.text,category:type,origin:'automatic',rotation:0});
   }
   if(!graph.edges.size)throw new Error('Detected regions are too small to generate navigation paths. Use a higher-resolution source.');
-  return {objects,graph:graph.serialize(),analysis:{method:'bounded-raster-topology',contourVersion:2,resolution:{width,height},status:'needs-review',warnings:['Boundaries and regions are traced from structural lines. Closed rooms and voids block beacon placement. Review ambiguous room outlines and door connections.','Lift, escalator, stair, entrance and exit recognition uses PDF/SVG text labels only; unlabeled symbols and raster text require manual confirmation.','Placement is a bounded geometry-based heuristic, not a guaranteed global optimum or RF coverage prediction.'],regions:regions.length,detected:{boundaries:objects.filter(o=>o.type==='buildingBoundary').length,walkableRegions:objects.filter(o=>o.type==='walkableArea').length,walls:objects.filter(o=>o.category==='Wall').length,roomCandidates:objects.filter(o=>o.type==='room').length,labeledLandmarks:objects.filter(o=>o.type==='poi').length}}};
+  return {objects,graph:graph.serialize(),analysis:{method:'bounded-raster-topology',contourVersion:3,resolution:{width,height},status:'needs-review',warnings:['Boundaries and regions are traced from structural lines. Closed rooms and voids block beacon placement. Review ambiguous room outlines and door connections.','Lift, escalator, stair, entrance and exit recognition uses PDF/SVG text labels only; unlabeled symbols and raster text require manual confirmation.','Placement is a bounded geometry-based heuristic, not a guaranteed global optimum or RF coverage prediction.'],regions:regions.length,detected:{boundaries:objects.filter(o=>o.type==='buildingBoundary').length,walkableRegions:objects.filter(o=>o.type==='walkableArea').length,walls:objects.filter(o=>o.category==='Wall').length,roomCandidates:objects.filter(o=>o.type==='room').length,labeledLandmarks:objects.filter(o=>o.type==='poi').length}}};
 }
 
 export function graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel}) {

@@ -72,7 +72,7 @@ test('old automatic contours update once without altering manual or locked shape
   assert.ok(result.objects[0].points.length<points.length);
   assert.equal(result.objects[1],manual);assert.equal(result.objects[2],locked);
   assert.equal(original.objects[0].points,points);
-  assert.equal(result.floorAnalysis.contourVersion,2);
+  assert.equal(result.floorAnalysis.contourVersion,3);
   assert.equal(result.autoPlanPending,true);assert.equal(result.coverageAnalysis,null);
   const reopened=normalizeProject({...result,autoPlanPending:false});
   assert.equal(reopened.objects,result.objects);assert.equal(reopened.autoPlanPending,false);
@@ -85,4 +85,14 @@ test('automatic corridors stay internal geometry while rooms, facilities and man
   assert.equal(visibleAnnotation({origin:'automatic',type:'buildingBoundary'}),false);
   assert.equal(visibleAnnotation({origin:'automatic',category:'Wall'}),false);
   for(const object of [{origin:'automatic',type:'room'},{origin:'automatic',type:'nonWalkableArea',category:'Stairs'},{type:'walkableArea'}])assert.equal(visibleAnnotation(object),true);
+});
+
+test('saved version-two room corners update while manual and locked rooms remain unchanged',()=>{
+  const points=[{x:0,y:0},{x:9,y:0},{x:9,y:1},{x:10,y:1},{x:10,y:10},{x:0,y:10}];
+  const room={type:'room',origin:'automatic',points};
+  const project={widthMeters:10,drawingWidthPixels:10,drawingHeightPixels:10,floorAnalysis:{method:'bounded-raster-topology',contourVersion:2},objects:[room,{...room,origin:'manual'},{...room,locked:true}]};
+  const next=normalizeProject(project);
+  assert.equal(next.objects[0].points.length,4);
+  assert.equal(next.objects[1],project.objects[1]);assert.equal(next.objects[2],project.objects[2]);
+  assert.equal(next.floorAnalysis.contourVersion,3);assert.equal(next.autoPlanPending,true);
 });

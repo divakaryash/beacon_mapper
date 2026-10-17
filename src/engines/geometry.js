@@ -133,3 +133,47 @@ export function simplifyContour(points,tolerance){
   const area=polygonArea(points),nextArea=polygonArea(result);
   return result.length>=3&&nextArea>=area*.85&&nextArea<=area*1.15?result:points;
 }
+
+// Only flatten short square detours that return to the same continuing wall.
+export function straightenPillarNotches(points,maxSize){
+  if(!(maxSize>0)||points.length<6)return points;
+  const result=simplifyContour(points,maxSize*.01).map(p=>({...p})),epsilon=maxSize*.4;
+  let changed=true;
+  while(changed&&result.length>=6){changed=false;
+    for(let i=0;i<result.length;i++){
+      const at=k=>result[(i+k+result.length)%result.length],a=at(0),b=at(1),c=at(2),d=at(3),before=at(-1),after=at(4),length=distance(a,d);
+      for(let span=result.length-3;span>=3;span--){
+        const end=at(span),following=at(span+1),len=distance(a,end);if(len<maxSize)continue;
+        const ux=(end.x-a.x)/len,uy=(end.y-a.y)/len,along=p=>(p.x-a.x)*ux+(p.y-a.y)*uy,across=p=>(p.x-a.x)*uy-(p.y-a.y)*ux;
+        if(Math.abs(across(before))>epsilon||Math.abs(across(following))>epsilon||along(before)>=0||along(following)<=len)continue;
+        const inner=Array.from({length:span-1},(_,j)=>at(j+1));
+        if(inner.some(p=>Math.abs(across(p))>maxSize||along(p)<-epsilon||along(p)>len+epsilon))continue;
+        const run=[a,...inner,end];
+        if(run.slice(1).some((p,j)=>{const q=run[j],l=distance(p,q);return l>maxSize*.3&&Math.min(Math.abs((p.x-q.x)*ux+(p.y-q.y)*uy),Math.abs((p.x-q.x)*uy-(p.y-q.y)*ux))/l>.18;}))continue;
+        const remove=new Set(inner.map((_,j)=>(i+j+1)%result.length)),next=result.filter((_,j)=>!remove.has(j));
+        if(Math.abs(polygonArea(next)-polygonArea(points))>polygonArea(points)*.15)continue;
+        result.splice(0,result.length,...next);changed=true;break;
+      }
+      if(changed)break;
+      const vx=a.x-before.x,vy=a.y-before.y,wx=d.x-c.x,wy=d.y-c.y,vl=Math.hypot(vx,vy),wl=Math.hypot(wx,wy),cross=vx*wy-vy*wx;
+      if(vl>=maxSize*2&&wl>=maxSize*2&&Math.abs(cross)>vl*wl*.8){
+        const t=((c.x-a.x)*wy-(c.y-a.y)*wx)/cross,corner={x:a.x+t*vx,y:a.y+t*vy};
+        if([a,c].every(p=>distance(p,corner)<=maxSize)&&distance(b,corner)<=maxSize*Math.SQRT2&&[distance(a,b),distance(b,c)].every(l=>l<=maxSize)){
+          const remove=new Set([i,(i+1)%result.length,(i+2)%result.length]);
+          const next=result.flatMap((p,j)=>j===i?[corner]:remove.has(j)?[]:[p]);
+          if(Math.abs(polygonArea(next)-polygonArea(points))<=polygonArea(points)*.15){result.splice(0,result.length,...next);changed=true;break;}
+        }
+      }
+      if(length<epsilon||length>maxSize)continue;
+      const ux=(d.x-a.x)/length,uy=(d.y-a.y)/length;
+      const along=p=>(p.x-a.x)*ux+(p.y-a.y)*uy,across=p=>(p.x-a.x)*uy-(p.y-a.y)*ux;
+      const depth=across(b);
+      if(Math.abs(depth)<epsilon||Math.abs(depth)>maxSize||Math.abs(across(c)-depth)>epsilon||Math.abs(along(b))>epsilon||Math.abs(along(c)-length)>epsilon||Math.abs(across(before))>epsilon||Math.abs(across(after))>epsilon||along(before)>-length||along(after)<length*2)continue;
+      const remove=new Set([(i+1)%result.length,(i+2)%result.length]);
+      const next=result.filter((_,index)=>!remove.has(index));
+      if(Math.abs(polygonArea(next)-polygonArea(points))>polygonArea(points)*.15)continue;
+      result.splice(0,result.length,...next);changed=true;break;
+    }
+  }
+  return simplifyContour(result,maxSize*.01);
+}

@@ -1,4 +1,5 @@
-import {simplifyContour} from "../engines/geometry.js";
+import {selfIntersects} from '../engines/floorGeometry.js';
+import {simplifyContour,straightenPillarNotches} from "../engines/geometry.js";
 import {compileFloorGeometry, geometryConflict} from "../engines/floorGeometry.js";
 export const LAYERS = [
   { id: "floorPlan", label: "Floor Plan", color: "#94a3b8" },
@@ -77,6 +78,18 @@ export function normalizeProject(project) {
         return {...object,points,...(holes?{holes}:{})};
       });
       floorAnalysis={...floorAnalysis,contourVersion:2};
+    }
+  }
+  if(floorAnalysis?.method==="bounded-raster-topology"&&(floorAnalysis.contourVersion||0)<3){
+    const scale=Number(project.widthMeters)/project.drawingWidthPixels;
+    if(Number.isFinite(scale)&&scale>0){
+      objects=objects.map(object=>{
+        if(object.type!=='room'||object.origin!=='automatic'||object.locked||!object.points)return object;
+        const points=straightenPillarNotches(object.points,1.5/scale);
+        if(points.length===object.points.length||selfIntersects(points))return object;
+        updatedContours=true;return {...object,points};
+      });
+      floorAnalysis={...floorAnalysis,contourVersion:3};
     }
   }
   const layers = {...defaultLayers(), ...project.layers};
