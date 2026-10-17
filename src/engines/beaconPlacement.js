@@ -47,7 +47,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   const floors=compileFloorGeometry(floorGeometry);
   const spacing=Number(configuration.spacing ?? profile.defaultBeaconSpacing);
   const minimum=Number(placementRules.minimumSpacing ?? 5),maximum=Number(placementRules.maximumSpacing ?? 6);
-  if(![spacing,minimum,maximum].every(Number.isFinite)||spacing<minimum||spacing>maximum||minimum<=0||maximum<minimum) throw new Error("Spacing must be within the configured 5–6 m planning range.");
+  if(![spacing,minimum,maximum].every(Number.isFinite)||spacing<minimum||spacing>maximum||minimum<=0||maximum<minimum) throw new Error("Spacing must be within the configured planning range.");
   if(!Number.isFinite(Number(profile.coverageRadius))||profile.coverageRadius<=0) throw new Error("Coverage radius must be positive.");
   if(!Number.isFinite(Number(profile.recommendedHeight))||profile.recommendedHeight<=0)throw new Error("Mounting height must be positive.");
   if(!["Ceiling","Wall","Pole","Outdoor"].includes(profile.mountType))throw new Error("Choose Ceiling, Wall or Pole mounting.");
@@ -65,7 +65,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     beacons.push(beacon);const bucket=key(input.floorId,input.worldX,input.worldY,dedup);if(!cells.has(bucket))cells.set(bucket,[]);cells.get(bucket).push(beacon);if(input.nodeId)nodeBeacons.set(input.nodeId,beacon);return beacon;
   }
   const requiredAnchors=[];
-  for(const node of nodes.values()) {
+  for(const node of configuration.placementStrategy==='centerline'?[...nodes.values()].sort((a,b)=>Number(incident.get(b.id).length>=3)-Number(incident.get(a.id).length>=3)):nodes.values()) {
     const degree=incident.get(node.id).length;
     const transition=incident.get(node.id).some(e=>nodes.get(e.source).floorId!==nodes.get(e.target).floorId);
     const anchor=(placementRules.anchorTypes?placementRules.anchorTypes.includes(node.type):anchorTypes.has(node.type))||(placementRules.junctionAnchors!==false&&degree>=3)||transition||node.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(node.metadata?.category);

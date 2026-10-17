@@ -16,3 +16,10 @@ test('OCR preprocessing removes enclosing rules without modifying the source or 
   const output=textRecognitionRaster(data,width,height);
   assert.equal(output[(10*width+50)*4],255);assert.equal(output[(30*width+20)*4],0);assert.equal(data[(10*width+50)*4],0);
 });
+
+test('alignment uses room word boxes instead of a whole line containing a brand',async()=>{
+  const {roomLabelsFromRecognition}=await import('./floorPlanLabels.js');
+  const data={blocks:[{paragraphs:[{lines:[{words:[{text:'E',confidence:90,bbox:{x0:10,y0:20,x1:18,y1:30}},{text:'352',confidence:55,bbox:{x0:20,y0:20,x1:40,y1:30}},{text:'THIRD WAVE COFFEE',confidence:95,bbox:{x0:45,y0:20,x1:180,y1:30}}]}]}]}]};
+  const labels=roomLabelsFromRecognition(data,200,100);
+  assert.equal(labels.length,1);assert.equal(labels[0].text,'E352');assert.equal(labels[0].width,30);
+});

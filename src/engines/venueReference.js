@@ -1,7 +1,8 @@
+import {generateGraphFromWalkablePaths} from './navigationGraph.js';
 import { graphFromWalkableMask } from './floorPlanAnalysis.js';
 import { compileFloorGeometry, geometryConflict, validGraphIntervals, segmentProjection } from './floorGeometry.js';
 
-const CATEGORIES={'Main Entry':'Entrance','Exit Only':'Exit','Store':'Store','Outlet':'Outlet','Lift':'Lift','Escalator':'Escalator','Escalator-up':'Escalator','Escalator-down':'Escalator','Stairs':'Stairs','Steps':'Stairs','Male Washroom':'Washroom','Female Washroom':'Washroom','Reception':'Reception'};
+const CATEGORIES={'Main Entry':'Entrance','Exit Only':'Exit','Store':'Store','Outlet':'Outlet','Lift':'Lift','Escalator':'Escalator','Escalator-up':'Escalator','Escalator-down':'Escalator','Stairs':'Stairs','Steps':'Stairs','Male Washroom':'Washroom','Female Washroom':'Washroom','Reception':'Reception','ATM':'ATM','Accessible Washroom':'Washroom','Counter':'Food Court'};
 export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cellSize=.6}={}) {
   const {alignment}=reference;
   if(!alignment||!Array.isArray(reference.features)||reference.features.length>10000||![drawingWidth,drawingHeight,cellSize,alignment.widthMeters].every(n=>Number.isFinite(n)&&n>0))throw new Error('Invalid venue reference or drawing dimensions.');
@@ -15,20 +16,29 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
   }
   const boundary=alignment.boundary?.map(p=>({x:p[0]*drawingWidth,y:p[1]*drawingHeight}));
   if(!boundary||boundary.length<3||boundary.some(p=>![p.x,p.y].every(Number.isFinite)))throw new Error('Reference has no usable aligned building boundary.');
-  const objects=[{id:'reference-boundary',type:'buildingBoundary',layerId:'walls',points:boundary,floorId,origin:'reference'},{id:'reference-public-floor',type:'walkableArea',layerId:'walkableAreas',points:boundary,floorId,category:'Public floor',origin:'reference'}],warnings=[],ids=new Set(),counts={},pois=[];
+  const objects=[{id:'reference-boundary',type:'buildingBoundary',layerId:'walls',points:boundary,floorId,origin:'reference'},{id:'reference-public-floor',type:'walkableArea',layerId:'walkableAreas',points:boundary,floorId,category:'Public floor',origin:'reference'}],warnings=[],ids=new Set(),counts={},pois=[],paths=[];
   for(const feature of reference.features){
     const properties=feature.properties||{},type=properties.type,geometry=feature.geometry;
     if(Number(properties.floor??properties.level)!==Number(reference.floor)||type==='Centroid'||type==='Boundary')continue;
     if(typeof feature.id!=='string'||!feature.id||ids.has(feature.id))throw new Error('Reference feature IDs must be present and unique.');ids.add(feature.id);
-    if(!geometry||!['Point','Polygon'].includes(geometry.type))throw new Error(`Unsupported reference geometry: ${feature.id}`);
-    const metadata={sourceId:feature.id,sourceType:type,associatedPolygons:properties.associatedPolygons||[],associatedPoints:properties.associatedPoints||[],entryDirection:properties.entryDirection},name=properties.outletName?`${properties.name} · ${properties.outletName}`:properties.name||type;
+    if(!geometry||!['Point','Polygon',...(reference.uploaded?['LineString','MultiLineString']:[])].includes(geometry.type))throw new Error(`Unsupported reference geometry: ${feature.id}`);
+    const metadata={sourceId:feature.id,sourceType:type,associatedPolygons:properties.associatedPolygons||[],associatedPoints:properties.associatedPoints||[],entryDirection:properties.entryDirection,...(reference.uploaded?{uploadedAnnotation:true}:{})},name=properties.outletName?`${properties.name} · ${properties.outletName}`:properties.name||type;
+    if(['LineString','MultiLineString'].includes(geometry.type)){
+      if(['Wall','Beam'].includes(type))continue;
+      const lines=geometry.type==='LineString'?[geometry.coordinates]:geometry.coordinates;
+      for(const [index,line] of lines.entries()){
+        if(!Array.isArray(line)||line.length<2)throw new Error(`Route line needs at least two coordinates: ${feature.id}`);
+        paths.push({id:`reference-${feature.id}-${index}`,type:'walkablePath',floorId,points:line.map(project),widthMeters:2,origin:'reference',metadata});
+      }
+      continue;
+    }
     if(geometry.type==='Polygon'){
-      if(geometry.coordinates.length!==1)throw new Error(`Polygon holes require explicit exclusion geometry: ${feature.id}`);
+      if(!reference.uploaded&&geometry.coordinates.length!==1)throw new Error(`Polygon holes require explicit exclusion geometry: ${feature.id}`);
       const points=geometry.coordinates[0].map(project).filter((p,i,array)=>!i||Math.hypot(p.x-array[i-1].x,p.y-array[i-1].y)>1e-7);
       if(points.length>1&&Math.hypot(points[0].x-points.at(-1).x,points[0].y-points.at(-1).y)<1e-7)points.pop();
       const blocked=['Wall','Store','Outlet','Lift','Escalator','Escalator-up','Escalator-down','Stairs','Steps','Non Walkable','Green Area'].includes(type);
       const role=type==='Restricted Area'?'restrictedArea':!blocked&&properties.isWalkable===true?'walkableArea':'nonWalkableArea';
-      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,name,category:type,layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',metadata});
+      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,...(reference.uploaded&&geometry.coordinates.length>1?{holes:geometry.coordinates.slice(1).map(ring=>ring.map(project))}:{}),name,category:type,layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',...(reference.uploaded&&/^#[0-9a-f]{3,8}$/i.test(properties.fillColor||'')?{fillColor:properties.fillColor}:{}),metadata});
       counts[type]=(counts[type]||0)+1;
     }else if(CATEGORIES[type]){
       const position=project(geometry.coordinates),poi={id:`reference-${feature.id}`,type:'poi',layerId:'pois',floorId,name,category:CATEGORIES[type],...position,origin:'reference',metadata:{...metadata,coordinateSource:'API Point geometry; not centroid or stale local coordinates'}};
@@ -36,22 +46,46 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
     }
   }
   const floors=compileFloorGeometry({objects,metersPerPixel:scale}),floor=floors.get(floorId);
+  if(reference.uploaded){
+    const graph=generateGraphFromWalkablePaths(paths,{metersPerPixel:scale,insertIntermediate:false,snapDistanceMeters:.001});
+    let rejectedEdges=0;
+    for(const edge of [...graph.edges.values()]){
+      const a=graph.nodes.get(edge.source),b=graph.nodes.get(edge.target);
+      if(validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor).reduce((sum,[lo,hi])=>sum+hi-lo,0)<1-1e-7){graph.removeEdge(edge.id);rejectedEdges++;}
+    }
+    for(const node of [...graph.nodes.values()]){
+      const degree=graph.adjacency.get(node.id).size;
+      if(!degree)graph.removeNode(node.id);else node.type=degree>=3?'Junction':'Corridor';
+    }
+    const junctions=[...graph.nodes.values()].filter(node=>node.type==='Junction').length;
+    if(!paths.length)warnings.push('POI-based placement uses shared beacons for nearby access points, lifts, stairs and escalators. No walking routes are inferred.');
+    if(rejectedEdges)warnings.push(`${rejectedEdges} supplied route segments cross excluded geometry and were rejected. Correct those source paths.`);
+    if(paths.length&&!graph.edges.size)warnings.push('No valid supplied route segments remain. Correct paths that cross excluded geometry.');
+    return {objects,graph:graph.serialize(),widthMeters:alignment.widthMeters,heightMeters:drawingHeight*scale,analysis:{method:'uploaded-annotations',status:!paths.length?'missing-paths':graph.edges.size?'needs-review':'failed',routeSource:paths.length?'geojson':'missing',sourcePathCount:paths.length,junctions,rejectedEdges,scaleAssumed:false,referenceFloor:reference.floor,detected:{boundaries:1,walkableRegions:1,walls:counts.Wall||0,roomCandidates:(counts.Store||0)+(counts.Outlet||0),labeledLandmarks:pois.length},warnings}};
+  }
+
   // ponytail: bounded 0.6-metre mask extracts route topology; exact API polygons validate routes and all placements.
   const width=Math.ceil(alignment.widthMeters/cellSize),height=Math.ceil(drawingHeight*scale/cellSize),free=new Uint8Array(width*height);
   if(width*height>400000)throw new Error('Reference raster exceeds analysis limit; increase cell size.');
-  function fill(polygon,value){
+  function fill(polygon,value,target=free){
     const points=polygon.map(p=>({x:p.x/drawingWidth*width,y:p.y/drawingHeight*height}));
     const first=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.y))-.5)),last=Math.min(height-1,Math.floor(Math.max(...points.map(p=>p.y))-.5));
     for(let y=first;y<=last;y++){
       const cuts=[],scan=y+.5;
       for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if((a.y>scan)!==(b.y>scan))cuts.push(a.x+(scan-a.y)*(b.x-a.x)/(b.y-a.y));}
       cuts.sort((a,b)=>a-b);
-      for(let i=0;i+1<cuts.length;i+=2){const lo=Math.max(0,Math.ceil(cuts[i]-.5)),hi=Math.min(width,Math.ceil(cuts[i+1]-.5));free.fill(value,y*width+lo,y*width+hi);}
+      for(let i=0;i+1<cuts.length;i+=2){const lo=Math.max(0,Math.ceil(cuts[i]-.5)),hi=Math.min(width,Math.ceil(cuts[i+1]-.5));target.fill(value,y*width+lo,y*width+hi);}
     }
   }
   fill(boundary,1);
-  for(const object of objects)if(['restrictedArea','nonWalkableArea'].includes(object.geometryRole||object.type))fill(object.points,0);
-  const graph=graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel:scale});
+  const excluded=new Uint8Array(free.length);
+  for(const object of objects)if(['restrictedArea','nonWalkableArea'].includes(object.geometryRole||object.type)){
+    if(!object.holes?.length){fill(object.points,0);continue;}
+    excluded.fill(0);fill(object.points,1,excluded);
+    for(const hole of object.holes)fill(hole,0,excluded);
+    for(let i=0;i<free.length;i++)if(excluded[i])free[i]=0;
+  }
+  const graph=paths.length?generateGraphFromWalkablePaths(paths,{metersPerPixel:scale,insertIntermediate:false}):graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel:scale});
   const valid=(a,b)=>validGraphIntervals({x:a.x*scale,y:a.y*scale},{x:b.x*scale,y:b.y*scale},floor).reduce((sum,[lo,hi])=>sum+hi-lo,0)>1-1e-7;
   let rejectedEdges=0;
   for(const edge of [...graph.edges.values()])if(!valid(graph.nodes.get(edge.source),graph.nodes.get(edge.target))){graph.removeEdge(edge.id);rejectedEdges++;}
@@ -91,9 +125,9 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
     poi.metadata.nodeId=node.id;attached++;
   }
   // Do not deploy into disconnected facade slivers with no referenced access point.
-  for(const component of graph.components())if(!component.some(id=>graph.nodes.get(id).metadata.sourceId))for(const id of component)graph.removeNode(id);
+  for(const component of graph.components())if(!reference.uploaded&&!component.some(id=>graph.nodes.get(id).metadata.sourceId))for(const id of component)graph.removeNode(id);
   const components=graph.components().length;
   if(components>1)warnings.push(`${components} referenced navigation components remain disconnected; review their door/lobby connections.`);
-  if(!graph.edges.size)throw new Error('Reference geometry produced no safe navigation paths.');
-  return {objects,graph:graph.serialize(),widthMeters:alignment.widthMeters,heightMeters:drawingHeight*scale,analysis:{method:'aligned-venue-reference',status:'needs-review',scaleAssumed:false,referenceName:reference.name,referenceFloor:reference.floor,resolution:{width,height,cellSize},counts,detected:{boundaries:1,walkableRegions:1,walls:counts.Wall||0,roomCandidates:(counts.Store||0)+(counts.Outlet||0),labeledLandmarks:pois.length},attachedAccessPoints:attached,rejectedEdges,components,warnings:[alignment.boundarySource,'API geographic coordinates aligned to this exact PDF. Local coordinates and Centroid features are intentionally excluded.','Public walkable space is inferred from the reviewed outer facade minus shops, walls, shafts, greenery and restricted footprints. The API supplies no corridor graph.', 'Physical scale is estimated from API geographic distances; confirm it against the drawing/site survey.',...warnings]}};
+  if(!graph.edges.size){if(!reference.uploaded)throw new Error('Reference geometry produced no safe navigation paths.');warnings.push('No safe navigation paths found. Polygon overlays are preserved; review walkable geometry before computing beacons.');}
+  return {objects,graph:graph.serialize(),widthMeters:alignment.widthMeters,heightMeters:drawingHeight*scale,analysis:{method:'aligned-venue-reference',status:graph.edges.size?'needs-review':'failed',scaleAssumed:false,referenceName:reference.name,referenceFloor:reference.floor,resolution:{width,height,cellSize},counts,detected:{boundaries:1,walkableRegions:1,walls:counts.Wall||0,roomCandidates:(counts.Store||0)+(counts.Outlet||0),labeledLandmarks:pois.length},attachedAccessPoints:attached,rejectedEdges,components,warnings:[alignment.boundarySource,'API geographic coordinates aligned to this exact PDF. Local coordinates and Centroid features are intentionally excluded.','Public walkable space is inferred from the reviewed outer facade minus shops, walls, shafts, greenery and restricted footprints. The API supplies no corridor graph.', 'Physical scale is estimated from API geographic distances; confirm it against the drawing/site survey.',...warnings]}};
 }

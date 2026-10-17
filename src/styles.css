@@ -6,13 +6,13 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 0; min-height: 100vh; overflow: hidden; }
+body { margin: 0; min-width: 0; min-height: 100vh; overflow: auto; }
 button, input, select { font: inherit; }
 button { border: 0; cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.42; }
 
-.welcome { min-height: 100vh; display: grid; place-items: center; padding: 2rem; background: radial-gradient(circle at 50% 15%, #edf8f5, #dce4e8 58%); }
-.welcome-card { width: min(560px, 100%); padding: 3.5rem; text-align: center; background: #fff; border: 1px solid #cfd7de; border-radius: 12px; box-shadow: 0 24px 60px rgb(20 40 60 / 12%); }
+.welcome { height: 100vh; height: 100dvh; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(1rem, 4vw, 2rem); background: radial-gradient(circle at 50% 15%, #edf8f5, #dce4e8 58%); }
+.welcome-card { flex-shrink: 0; margin-block: auto; width: min(560px, 100%); padding: clamp(1rem, 5vw, 3.5rem); text-align: center; background: #fff; border: 1px solid #cfd7de; border-radius: 12px; box-shadow: 0 24px 60px rgb(20 40 60 / 12%); }
 .welcome-card h1 { margin: 0.5rem 0 1rem; font-size: 2.3rem; line-height: 1.08; letter-spacing: -0.04em; color: #10253f; }
 .welcome-card p:not(.eyebrow) { color: #657283; }
 .welcome-card small { display: block; margin-top: 0.75rem; color: #82909d; }
@@ -178,3 +178,11 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .legend-wall { background: #cbd0d6; border-color: #64748b !important; }
 .legend-void { background: #f0e2d5; border-color: #ad8061 !important; }
 .legend-boundary { background: transparent; border-color: #d84b55 !important; }
+
+.import-actions { position: sticky; bottom: 0; z-index: 2; padding: .75rem 0; background: #fff; border-top: 1px solid #cfd7de; }
+.import-actions button { width: 100%; min-height: 44px; padding: .75rem; color: #fff; background: #17725f; border-radius: 5px; }
+.import-actions p { margin: .4rem 0; overflow-wrap: anywhere; font-size: .8rem; }
+.left-panel .import-actions { background: #f8fafb; }
+
+.canvas-area { position: relative; }
+.map-import-error { position: absolute; top: 0; left: 0; right: 0; z-index: 5; margin: 0; padding: 1rem; color: #7f1d1d; background: #fef2f2; border: 1px solid #fca5a5; }

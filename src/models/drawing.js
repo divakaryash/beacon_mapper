@@ -64,6 +64,15 @@ export function normalizeBeaconPlan(plan) {
 
 export function normalizeProject(project) {
   if (!project) return null;
+  if(project.floorAnalysis?.method==='uploaded-annotations'&&!project.floorAnalysis.routeSource){
+    project={...project,graph:{nodes:[],edges:[]},beaconPlan:null,coverageAnalysis:null,autoPlanPending:false,floorAnalysis:{...project.floorAnalysis,status:'missing-paths',routeSource:'missing',warnings:[...project.floorAnalysis.warnings,'No route lines were retained in this older import. Its inferred paths and beacon draft were removed. Re-import the floor JSON containing explicit route lines.']}};
+  }
+  if(project.floorAnalysis?.routeSource==='missing'){
+    project={...project,floorAnalysis:{...project.floorAnalysis,warnings:project.floorAnalysis.warnings.filter(w=>!w.includes('navigation paths and beacons')&&!w.includes('navigation components remain disconnected')&&!w.startsWith('No route lines'))}};
+  }
+  if(project.floorAnalysis?.routeSource==='missing'&&project.objects?.some(o=>o.type==='poi')&&project.planningSettings?.placementStrategy!=='pois'){
+    project={...project,planningSettings:{...project.planningSettings,placementStrategy:'pois',spacing:9,minimumSpacing:8,maximumSpacing:10,additionalBeaconBudget:0},autoPlanPending:true};
+  }
   const reference = !!project.floorAnalysis;
   let objects=project.objects||[],floorAnalysis=project.floorAnalysis,updatedContours=false;
   if(floorAnalysis?.method==="bounded-raster-topology"&&(floorAnalysis.contourVersion||0)<2){
@@ -128,6 +137,6 @@ export function normalizeProject(project) {
 
 export function visibleAnnotation(object){
   if(!['automatic','reference'].includes(object.origin))return true;
-  if(object.type==='walkableArea')return false;
+  if(object.type==='walkableArea')return !!object.metadata?.uploadedAnnotation;
   return !(object.origin==='automatic'&&(object.type==='buildingBoundary'||object.category==='Wall'));
 }

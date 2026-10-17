@@ -1,6 +1,6 @@
 import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { boundsOf, measurements, moveObject, resizeObject, moveVertex, rotatedPoint, rotationFromCenter } from "../engines/geometry.js";
+import { boundsOf, moveObject, resizeObject, moveVertex, rotatedPoint, rotationFromCenter } from "../engines/geometry.js";
 import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordinates.js";
 import { LAYERS, makeObject, visibleAnnotation } from "../models/drawing.js";
 import CoverageOverlay from "./CoverageOverlay.jsx";
@@ -10,14 +10,11 @@ const polygonTools = new Set(["room", "polygon", "walkableArea", "restrictedArea
 const lineTools = new Set(["polyline", "wall", "walkablePath"]);
 const boxTools = new Set(["rectangle"]);
 
-const ObjectShape = memo(function ObjectShape({ object, color, selected, onPointerDown, metersPerPixel, scaleAssumed }) {
+const ObjectShape = memo(function ObjectShape({ object, color, selected, onPointerDown }) {
   const bounds = boundsOf(object);
   const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-  const size = measurements(object, metersPerPixel);
-  const hasArea = size.area > 0 && Number.isFinite(size.area) && (!["Wall","Void"].includes(object.category) || selected);
-  const labelFont = Math.max(2, Math.min(10, bounds.width / 16, bounds.height / 5));
-  const extent = `${(bounds.width * metersPerPixel).toFixed(1)} × ${(bounds.height * metersPerPixel).toFixed(1)} m`;
-  const common = { onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object" };
+  const hideLabel = /\b(?:wash\s*rooms?|restrooms?|toilets?)\b/i.test(`${object.name || ""} ${object.category || ""} ${object.metadata?.sourceType || ""}`) || /^D(?:[\s-]*\d|[\s-]*blocks?\b)/i.test(object.name || "");
+  const common = { onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object", ...(object.fillColor?{style:{fill:object.fillColor,fillOpacity:.45,stroke:object.fillColor}}:{}) };
   let shape;
 
   if (["rectangle", "room"].includes(object.type) && !object.points) {
@@ -32,7 +29,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
         <circle cx={object.x} cy={object.y} r="12" className={object.origin === "reference" ? "reference-hit-target" : undefined} />
         <circle className="poi-core" cx={object.x} cy={object.y} r={object.origin === "reference" ? 3 : 4} />
         <title>{object.name || object.category} · {object.category}</title>
-        {(object.origin !== "reference" || selected) && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
+        {!hideLabel && (object.origin !== "reference" || selected) && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
       </g>
     );
   } else if (object.type === "text") {
@@ -41,13 +38,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
 
   return (
     <g data-object-id={object.id} data-origin={object.origin} data-object-type={object.type} data-category={object.category} data-source-type={object.metadata?.sourceType} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
-      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}{hasArea && <text className="polygon-size-label" data-polygon-measurement={object.id} x={center.x} y={center.y-labelFont} textAnchor="middle" fontSize={labelFont} pointerEvents="none">
-        <title>{object.name || object.type}: {size.area.toFixed(1)} m²; perimeter {size.perimeter.toFixed(1)} m; bounding extent {extent}{scaleAssumed ? "; assumed scale — confirm drawing dimensions" : ""}</title>
-        {object.type==="room"&&object.name&&!object.name.startsWith("Detected room ")&&<tspan x={center.x} dy="-1.2em">{object.name}</tspan>}
-        <tspan x={center.x} dy={object.type==="room"&&object.name&&!object.name.startsWith("Detected room ")?"1.2em":undefined}>{scaleAssumed ? "≈ " : ""}{size.area.toFixed(1)} m²</tspan>
-        <tspan x={center.x} dy="1.2em">Extent {extent}</tspan>
-        <tspan x={center.x} dy="1.2em">P {size.perimeter.toFixed(1)} m</tspan>
-      </text>}</g>
+      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}</g>
     </g>
   );
 });
@@ -325,7 +316,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
             {displayObjects.filter((object) => object.layerId === layer.id && visibleAnnotation(object)).map((object) => (
-              <ObjectShape key={object.id} object={object} color={layer.color} selected={object.id === selectedId} onPointerDown={objectDown} metersPerPixel={Number(project.widthMeters)/Number(project.drawingWidthPixels)} scaleAssumed={project.floorAnalysis?.scaleAssumed} />
+              <ObjectShape key={object.id} object={object} color={layer.color} selected={object.id === selectedId} onPointerDown={objectDown} />
             ))}
           </g>
         ))}

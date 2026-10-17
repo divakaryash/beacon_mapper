@@ -7,7 +7,7 @@ export function floorGeojson(project,reference=null){
   if(!Number.isFinite(scale)||scale<=0)throw new Error('Calibrate the drawing scale before exporting geometry.');
   const geographicOrigin=project.geographicOrigin;
   if(geographicOrigin)validateFloorPlanSetup({...geographicOrigin,widthMeters:project.widthMeters,heightMeters:project.heightMeters});
-  const alignment=geographicOrigin?null:reference?.alignment;
+  const alignment=geographicOrigin?null:project.annotationAlignment||reference?.alignment;
   const matrix=alignment?.geoToNormalizedPdf;
   const determinant=matrix?matrix[0][0]*matrix[1][1]-matrix[1][0]*matrix[0][1]:null;
   if(matrix&&(!Number.isFinite(determinant)||Math.abs(determinant)<1e-15))throw new Error('Invalid geographic alignment.');

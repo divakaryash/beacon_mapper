@@ -14,7 +14,7 @@ export function rasterSize(width, height) {
   return { width: Math.ceil(width * scale), height: Math.ceil(height * scale), scale };
 }
 
-export async function readFloorPlan(file) {
+export async function readFloorPlan(file,{annotated=false}={}) {
   if (isPdf(file)) {
     const { getDocument, GlobalWorkerOptions, OPS } = await import("pdfjs-dist");
     const { default: workerSrc } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
@@ -46,7 +46,7 @@ export async function readFloorPlan(file) {
         const [x,y] = viewport.convertToViewportPoint(item.transform[4],item.transform[5]);
         return {text:item.str,x,y,source:"pdf-text",confidence:100,...(Math.abs(item.transform[1])<.001?{width:item.width*size.scale,height:item.height*size.scale}: {})};
       });
-      const printedLabels=await matchingFloorReference({file,sourceSha256})?[]:await recognizeFloorLabels(preview,size.width,size.height);
+      const printedLabels=annotated?[]:await matchingFloorReference({file,sourceSha256})?[]:await recognizeFloorLabels(preview,size.width,size.height);
       floorPlanLabels.push(...printedLabels.filter(label=>!floorPlanLabels.some(native=>native.text.trim()===label.text&&Math.hypot(native.x-label.x,native.y-label.y)<label.height)));
       if(geometryFilter.excludePrintedWords(printedLabels.map(label=>({...label,x:label.x*geometryCanvas.width/size.width,y:label.y*geometryCanvas.height/size.height,width:label.width*geometryCanvas.width/size.width,height:label.height*geometryCanvas.height/size.height})))){
         await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
@@ -60,7 +60,17 @@ export async function readFloorPlan(file) {
   try {
     const image = new Image();
     await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("Could not read floor-plan image")); image.src = source; });
-    const floorPlanLabels=await recognizeFloorLabels(file,image.naturalWidth,image.naturalHeight);
+    let floorPlanLabels=annotated?[]:await recognizeFloorLabels(file,image.naturalWidth,image.naturalHeight);
+    if(annotated&&(/\.svg$/i.test(file.name)||file.type==='image/svg+xml')){
+      const svg=new DOMParser().parseFromString(await file.text(),'image/svg+xml');
+      const viewBox=svg.documentElement.getAttribute('viewBox')?.split(/[\s,]+/).map(Number);
+      const sx=image.naturalWidth/(viewBox?.[2]||image.naturalWidth),sy=image.naturalHeight/(viewBox?.[3]||image.naturalHeight);
+      floorPlanLabels=[...svg.querySelectorAll('text')].filter(el=>!el.closest('[transform]')).map(el=>{
+        const text=el.textContent,height=Number(el.closest('[font-size]')?.getAttribute('font-size')||16),width=text.length*height*.6;
+        const anchor=el.closest('[text-anchor]')?.getAttribute('text-anchor');
+        return {text,x:(Number(el.getAttribute('x'))-(viewBox?.[0]||0)-(anchor==='middle'?width/2:anchor==='end'?width:0))*sx,y:(Number(el.getAttribute('y'))-(viewBox?.[1]||0))*sy,width:width*sx,height:height*sy,source:'svg-text',confidence:100};
+      });
+    }
     return { file, floorPlanLabels, floorPlanPreview: null, pdfPageCount: null, drawingWidthPixels: image.naturalWidth, drawingHeightPixels: image.naturalHeight };
   } finally { URL.revokeObjectURL(source); }
 }
@@ -92,7 +102,7 @@ export async function analyzeImportedFloor(imported,metersPerPixel) {
   } finally {URL.revokeObjectURL(source);}
 }
 
-function runFloorAnalysis(input,transfer=[]) {
+export function runFloorAnalysis(input,transfer=[]) {
   return new Promise((resolve,reject)=>{
     const worker=new Worker(new URL('../engines/floorAnalysisWorker.js',import.meta.url),{type:'module'});
     const finish=()=>{clearTimeout(timer);worker.terminate();};

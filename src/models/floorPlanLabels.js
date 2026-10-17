@@ -1,3 +1,4 @@
+import {roomCodes} from "./annotationAlignment.js";
 export function labelsFromRecognition(data,width,height,drawingWidth=width,drawingHeight=height){
   const labels=[];
   for(const block of data.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[]){
@@ -28,7 +29,23 @@ export function textRecognitionRaster(data,width,height){
   return result;
 }
 
-export async function recognizeFloorLabels(image,width,height){
+export function roomLabelsFromRecognition(data,width,height,drawingWidth=width,drawingHeight=height){
+  const labels=[];
+  for(const block of data.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[]){
+    const words=line.words||[];
+    for(let i=0;i<words.length;i++){
+      const word=words[i],text=String(word.text||'').toUpperCase();
+      if(word.confidence<45||(!roomCodes(text).length&&!(/^\d{1,4}[A-Z]?$/.test(text)&&/^(?:[A-Z]{1,3}|AUDI)$/i.test(words[i-1]?.text||'')))||!word.bbox)continue;
+      const previous=words[i-1],prefix=/^\d{1,4}[A-Z]?$/.test(text)&&/^(?:[A-Z]{1,3}|AUDI)$/i.test(previous?.text||'')?previous:null;
+      const box={...word.bbox,x0:prefix?.bbox?.x0??word.bbox.x0};
+      if(Object.values(box).some(n=>!Number.isFinite(n))||box.x1<=box.x0||box.y1<=box.y0)continue;
+      labels.push({text:(prefix?prefix.text:'')+text,x:box.x0*drawingWidth/width,y:box.y1*drawingHeight/height,width:(box.x1-box.x0)*drawingWidth/width,height:(box.y1-box.y0)*drawingHeight/height,confidence:word.confidence,source:'ocr-room'});
+    }
+  }
+  return labels;
+}
+
+export async function recognizeFloorLabels(image,width,height,{roomLabels=false}={}){
   const source=URL.createObjectURL(image),loaded=new Image();
   try{await new Promise((resolve,reject)=>{loaded.onload=resolve;loaded.onerror=()=>reject(new Error('Could not read image for text recognition'));loaded.src=source;});}finally{URL.revokeObjectURL(source);}
   const ratio=Math.min(1,4096/Math.max(width,height)),canvas=document.createElement('canvas');
@@ -41,6 +58,6 @@ export async function recognizeFloorLabels(image,width,height){
   try{
     await worker.setParameters({tessedit_pageseg_mode:PSM.SPARSE_TEXT});
     const {data}=await worker.recognize(canvas,{}, {blocks:true});
-    return labelsFromRecognition(data,canvas.width,canvas.height,width,height);
+    return (roomLabels?roomLabelsFromRecognition:labelsFromRecognition)(data,canvas.width,canvas.height,width,height);
   }finally{await worker.terminate();}
 }
