@@ -100,3 +100,34 @@ test('older uploaded projects discard invented routes while retaining aligned po
   const result=normalizeProject({objects:[object],floorAnalysis:{method:'uploaded-annotations',warnings:[]},graph:{nodes:[{id:'fake'}],edges:[{id:'fake-edge'}]},beaconPlan:{beacons:[{id:'fake-beacon'}]},drawingWidthPixels:100,widthMeters:10,heightMeters:10});
   assert.deepEqual(result.objects,[object]);assert.equal(result.graph.edges.length,0);assert.equal(result.beaconPlan,null);assert.equal(result.floorAnalysis.routeSource,'missing');
 });
+
+test('supplemental waypoint response filters by level and ignores waypoint points and polygons',async()=>{
+  const {waypointRoutes}=await import('./annotatedFloor.js');
+  const line=(id,level,points,lineCategory='waypoint')=>({id,properties:{level,lineCategory},geometry:{type:'LineString',coordinates:points.map(([x,y])=>coordinate(x,y))}});
+  const routes={data:[line('main',1,[[1,10],[19,10]]),line('branch',1,[[10,1],[10,10]]),line('other',2,[[1,1],[19,19]]),line('wall',1,[[1,1],[19,19]],'wall'),{...payload.data[0],properties:{level:1,lineCategory:'waypoint'}},{id:'point',properties:{level:1,lineCategory:'waypoint'},geometry:{type:'Point',coordinates:coordinate(10,10)}}]};
+  assert.equal(waypointRoutes(routes).length,3);
+  const reference=annotatedReference(payload,1,setup,routes);
+  assert.deepEqual(reference.features.filter(f=>f.geometry.type==='LineString').map(f=>f.id),['main','branch']);
+  const result=analyzeVenueReference(reference,{drawingWidth:200,drawingHeight:200});
+  const junction=result.graph.nodes.filter(n=>n.type==='Junction');
+  assert.equal(junction.length,1);
+  const {planBeacons}=await import('../engines/beaconPlacement.js');
+  const plan=planBeacons({graph:result.graph,floorGeometry:{objects:result.objects,metersPerPixel:.1},placementRules:{minimumSpacing:5,maximumSpacing:10},configuration:{placementStrategy:'centerline',spacing:7.5}});
+  assert.equal(plan.beacons.filter(b=>Math.hypot(b.worldX-junction[0].worldX,b.worldY-junction[0].worldY)<1e-6).length,1);
+  assert.equal(plan.beacons.length,1); // Short POI branches share the junction beacon.
+  assert.throws(()=>annotatedReference(payload,3,setup,routes),/No waypoint lines/);
+  assert.throws(()=>waypointRoutes({data:[payload.data[0]]}),/No waypoint/);
+});
+
+test('failed alignment remains a failed import instead of becoming missing routes',async()=>{
+  const {normalizeProject}=await import('./drawing.js');
+  const result=normalizeProject({objects:[],graph:{nodes:[],edges:[]},drawingWidthPixels:100,widthMeters:10,heightMeters:10,floorAnalysis:{method:'uploaded-annotations',status:'failed',warnings:['Alignment failed']}});
+  assert.equal(result.floorAnalysis.status,'failed');
+  assert.deepEqual(result.floorAnalysis.warnings,['Alignment failed']);
+});
+
+test('saved strict-spacing drafts restore the previous nonblocking spacing settings',async()=>{
+  const {normalizeProject}=await import('./drawing.js');
+  const result=normalizeProject({objects:[],graph:{nodes:[],edges:[]},drawingWidthPixels:100,widthMeters:10,heightMeters:10,planningSettings:{hardSpacing:true,minimumSpacing:6,maximumSpacing:10,spacing:10,placementStrategy:'centerline'}});
+  assert.deepEqual(result.planningSettings,{minimumSpacing:5,maximumSpacing:10,spacing:7.5,placementStrategy:'centerline'});
+});

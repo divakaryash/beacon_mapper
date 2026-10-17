@@ -28,14 +28,14 @@ export function planPoiBeacons({pois,floors,metersPerPixel,radius=6}){
     }
     if(!shared)groups.push({...target,members:[{...target,source:poi}]});
   }
-  // Adjust within each group's visible coverage footprint toward the 8–10 m spacing target.
+  // Adjust within each group's visible coverage footprint toward the 5–10 m spacing target.
   for(let pass=0;pass<2;pass++)for(const group of groups){
     const floor=floors.get(group.floorId),start={worldX:group.worldX,worldY:group.worldY};
     function score(candidate){
       const neighbors=groups.filter(other=>other!==group&&other.floorId===group.floorId).map(other=>({other,distance:distance(candidate,other)})).sort((a,b)=>a.distance-b.distance);
       const nearest=neighbors.find(item=>visible(candidate,item.other,floor));
       if(!nearest)return 0;
-      const gap=nearest.distance,penalty=gap<8?(8-gap)**2:gap>10?(gap-10)**2:0;
+      const gap=nearest.distance,penalty=gap<5?(5-gap)**2:gap>10?(gap-10)**2:0;
       return penalty+distance(candidate,start)**2*.02;
     }
     let best=start,bestScore=score(start);
@@ -48,7 +48,7 @@ export function planPoiBeacons({pois,floors,metersPerPixel,radius=6}){
   }
   for(const group of groups){
     const nearest=groups.filter(other=>other!==group&&other.floorId===group.floorId).map(other=>({other,distance:distance(group,other)})).sort((a,b)=>a.distance-b.distance).find(item=>visible(group,item.other,floors.get(group.floorId)));
-    if(nearest&&(nearest.distance<8-1e-6||nearest.distance>10+1e-6))warnings.push({code:'poi-spacing-review',poiId:group.members[0].id,message:`${group.members[0].name||group.members[0].id}: nearest visible beacon is ${nearest.distance.toFixed(1)} m away; POI visibility/coverage constraints prevent the 8–10 m target here.`});
+    if(nearest&&(nearest.distance<5-1e-6||nearest.distance>10+1e-6))warnings.push({code:'poi-spacing-review',poiId:group.members[0].id,message:`${group.members[0].name||group.members[0].id}: nearest visible beacon is ${nearest.distance.toFixed(1)} m away; POI visibility/coverage constraints prevent the 5–10 m target here.`});
   }
   const beacons=groups.map(group=>({floorId:group.floorId,x:group.worldX/metersPerPixel,y:group.worldY/metersPerPixel,worldX:group.worldX,worldY:group.worldY,nodeId:`poi-${group.members[0].id}`,anchorNodeIds:group.members.map(p=>`poi-${p.id}`),poiIds:group.members.map(p=>p.id),origin:'automatic',placementStrategy:group.members.some(p=>vertical.has(p.category))?'Floor-change lobby':'Shared POI',notes:group.members.map(p=>p.name||p.id).join(', ')}));
   return {beacons,warnings};

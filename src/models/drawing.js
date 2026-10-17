@@ -64,7 +64,7 @@ export function normalizeBeaconPlan(plan) {
 
 export function normalizeProject(project) {
   if (!project) return null;
-  if(project.floorAnalysis?.method==='uploaded-annotations'&&!project.floorAnalysis.routeSource){
+  if(project.floorAnalysis?.method==='uploaded-annotations'&&project.floorAnalysis.status!=='failed'&&!project.floorAnalysis.routeSource){
     project={...project,graph:{nodes:[],edges:[]},beaconPlan:null,coverageAnalysis:null,autoPlanPending:false,floorAnalysis:{...project.floorAnalysis,status:'missing-paths',routeSource:'missing',warnings:[...project.floorAnalysis.warnings,'No route lines were retained in this older import. Its inferred paths and beacon draft were removed. Re-import the floor JSON containing explicit route lines.']}};
   }
   if(project.floorAnalysis?.routeSource==='missing'){
@@ -72,6 +72,10 @@ export function normalizeProject(project) {
   }
   if(project.floorAnalysis?.routeSource==='missing'&&project.objects?.some(o=>o.type==='poi')&&project.planningSettings?.placementStrategy!=='pois'){
     project={...project,planningSettings:{...project.planningSettings,placementStrategy:'pois',spacing:9,minimumSpacing:8,maximumSpacing:10,additionalBeaconBudget:0},autoPlanPending:true};
+  }
+  if(project.planningSettings?.hardSpacing){
+    const {hardSpacing,...settings}=project.planningSettings;
+    project={...project,planningSettings:{...settings,spacing:7.5,minimumSpacing:5,maximumSpacing:10}};
   }
   const reference = !!project.floorAnalysis;
   let objects=project.objects||[],floorAnalysis=project.floorAnalysis,updatedContours=false;

@@ -42,3 +42,21 @@ test('geometry alone aligns an unseen floor without room labels or saved floor c
   const blank=new Uint8ClampedArray(data.length);blank.fill(255);
   assert.throws(()=>refineAnnotationEdges(reference,{data:blank,width,height},{drawingWidthPixels:width,drawingHeightPixels:height}),/too little visible geometry/);
 });
+
+test('geometry alignment handles an exterior footprint much larger than the shop cluster',async()=>{
+  const {annotationSetup,annotatedReference}=await import('./annotatedFloor.js');
+  const {localToGeographic}=await import('./floorPlanSetup.js');
+  const width=400,height=400,data=new Uint8ClampedArray(width*height*4);data.fill(255);
+  const coordinate=([x,y])=>localToGeographic({x,y:-y},{latitude:28,longitude:77});
+  const rings=[[[0,0],[200,0],[200,200],[0,200],[0,0]],...[[70,50,18,25],[95,50,30,18],[70,90,40,20],[120,80,20,50]].map(([x,y,w,h])=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]])];
+  const features=rings.map((ring,index)=>{
+    const pixels=ring.map(([x,y])=>({x:Math.round(x*1.6+35),y:Math.round(y*1.6+40)}));
+    for(let j=1;j<pixels.length;j++){const a=pixels[j-1],b=pixels[j],steps=Math.ceil(Math.hypot(b.x-a.x,b.y-a.y));for(let k=0;k<=steps;k++){const px=Math.round(a.x+(b.x-a.x)*k/steps),py=Math.round(a.y+(b.y-a.y)*k/steps),offset=(py*width+px)*4;data[offset]=data[offset+1]=data[offset+2]=0;}}
+    return {id:String(index),properties:{floor:0,type:index?'Store':'Boundary'},geometry:{type:'Polygon',coordinates:[ring.map(coordinate)]}};
+  });
+  const payload={features},reference={...annotatedReference(payload,0,annotationSetup(payload,0)),geometryOnly:true};
+  const result=refineAnnotationEdges(reference,{width,height,data},{drawingWidthPixels:width,drawingHeightPixels:height});
+  assert.ok(result.alignment.edgeErrorPixels<1.5);
+  const m=result.alignment.geoToNormalizedPdf,origin=result.alignment.origin;
+  for(const ring of rings.slice(1))for(const [x,y] of ring){const [lon,lat]=coordinate([x,y]);assert.ok(Math.abs(((lon-origin[0])*m[0][0]+(lat-origin[1])*m[1][0]+m[2][0])*width-(x*1.6+35))<3);}
+});

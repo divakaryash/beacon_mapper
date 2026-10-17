@@ -13,7 +13,7 @@ test("manual edits detect missing anchors, duplicates and uncovered edges",()=>{
 test("snaps manual beacon to a graph edge",()=>{const b=snapBeaconToGraph({floorId:"G",worldX:5,worldY:1},line,2);assert.equal(b.worldY,0);assert.equal(b.edgeId,"ab");});
 test("disabled beacons are excluded and configured spacing survives recalculation",()=>{const original=planBeacons({graph:line,configuration:{spacing:6}});const beacons=original.beacons.map(b=>b.nodeId==="a"?{...b,enabled:false}:b);const r=planBeacons({graph:line,configuration:{...original.configuration,beacons}});assert.equal(r.configuration.spacing,6);assert.equal(r.statistics.disabledBeacons,1);assert.ok(r.warnings.some(w=>w.code==="missing-anchor"));});
 test("floor transition endpoints become anchors without placing inside the connector",()=>{const graph={nodes:[n("a",0),{...n("b",0),floorId:"L1"}],edges:[{id:"lift",source:"a",target:"b",distance:4}]};const r=planBeacons({graph});assert.equal(r.beacons.length,2);assert.equal(r.statistics.navigationBeacons,r.beacons.length);assert.equal(r.coverage.totalLength,0);});
-test("warns on unavoidable short spacing",()=>{const r=planBeacons({graph:{nodes:[n("a",0,0,"Entrance"),n("b",3,0,"Exit")],edges:[{...line.edges[0],distance:3}]}});assert.ok(r.warnings.some(w=>w.code==="spacing-too-small"));});
+test("nearby entrance and exit share a station without losing their assignments",()=>{const r=planBeacons({graph:{nodes:[n("a",0,0,"Entrance"),n("b",3,0,"Exit")],edges:[{...line.edges[0],distance:3}]}});assert.equal(r.beacons.length,1);assert.ok(!r.warnings.some(w=>w.code==="missing-anchor"));});
 test("missing geometry fails closed instead of generating unsafe beacons",()=>{const r=generate({graph:line});assert.equal(r.beacons.length,0);assert.ok(r.warnings.some(w=>w.code==="geometry-rejected"));assert.equal(r.quality.overallScore,0);});
 test("geometry-conflicting beacon moves to nearest valid edge point",()=>{const region=box(-1,-1,24,2),r=generate({graph:line,floorGeometry:{floors:[{floorId:"G",boundaries:[region],walkableAreas:[region],restrictedAreas:[box(5,-1,1,2)]}]}});assert.equal(r.geometryValidation.relocated,1);assert.ok(r.beacons.every(b=>b.worldX<5||b.worldX>6));assert.ok(r.beacons.every(b=>b.installationType==="Ceiling"&&b.mountingHeight===3&&b.installationStatus==="Planned"));});
 test("optimization chooses a feasible spacing rather than blindly rounding",()=>{const r=planBeacons({graph:{nodes:[n("a",0,0,"Entrance"),n("b",31,0,"Exit")],edges:[{id:"ab",source:"a",target:"b",distance:31}]},configuration:{spacing:6}});assert.ok(r.statistics.minimumSpacing>=5);assert.ok(r.statistics.maximumSpacing<=6);assert.equal(r.warnings.length,0);});
@@ -37,4 +37,26 @@ test('landmark deployment gives a room one exterior suggestion and none inside i
   const result=generate({graph,configuration:{placementStrategy:'landmarks'},floorGeometry:{metersPerPixel:.1,objects:[{type:'buildingBoundary',floorId:'G',points:box(-10,-10,400,200)},{type:'walkableArea',floorId:'G',points:box(-10,-10,400,200)},room]}});
   assert.equal(result.beacons.length,1);assert.deepEqual(result.beacons[0].outletIds,['shop']);
   assert.ok(result.beacons[0].worldY<5);
+});
+
+test('distinct close junctions each retain an exact beacon in centerline mode',()=>{
+  const nodes=[n('j1',0),n('j2',.1),n('a',-10),n('b',0,10),n('c',10.1),n('d',.1,-10)];
+  const edges=[['j1','j2'],['j1','a'],['j1','b'],['j2','c'],['j2','d']].map(([source,target],i)=>({id:String(i),source,target,distance:Math.hypot(nodes.find(n=>n.id===source).worldX-nodes.find(n=>n.id===target).worldX,nodes.find(n=>n.id===source).worldY-nodes.find(n=>n.id===target).worldY)}));
+  const plan=planBeacons({graph:{nodes,edges},placementRules:{minimumSpacing:5,maximumSpacing:10},configuration:{spacing:7.5}});
+  for(const id of ['j1','j2'])assert.equal(plan.beacons.filter(b=>b.nodeId===id).length,1);
+  assert.ok(plan.warnings.some(w=>w.code==='spacing-too-small'));
+});
+
+test('crowded junctions share a beacon with or without vertical POIs without losing route coverage',()=>{
+  const nodes=[n('j1',0),n('j2',1),n('a',-9,0,'Entrance'),n('b',0,9,'Entrance'),n('c',10,0,'Entrance'),n('d',1,-9,'Entrance')];
+  const edges=[['j1','j2'],['j1','a'],['j1','b'],['j2','c'],['j2','d']].map(([source,target],i)=>({id:String(i),source,target,distance:Math.hypot(nodes.find(n=>n.id===source).worldX-nodes.find(n=>n.id===target).worldX,nodes.find(n=>n.id===source).worldY-nodes.find(n=>n.id===target).worldY)}));
+  const input={graph:{nodes,edges},placementRules:{minimumSpacing:5,maximumSpacing:10},configuration:{spacing:7.5}};
+  const baseline=planBeacons(input);
+  const plan=planBeacons({...input,pois:[{...n('escalator',0),category:'Escalator'},{...n('lift',1),category:'Lift'}]});
+  assert.equal(plan.beacons.filter(b=>Math.hypot(b.worldX,b.worldY)<3).length,1);
+  assert.equal(baseline.beacons.filter(b=>Math.hypot(b.worldX,b.worldY)<3).length,1);
+  assert.ok(plan.beacons.length<=baseline.beacons.length);
+  assert.equal(plan.coverage.coveredLength,baseline.coverage.coveredLength);
+  assert.ok(!plan.warnings.some(w=>w.code==='missing-anchor'));
+  assert.ok(plan.beacons.some(b=>b.anchorNodeIds?.includes('j2')));
 });

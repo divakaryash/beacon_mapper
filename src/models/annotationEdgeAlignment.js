@@ -44,12 +44,19 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
     best=Infinity;
     for(let quadrant=0;quadrant<4;quadrant++)for(const offset of [-10,-5,0,5,10]){
       const angle=(-dominant*2.5+quadrant*90+offset)*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
-      const rotated=samples.map(p=>({x:cos*(p.x-cx)-sin*(p.y-cy)*axisRatio,y:sin*(p.x-cx)+cos*(p.y-cy)*axisRatio}));
-      const minX=Math.min(...rotated.map(p=>p.x)),maxX=Math.max(...rotated.map(p=>p.x)),minY=Math.min(...rotated.map(p=>p.y)),maxY=Math.max(...rotated.map(p=>p.y));
-      const fit=Math.sqrt((right-left)*(bottom-top)/((maxX-minX)*(maxY-minY)));
-      for(const factor of [.85,.925,1,1.075,1.15])for(const dx of [-.05,0,.05])for(const dy of [-.05,0,.05]){
-        const scale=fit*factor,t=[scale*cos,-scale*sin*axisRatio,scale*sin,scale*cos*axisRatio,(left+right)/2-cx-scale*(minX+maxX)/2+dx*width,(top+bottom)/2-cy-scale*(minY+maxY)/2+dy*height];
-        const value=score(t);seeds.push({t,value,quadrant:quadrant*100+offset});if(value<best){best=value;current=t;}
+      // Geographic dimensions provide a second scale seed when exterior ink dwarfs the shops.
+      for(const scale of [.85,1,1.15])for(const dx of [-.1,0,.1])for(const dy of [-.1,0,.1]){
+        const t=[scale*cos,-scale*sin*axisRatio,scale*sin,scale*cos*axisRatio,dx*width,dy*height];
+        const value=score(t);seeds.push({t,value,quadrant:quadrant*100+offset+2000});
+      }
+      for(const extent of [samples,reference.alignment.boundary.map(([x,y])=>({x:x*width,y:y*height}))]){
+        const rotated=extent.map(p=>({x:cos*(p.x-cx)-sin*(p.y-cy)*axisRatio,y:sin*(p.x-cx)+cos*(p.y-cy)*axisRatio}));
+        const minX=Math.min(...rotated.map(p=>p.x)),maxX=Math.max(...rotated.map(p=>p.x)),minY=Math.min(...rotated.map(p=>p.y)),maxY=Math.max(...rotated.map(p=>p.y));
+        const fit=Math.sqrt((right-left)*(bottom-top)/((maxX-minX)*(maxY-minY)));
+        for(const factor of [.85,.925,1,1.075,1.15])for(const dx of [-.05,0,.05])for(const dy of [-.05,0,.05]){
+          const scale=fit*factor,t=[scale*cos,-scale*sin*axisRatio,scale*sin,scale*cos*axisRatio,(left+right)/2-cx-scale*(minX+maxX)/2+dx*width,(top+bottom)/2-cy-scale*(minY+maxY)/2+dy*height];
+          const value=score(t);seeds.push({t,value,quadrant:quadrant*100+offset+(extent===samples?0:1000)});if(value<best){best=value;current=t;}
+        }
       }
     }
   }
@@ -63,6 +70,13 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
         const candidate=[...current];candidate[k]+=sign*step/(k<4?(k%2===0?cx:cy):1);
         if(candidate.slice(0,4).some((n,i)=>Math.abs(n-seed[i])>.2)||Math.abs(candidate[4]-seed[4])>width*.1||Math.abs(candidate[5]-seed[5])>height*.1)continue;
         if(candidate[0]*candidate[3]-candidate[1]*candidate[2]<=0)continue;
+        const value=score(candidate);if(value<nextScore-1e-8){next=candidate;nextScore=value;}
+      }
+      for(const sign of [-1,1])for(const mode of ['rotate','scale']){
+        const candidate=[...current],angle=sign*step/300,cos=Math.cos(angle),sin=Math.sin(angle),factor=1+angle;
+        if(mode==='rotate'){candidate[0]=cos*current[0]-sin*current[2];candidate[1]=cos*current[1]-sin*current[3];candidate[2]=sin*current[0]+cos*current[2];candidate[3]=sin*current[1]+cos*current[3];}
+        else for(let k=0;k<4;k++)candidate[k]*=factor;
+        if(candidate.slice(0,4).some((n,i)=>Math.abs(n-seed[i])>.2))continue;
         const value=score(candidate);if(value<nextScore-1e-8){next=candidate;nextScore=value;}
       }
       if(next===current)break;current=next;best=nextScore;

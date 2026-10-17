@@ -9,6 +9,15 @@ export function annotationFloors(payload){
   return {features,floors};
 }
 
+export function waypointRoutes(payload){
+  const features=Array.isArray(payload)?payload:payload?.features??payload?.data;
+  if(!Array.isArray(features)||!features.length||features.length>10000)throw new Error('Provide waypoint JSON with up to 10,000 features.');
+  const routes=features.filter(f=>f.properties?.lineCategory==='waypoint'&&['LineString','MultiLineString'].includes(f.geometry?.type));
+  if(!routes.length)throw new Error('No waypoint LineString or MultiLineString features found.');
+  if(routes.some(f=>!Number.isFinite(Number(f.properties?.level??f.properties?.floor))||(f.properties?.level??f.properties?.floor)==null))throw new Error('Every waypoint line must specify a numeric level.');
+  return routes.map(f=>({...f,properties:{...f.properties,floor:Number(f.properties.level??f.properties.floor)}}));
+}
+
 export function annotationSetup(payload,floor){
   const {features}=annotationFloors(payload);
   let west=Infinity,east=-Infinity,north=-Infinity,south=Infinity;
@@ -28,10 +37,13 @@ export function annotationSetup(payload,floor){
   return validateFloorPlanSetup({latitude:north,longitude:west,widthMeters:(east-west)*radius*radians*Math.cos(north*radians),heightMeters:(north-south)*radius*radians});
 }
 
-export function annotatedReference(payload,floor,values){
+export function annotatedReference(payload,floor,values,routePayload=null){
   if(String(floor).trim()===""||!Number.isFinite(Number(floor)))throw new Error("Select a numeric floor number.");
   const setup=validateFloorPlanSetup(values),{features}=annotationFloors(payload);
-  const selected=features.filter(f=>String(f.properties?.floor??f.properties?.level??'0')===String(floor)&&f.properties?.type!=='Centroid'&&f.properties?.type!=='Beacon');
+  const routes=routePayload?waypointRoutes(routePayload).filter(f=>String(f.properties.floor)===String(floor)):null;
+  if(routes&&!routes.length)throw new Error(`No waypoint lines found for level ${floor}. Choose its matching floor annotations.`);
+  const combined=routes?[...features.filter(f=>!['LineString','MultiLineString'].includes(f.geometry?.type)),...routes]:features;
+  const selected=combined.filter(f=>String(f.properties?.floor??f.properties?.level??'0')===String(floor)&&f.properties?.type!=='Centroid'&&f.properties?.type!=='Beacon');
   if(!selected.some(f=>f.geometry?.type==='Polygon'&&f.properties?.type!=='Boundary'))throw new Error('Selected floor has no annotated polygons.');
   const radians=Math.PI/180,radius=6378137;
   const sx=radius*radians*Math.cos(setup.latitude*radians)/setup.widthMeters,sy=-radius*radians/setup.heightMeters;
