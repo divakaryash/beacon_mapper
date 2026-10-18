@@ -19,6 +19,13 @@ test('wall-separated POIs do not share a beacon and exactly 10 m stays separate'
   const result=planPoiBeacons({pois:[poi('a',7,10),poi('b',13,10)],floors,metersPerPixel:1});assert.equal(result.beacons.length,2);
   assert.equal(planPoiBeacons({pois:[poi('a',20,10),poi('b',30,10)],floors,metersPerPixel:1}).beacons.length,2);
 });
+test('three adjacent floor connections share one beacon within 5 m of each',()=>{
+  const pois=[poi('lift-a',10,10,'Lift'),poi('lift-b',15,10,'Lift'),poi('stairs',20,10,'Stairs')];
+  const result=planPoiBeacons({pois,floors:compileFloorGeometry({objects,metersPerPixel:1}),metersPerPixel:1});
+  assert.equal(result.beacons.length,1);
+  assert.deepEqual(result.beacons[0].poiIds.sort(),pois.map(p=>p.id).sort());
+  for(const p of pois)assert.ok(Math.hypot(result.beacons[0].worldX-p.worldX,result.beacons[0].worldY-p.worldY)<=5);
+});
 test('sharing never chains together POIs further than 10 m apart',()=>{
   const result=planPoiBeacons({pois:[poi('a',2,10),poi('b',11,10),poi('c',20,10)],floors:compileFloorGeometry({objects,metersPerPixel:1}),metersPerPixel:1});
   assert.equal(result.beacons.length,2);

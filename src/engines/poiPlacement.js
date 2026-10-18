@@ -17,12 +17,12 @@ export function planPoiBeacons({pois,floors,metersPerPixel,radius=6}){
       if(!target){warnings.push({code:'poi-no-mount',poiId:poi.id,message:`${poi.name||poi.id}: no free mounting position within 2 m; review this POI.`});continue;}
       warnings.push({code:'poi-offset',poiId:poi.id,message:`${poi.name||poi.id}: mounting position offset ${distance(target,poi).toFixed(1)} m from excluded geometry; verify the access side.`});
     }
-    const candidates=groups.filter(g=>g.floorId===poi.floorId&&g.members.every(p=>distance(p.source,poi)<10)).sort((a,b)=>distance(a,target)-distance(b,target));
+    const candidates=groups.filter(g=>g.floorId===poi.floorId&&g.members.every(p=>distance(p.source,poi)<10||(vertical.has(poi.category)&&vertical.has(p.source.category)&&distance(p.source,poi)<=10))).sort((a,b)=>distance(a,target)-distance(b,target));
     let shared=false;
     for(const group of candidates){
       const members=[...group.members,{...target,source:poi}];
       const center={worldX:members.reduce((s,p)=>s+p.worldX,0)/members.length,worldY:members.reduce((s,p)=>s+p.worldY,0)/members.length};
-      const position=[center,group,target].find(p=>valid(p,floor)&&members.every(member=>distance(p,member)<=radius&&visible(p,member,floor)));
+      const position=[center,group,target].find(p=>valid(p,floor)&&members.every(member=>distance(p,member.source)<=Math.min(radius,vertical.has(member.source.category)?5:radius)&&visible(p,member.source,floor)));
       if(!position)continue;
       group.worldX=position.worldX;group.worldY=position.worldY;group.members=members;shared=true;break;
     }
@@ -41,7 +41,7 @@ export function planPoiBeacons({pois,floors,metersPerPixel,radius=6}){
     let best=start,bestScore=score(start);
     for(const r of [1,2])for(let angle=0;angle<8;angle++){
       const p={worldX:start.worldX+r*Math.cos(angle*Math.PI/4),worldY:start.worldY+r*Math.sin(angle*Math.PI/4)};
-      if(!valid(p,floor)||!group.members.every(member=>distance(p,member)<=radius&&visible(p,member,floor)))continue;
+      if(!valid(p,floor)||!group.members.every(member=>distance(p,member.source)<=Math.min(radius,vertical.has(member.source.category)?5:radius)&&visible(p,member.source,floor)))continue;
       const value=score(p);if(value<bestScore){best=p;bestScore=value;}
     }
     group.worldX=best.worldX;group.worldY=best.worldY;

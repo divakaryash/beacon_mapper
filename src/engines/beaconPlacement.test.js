@@ -9,7 +9,9 @@ const line={nodes:[n("a",0,0,"Entrance"),n("b",22,0,"Exit")],edges:[{id:"ab",sou
 test("places and optimizes 5.5 m spacing with endpoint anchors",()=>{const r=planBeacons({graph:line});assert.equal(r.beacons.length,5);assert.equal(r.statistics.navigationBeacons,r.beacons.length);assert.equal(r.statistics.averageSpacing,5.5);assert.equal(r.coverage.estimatedPercent,100);assert.equal(r.warnings.length,0);});
 test("intermediate graph nodes do not inflate placement",()=>{const graph={nodes:Array.from({length:9},(_,i)=>n(String(i),i*2.75)),edges:Array.from({length:8},(_,i)=>({id:String(i),source:String(i),target:String(i+1),distance:2.75}))};const r=planBeacons({graph});assert.equal(r.beacons.length,5);assert.equal(r.statistics.averageSpacing,5.5);});
 test("junction is anchored once across branches",()=>{const graph={nodes:[n("j",0),n("a",11),n("b",0,11),n("c",-11)],edges:["a","b","c"].map(id=>({id,source:"j",target:id,distance:11}))};const r=planBeacons({graph});assert.equal(r.beacons.filter(b=>b.nodeId==="j").length,1);assert.equal(r.beacons.find(b=>b.nodeId==="j").type,"Navigation");});
+test("three adjacent lifts use one central visible beacon",()=>{const graph={nodes:[n('a',0,0,'Lift'),n('b',3,0,'Lift'),n('c',6,0,'Lift')],edges:[{id:'ab',source:'a',target:'b',distance:3},{id:'bc',source:'b',target:'c',distance:3}]};const r=planBeacons({graph});assert.equal(r.beacons.length,1);assert.equal(r.beacons[0].nodeId,'b');assert.ok(!r.warnings.some(w=>w.code==='missing-anchor'));});
 test("a short route end shares a nearby junction beacon",()=>{const graph={nodes:[n('j',0),n('short',2),n('north',0,12),n('west',-12)],edges:[{id:'short',source:'j',target:'short',distance:2},{id:'north',source:'j',target:'north',distance:12},{id:'west',source:'j',target:'west',distance:12}]};const r=planBeacons({graph,configuration:{requireRouteEnds:true,spacing:7},placementRules:{minimumSpacing:5,maximumSpacing:9}});assert.ok(r.beacons.some(b=>b.nodeId==='j'));assert.ok(!r.beacons.some(b=>b.nodeId==='short'));assert.ok(r.beacons.some(b=>b.anchorNodeIds?.includes('short')));});
+test("route ends share a beacon within 5 m and keep one when farther away",()=>{const graph={nodes:[n('j',0),n('near',5),n('far',0,12),n('west',-12)],edges:[{id:'near',source:'j',target:'near',distance:5},{id:'far',source:'j',target:'far',distance:12},{id:'west',source:'j',target:'west',distance:12}]};const r=planBeacons({graph,configuration:{requireRouteEnds:true,spacing:7},placementRules:{minimumSpacing:5,maximumSpacing:9}});assert.ok(!r.beacons.some(b=>b.nodeId==='near'));assert.ok(r.beacons.some(b=>b.nodeId==='far'));assert.ok(r.beacons.some(b=>b.anchorNodeIds?.includes('near')));});
 test("manual edits detect missing anchors, duplicates and uncovered edges",()=>{const r=planBeacons({graph:line,configuration:{mode:"manual",beacons:[]}});assert.ok(r.warnings.some(w=>w.code==="missing-anchor"));assert.ok(r.warnings.some(w=>w.code==="uncovered-edge"));const original=planBeacons({graph:line});const edited=planBeacons({graph:line,configuration:{mode:"hybrid",beacons:[...original.beacons,{...original.beacons[0],id:"dup"}]}});assert.ok(edited.warnings.some(w=>w.code==="duplicate-beacons"));});
 test("snaps manual beacon to a graph edge",()=>{const b=snapBeaconToGraph({floorId:"G",worldX:5,worldY:1},line,2);assert.equal(b.worldY,0);assert.equal(b.edgeId,"ab");});
 test("disabled beacons are excluded and configured spacing survives recalculation",()=>{const original=planBeacons({graph:line,configuration:{spacing:6}});const beacons=original.beacons.map(b=>b.nodeId==="a"?{...b,enabled:false}:b);const r=planBeacons({graph:line,configuration:{...original.configuration,beacons}});assert.equal(r.configuration.spacing,6);assert.equal(r.statistics.disabledBeacons,1);assert.ok(r.warnings.some(w=>w.code==="missing-anchor"));});
@@ -48,6 +50,15 @@ test('distinct close junctions each retain an exact beacon in centerline mode',(
   const plan=planBeacons({graph:{nodes,edges},placementRules:{minimumSpacing:5,maximumSpacing:10},configuration:{spacing:7.5}});
   for(const id of ['j1','j2'])assert.equal(plan.beacons.filter(b=>b.nodeId===id).length,1);
   assert.ok(plan.warnings.some(w=>w.code==='spacing-too-small'));
+});
+test('generated close visible pairs merge to one midpoint when coverage stays intact',()=>{
+  const nodes=[n('left',-5),n('a',0),n('b',2),n('right',7),n('top',0,5),n('bottom',2,-5)];
+  const pairs=[['left','a'],['a','b'],['b','right'],['a','top'],['b','bottom']];
+  const edges=pairs.map(([source,target],i)=>({id:String(i),source,target,distance:Math.hypot(nodes.find(n=>n.id===source).worldX-nodes.find(n=>n.id===target).worldX,nodes.find(n=>n.id===source).worldY-nodes.find(n=>n.id===target).worldY)}));
+  const result=planBeacons({graph:{nodes,edges},placementRules:{minimumSpacing:5,maximumSpacing:10},configuration:{spacing:7.5}});
+  const near=result.beacons.filter(b=>Math.hypot(b.worldX-1,b.worldY)<2.5);
+  assert.equal(near.length,1);
+  assert.ok(Math.abs(near[0].worldX-1)<.1);
 });
 
 test('crowded junctions share a beacon with or without vertical POIs without losing route coverage',()=>{
