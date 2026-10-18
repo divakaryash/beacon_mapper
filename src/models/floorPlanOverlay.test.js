@@ -50,3 +50,22 @@ test('GeoJSON voids import and export separately from restricted areas',()=>{
   assert.equal(exported.features.find(f=>f.id==='restricted').properties.type,'Restricted Area');
   assert.equal(importedProject.autoPlanPending,false);
 });
+
+test('combined floor data imports without an image and selects only the requested floor',()=>{
+  const line=floor=>({id:`route-${floor}`,properties:{lineCategory:'waypoint',level:floor},geometry:{type:'LineString',coordinates:[[25,25],[55,25]].map(coordinate)}});
+  const combined={type:'FeatureCollection',features:[...payload.features,line(0),...payload.features.map(f=>({...f,id:`upper-${f.id}`,properties:{...f.properties,floor:1}})),line(1)]};
+  const ground=normalizeProject(createManualAnnotationProject({},combined,0));
+  const upper=normalizeProject(createManualAnnotationProject({},combined,1));
+  assert.equal(ground.floorPlanOverlay,null);
+  assert.equal(ground.name,'Floor 0');
+  assert.equal(ground.annotationFloor,'0');
+  assert.equal(upper.annotationFloor,'1');
+  assert.equal(ground.floorAnalysis.routeSource,'geojson');
+  assert.equal(upper.floorAnalysis.routeSource,'geojson');
+  assert.ok(ground.graph.edges.length>0);
+  assert.ok(upper.graph.edges.length>0);
+  assert.ok(ground.objects.some(o=>o.metadata?.sourceId==='room'));
+  assert.ok(!ground.objects.some(o=>o.metadata?.sourceId==='upper-room'));
+  assert.ok(upper.objects.some(o=>o.metadata?.sourceId==='upper-room'));
+  assert.equal(ground.annotationData,combined);
+});

@@ -1,6 +1,6 @@
 import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
 import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
-import {annotationFloors,annotationSetup,waypointRoutes} from "./models/annotatedFloor.js";
+import {annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
@@ -97,7 +97,46 @@ export default function App() {
   const [annotationData,setAnnotationData]=useState(null);
   const [waypointData,setWaypointData]=useState(null);
   const [annotationFloor,setAnnotationFloor]=useState("");
-  const annotationFields=<section><div className="button-row"><button type="button" onClick={()=>{setImportMode("automatic");window.location.hash="";}}>Map only</button><button type="button" onClick={()=>{setImportMode("annotated");window.location.hash="annotated";}}>Annotated GeoJSON + map</button></div>{importMode==="annotated"&&<><p>Step 1 · Import GeoJSON and a floor plan, then align the image manually. Importing does not generate beacons.</p><label>Annotated GeoJSON / API JSON<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());const parsed=annotationFloors(payload);const setup=annotationSetup(payload,parsed.floors[0]);setAnnotationData(payload);setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportError("");}catch(error){setAnnotationData(null);setImportError(error.message);}}}/></label><label>Waypoint routes JSON (optional)<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());waypointRoutes(payload);setWaypointData(payload);setImportError("");}catch(error){setWaypointData(null);setImportError(error.message);}}}/></label>{waypointData&&<p><small>Waypoint levels: {[...new Set(waypointRoutes(waypointData).map(f=>f.properties.floor))].sort((a,b)=>a-b).join(", ")}. Only lines from the selected floor / level are used.</small></p>}{annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>{try{setUploadSetup(annotationSetup(annotationData,e.target.value));setAnnotationFloor(e.target.value);setImportError("");}catch(error){setImportError(error.message);}}}>{annotationFloors(annotationData).floors.map(f=><option key={f} value={f}>Floor {f}{waypointData?` · ${waypointRoutes(waypointData).filter(route=>String(route.properties.floor)===f).length} waypoint paths`:""}</option>)}</select></label>}</>}</section>;
+  const floorProjects=useRef(new Map());
+  function selectAnnotationFloor(floor){
+    try{
+      const setup=annotationSetup(annotationData,floor);
+      if(project?.annotationData===annotationData){
+        floorProjects.current.set(project.annotationFloor,project);
+        const next=floorProjects.current.get(floor)||normalizeProject({
+          ...createManualAnnotationProject({},annotationData,floor,waypointData),
+          layers:defaultLayers(),gridSize:20,snapToGrid:false
+        });
+        ++importRequest.current;
+        setLiveProject(null);history.reset(next);
+        setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
+        setTool(next.floorPlanOverlay?"alignMap":"select");
+        setStatus(`Floor ${floor} loaded`);
+      }
+      setUploadSetup(setup);setAnnotationFloor(floor);setImportError("");
+    }catch(error){setImportError(error.message);}
+  }
+  const annotationFields=<section>
+    <p>Upload GeoJSON and waypoint data (required). Floors are read from the data. A floor plan image is optional.</p>
+    <label>GeoJSON / waypoint data (required)<input type="file" required multiple accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{
+      const files=Array.from(e.target.files||[]);if(!files.length)return;
+      try{
+        const payload={type:"FeatureCollection",features:(await Promise.all(files.map(async file=>{
+          const data=JSON.parse(await file.text());
+          const features=Array.isArray(data)?data:data?.features??data?.data;
+          if(!Array.isArray(features)||!features.length)throw new Error(`${file.name}: provide GeoJSON features or an API data array.`);
+          return features;
+        }))).flat()};
+        const parsed=annotationFloors(payload);
+        const setup=annotationSetup(payload,parsed.floors[0]);
+        floorProjects.current.clear();setAnnotationData(payload);setWaypointData(null);
+        setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportMode("annotated");setImportError("");
+      }catch(error){setAnnotationData(null);setWaypointData(null);setImportError(error.message);}
+    }}/></label>
+    {annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>selectAnnotationFloor(e.target.value)}>
+      {annotationFloors(annotationData).floors.map(f=><option key={f} value={f}>Floor {f}</option>)}
+    </select></label>}
+  </section>;
   const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
   let uploadReady=false,setupError="";
   try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch(error) {setupError=error.message;}
@@ -216,7 +255,7 @@ export default function App() {
   }
 
   async function importFloorPlan(file) {
-    if (!file) return;
+    if (!file && !annotationData) return;
     const request = ++importRequest.current;
     setImporting(true);
     setImportError("");
@@ -226,7 +265,7 @@ export default function App() {
     try {
       const setup=validateFloorPlanSetup(uploadSetup);
       const annotated=importMode==="annotated";
-      const imported = await readFloorPlan(file,{annotated});
+      const imported = file?await readFloorPlan(file,{annotated}):{};
       if(request!==importRequest.current)return;
       let next;
       if(annotated){
@@ -240,8 +279,9 @@ export default function App() {
       if(request!==importRequest.current)return;
       history.reset(normalizeProject({...base,...next,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:false,locked:false}}}));
       setPendingMap(null);setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
-      setTool(annotated?"alignMap":"select");
-      setStatus(annotated?"Ready for manual alignment":"Map imported · generate placement when ready");
+      floorProjects.current.clear();
+      setTool(next.floorPlanOverlay?"alignMap":"select");
+      setStatus(annotated?`Floor ${annotationFloor} imported`:"Map imported · generate placement when ready");
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
     } finally { if (request === importRequest.current) setImporting(false); }
@@ -255,14 +295,14 @@ export default function App() {
     objects: project.objects.length,
   } : null, [project]);
 
-  const importHint=project?.floorAnalysis?.status==="failed"?"Annotations need correction. Review the error above the map, then select the map again to retry.":!pendingMap&&!project?.file?"Choose a floor map to continue.":!uploadReady?setupError:importMode==="annotated"&&!annotationData?"Upload the annotated GeoJSON to continue.":"Ready to open the map.";
-  const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name}</p>}<p role="status">{importing?"Opening your map. Please wait…":importHint}</p><button type="button" disabled={importing||(!pendingMap&&!project?.file)||!uploadReady||(importMode==="annotated"&&!annotationData)} onClick={()=>importFloorPlan(pendingMap||project?.file)}>{importing?"Opening map…":"Import · align manually"}</button></div>;
+  const importHint=!annotationData?"Upload GeoJSON / waypoint data to continue.":!uploadReady?setupError:"Ready to import. Floor plan image is optional.";
+  const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name} <button type="button" disabled={importing} onClick={()=>setPendingMap(null)}>Remove</button></p>}<p role="status">{importing?"Importing data…":importHint}</p><button type="button" disabled={importing||!uploadReady||!annotationData} onClick={()=>importFloorPlan(pendingMap||(project?.annotationData===annotationData&&project.annotationFloor===annotationFloor?project.file:null))}>{importing?"Importing…":"Import data"}</button></div>;
 
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
       <p className="eyebrow">INPS · Local planning workspace</p><h1>Import your map. Align it yourself.</h1>
-      <p>Import GeoJSON and a floor plan, then position the image over the fixed geometry. Generate beacons when you choose. Everything stays in this browser.</p>
-      {annotationFields}{uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}<small>PNG, JPG, SVG, or PDF (first page)</small>
+      <p>Import your floor geometry and waypoints. Optionally add a floor plan image for alignment. Generate beacons when you choose. Everything stays in this browser.</p>
+      {annotationFields}{uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan (optional)"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}<small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
     </section></main>
@@ -284,7 +324,7 @@ export default function App() {
         {importing&&<p role="status">Importing floor plan…</p>}
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
-          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{annotationFields}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}
+          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{annotationFields}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Add / replace floor plan (optional)"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}
           {project.floorAnalysis&&<div role="status"><p><strong>{project.floorPlanOverlay?"Manual alignment · no automatic placement":project.floorAnalysis.status==="missing-paths"?"POI placement · no route lines needed":project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":project.floorPlanOverlay?"Manual alignment · GeoJSON fixed":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.routeSource==="geojson"&&<p><strong>{project.floorAnalysis.sourcePathCount} JSON paths · {project.floorAnalysis.junctions} junctions</strong></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
