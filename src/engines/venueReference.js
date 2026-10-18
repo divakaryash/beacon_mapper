@@ -1,6 +1,6 @@
 import {generateGraphFromWalkablePaths} from './navigationGraph.js';
 import { graphFromWalkableMask } from './floorPlanAnalysis.js';
-import { compileFloorGeometry, geometryConflict, validGraphIntervals, segmentProjection } from './floorGeometry.js';
+import { compileFloorGeometry, geometryConflict, isVoidArea, validGraphIntervals, segmentProjection } from './floorGeometry.js';
 
 const CATEGORIES={'Main Entry':'Entrance','Exit Only':'Exit','Store':'Store','Outlet':'Outlet','Lift':'Lift','Escalator':'Escalator','Escalator-up':'Escalator','Escalator-down':'Escalator','Stairs':'Stairs','Steps':'Stairs','Male Washroom':'Washroom','Female Washroom':'Washroom','Reception':'Reception','ATM':'ATM','Accessible Washroom':'Washroom','Counter':'Food Court'};
 export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cellSize=.6}={}) {
@@ -37,8 +37,8 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
       const points=geometry.coordinates[0].map(project).filter((p,i,array)=>!i||Math.hypot(p.x-array[i-1].x,p.y-array[i-1].y)>1e-7);
       if(points.length>1&&Math.hypot(points[0].x-points.at(-1).x,points[0].y-points.at(-1).y)<1e-7)points.pop();
       const blocked=['Wall','Store','Outlet','Lift','Escalator','Escalator-up','Escalator-down','Stairs','Steps','Non Walkable','Green Area'].includes(type);
-      const role=type==='Restricted Area'?'restrictedArea':!blocked&&properties.isWalkable===true?'walkableArea':'nonWalkableArea';
-      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,...(reference.uploaded&&geometry.coordinates.length>1?{holes:geometry.coordinates.slice(1).map(ring=>ring.map(project))}:{}),name,category:type,layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',...(reference.uploaded&&/^#[0-9a-f]{3,8}$/i.test(properties.fillColor||'')?{fillColor:properties.fillColor}:{}),metadata});
+      const role=type==='Restricted Area'?'restrictedArea':isVoidArea({category:type,name})?'voidArea':!blocked&&properties.isWalkable===true?'walkableArea':'nonWalkableArea';
+      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,...(reference.uploaded&&geometry.coordinates.length>1?{holes:geometry.coordinates.slice(1).map(ring=>ring.map(project))}:{}),name,category:type,layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='voidArea'?'voidAreas':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',...(reference.uploaded&&/^#[0-9a-f]{3,8}$/i.test(properties.fillColor||'')?{fillColor:properties.fillColor}:{}),metadata});
       counts[type]=(counts[type]||0)+1;
     }else if(CATEGORIES[type]){
       const position=project(geometry.coordinates),poi={id:`reference-${feature.id}`,type:'poi',layerId:'pois',floorId,name,category:CATEGORIES[type],...position,origin:'reference',metadata:{...metadata,coordinateSource:'API Point geometry; not centroid or stale local coordinates'}};
@@ -79,7 +79,7 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
   }
   fill(boundary,1);
   const excluded=new Uint8Array(free.length);
-  for(const object of objects)if(['restrictedArea','nonWalkableArea'].includes(object.geometryRole||object.type)){
+  for(const object of objects)if(['restrictedArea','voidArea','nonWalkableArea'].includes(object.geometryRole||object.type)){
     if(!object.holes?.length){fill(object.points,0);continue;}
     excluded.fill(0);fill(object.points,1,excluded);
     for(const hole of object.holes)fill(hole,0,excluded);

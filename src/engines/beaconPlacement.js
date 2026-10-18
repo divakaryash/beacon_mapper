@@ -1,4 +1,4 @@
-import {compileFloorGeometry,geometryConflict,nearestValidGraphPosition,validGraphIntervals,visibleGeometrySegment} from "./floorGeometry.js";
+import {compileFloorGeometry,beaconGeometryConflict as geometryConflict,nearestValidGraphPosition,validGraphIntervals,visibleGeometrySegment} from "./floorGeometry.js";
 import {deploymentQuality} from "./deploymentQuality.js";
 import {placeByTopology,referenceBeacon,automaticBeaconSeparationMeters} from './topologyPlacement.js';
 import {analyzeCoverage} from './coverage.js';
@@ -44,7 +44,7 @@ export function snapBeaconToGraph(beacon, graph, maximumDistance = Infinity) {
 
 export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFILES[0], placementRules = {}, configuration = {}, pois=[] }) {
   const {nodes,edges}=validatePlacementGraph(graph);
-  const floors=compileFloorGeometry(floorGeometry);
+  const floors=compileFloorGeometry({...floorGeometry,allowVoidBeacons:configuration.allowVoidBeacons??floorGeometry.allowVoidBeacons});
   const spacing=Number(configuration.spacing ?? profile.defaultBeaconSpacing);
   const minimum=Number(placementRules.minimumSpacing ?? 5),maximum=Number(placementRules.maximumSpacing ?? 6);
   if(![spacing,minimum,maximum].every(Number.isFinite)||spacing<minimum||spacing>maximum||minimum<=0||maximum<minimum) throw new Error("Spacing must be within the configured planning range.");

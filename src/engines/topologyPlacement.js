@@ -1,4 +1,4 @@
-import { geometryConflict, pointInPolygon, segmentProjection, validGraphIntervals, visibleGeometrySegment } from './floorGeometry.js';
+import { geometryConflict, beaconGeometryConflict, pointInPolygon, segmentProjection, validGraphIntervals, visibleGeometrySegment } from './floorGeometry.js';
 import {analyzeCoverage} from './coverage.js';
 
 export const TOPOLOGY_DEFAULTS = { narrowWidth: 3, mediumWidth: 6, openAreaWidth: 12, mountingInset: .4, topologySearchRadius: 8, additionalBeaconBudget: 20 };
@@ -87,7 +87,7 @@ export function placeByTopology({graph,floors,beacons,profile,pois=[],settings={
     const choices=offsets.map(offset=>({x:center.x+context.normal.x*offset,y:center.y+context.normal.y*offset,preferred:offset===preferred}));
     if(['Junction','Lift','Escalator','Stair'].includes(strategy))for(const sign of [-1,1])choices.unshift({x:center.x+context.normal.x*preferred+context.normal.y*s.mountingInset*sign,y:center.y+context.normal.y*preferred-context.normal.x*s.mountingInset*sign,preferred:true});
     if(strategy==='Store Entrance'&&nearby.length){const poi=nearby[0],dx=poi.worldX-center.x,dy=poi.worldY-center.y,d=Math.hypot(dx,dy);if(d>0)choices.unshift({x:center.x+dx/d*Math.min(d,cap),y:center.y+dy/d*Math.min(d,cap),preferred:true});}
-    for(const p of choices){const moved=Math.hypot(p.x-center.x,p.y-center.y),routeRadius=moved>1e-7?Math.max(0,radius-routeStep/2):radius;if(moved>cap+1e-6||geometryConflict(p,floor)||!visibleGeometrySegment(p,center,floor)||criticalRoute.some(q=>Math.hypot(q.x-p.x,q.y-p.y)>routeRadius||!visibleGeometrySegment(p,q,floor)))continue;
+    for(const p of choices){const moved=Math.hypot(p.x-center.x,p.y-center.y),routeRadius=moved>1e-7?Math.max(0,radius-routeStep/2):radius;if(moved>cap+1e-6||beaconGeometryConflict(p,floor)||!visibleGeometrySegment(p,center,floor)||criticalRoute.some(q=>Math.hypot(q.x-p.x,q.y-p.y)>routeRadius||!visibleGeometrySegment(p,q,floor)))continue;
       const gain=probes.filter(q=>Math.hypot(q.x-p.x,q.y-p.y)<=radius&&visibleGeometrySegment(p,q,floor)).length;
       // Retain an edge/alternating-side mounting preference when coverage is tied.
       const score=gain+(p.preferred ? .1 : 0);if(score>best){best=score;chosen=p;}
@@ -133,7 +133,7 @@ function completeAreaCoverage({graph,floors,beacons,profile,settings,edges}) {
     for(let j=0;j<segments;j++)for(const sign of [-1,1]){
       if(candidates.length>=2000)break candidateSearch;
       const p={x:a.x+(b.x-a.x)*j/segments-sign*(b.y-a.y)/length*settings.mountingInset,y:a.y+(b.y-a.y)*j/segments+sign*(b.x-a.x)/length*settings.mountingInset};
-      if(geometryConflict(p,floor))continue;const key=`${floorId}:${p.x.toFixed(3)}:${p.y.toFixed(3)}`;if(seen.has(key))continue;seen.add(key);
+      if(beaconGeometryConflict(p,floor))continue;const key=`${floorId}:${p.x.toFixed(3)}:${p.y.toFixed(3)}`;if(seen.has(key))continue;seen.add(key);
       const ref=referenceBeacon({floorId,worldX:p.x,worldY:p.y},graph);if(!ref.edgeId)continue;
       const edge=edgeContexts.get(ref.edgeId),strategy=floor.walkableRegionMetadata?.[polygonIndex]?.category==='Food Court'?'Food Court':edge?.classification==='open-area'?'Atrium':'Wide Corridor';
       const sourceEdge=sourceEdges.get(ref.edgeId),na=nodes.get(sourceEdge.source),nb=nodes.get(sourceEdge.target),scale=Number(settings.metersPerPixel)||sourceEdge.distance/Math.hypot(nb.x-na.x,nb.y-na.y);

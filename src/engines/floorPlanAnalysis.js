@@ -91,7 +91,7 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
     const room=(cells.length<largest*.6||enclosedStore)&&cells.length>=Math.max(16,size*.0001);
     for(const contour of maskContours(mask,width,height,sx,sy,1.25)){
       if(!contour.hole)add(room?'room':'walkableArea',contour.points,room?{name:`Detected room ${++roomCount}`,category:'Room',geometryRole:'nonWalkableArea'}:{});
-      else if(!room&&!facilities.some(block=>contour.points.every(p=>p.x>=(block.x-1)*sx&&p.x<=(block.x+block.w+1)*sx&&p.y>=(block.y-1)*sy&&p.y<=(block.y+block.h+1)*sy)))add('nonWalkableArea',contour.points,{category:'Void',layerId:'restrictedAreas'});
+      else if(!room&&!facilities.some(block=>contour.points.every(p=>p.x>=(block.x-1)*sx&&p.x<=(block.x+block.w+1)*sx&&p.y>=(block.y-1)*sy&&p.y<=(block.y+block.h+1)*sy)))add('voidArea',contour.points,{category:'Void',layerId:'voidAreas'});
     }
     if(room)for(const i of cells)free[i]=0;
   }

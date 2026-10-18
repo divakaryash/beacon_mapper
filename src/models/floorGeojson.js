@@ -21,11 +21,11 @@ export function floorGeojson(project,reference=null){
   const features=[];
   for(const object of project.objects||[]){
     if(object.type==='walkableArea'&&['automatic','reference'].includes(object.origin))continue;
-    if(!['room','rectangle','polygon','buildingBoundary','walkableArea','restrictedArea','nonWalkableArea','wall','poi'].includes(object.type))continue;
-    const source=sources.get(object.metadata?.sourceId),type=object.metadata?.sourceType||object.category||({room:'Store',wall:'Wall',buildingBoundary:'Boundary',walkableArea:'Walkable Area',restrictedArea:'Restricted Area',nonWalkableArea:'Non Walkable'}[object.type])||object.type;
+    if(!['room','rectangle','polygon','buildingBoundary','walkableArea','restrictedArea','voidArea','nonWalkableArea','wall','poi'].includes(object.type))continue;
+    const source=sources.get(object.metadata?.sourceId),type=object.type==='voidArea'?'Void':object.metadata?.sourceType||object.category||({room:'Store',wall:'Wall',buildingBoundary:'Boundary',walkableArea:'Walkable Area',restrictedArea:'Restricted Area',voidArea:'Void',nonWalkableArea:'Non Walkable'}[object.type])||object.type;
     const properties={...source?.properties,type,name:object.name||type,floor:reference?.floor??object.floorId??'floor-1',isWalkable:object.type==='poi'?source?.properties?.isWalkable===true:object.type==='walkableArea'&&object.geometryRole!=='restrictedArea'&&object.layerId!=='restrictedAreas'&&!["Wall","Lift","Steps","Stairs","Escalator","Restricted Area","Non Walkable","Green Area"].includes(type),...measurements(object,scale)};
     const boundary=object.type==='buildingBoundary',wall=type==='Wall'||object.type==='wall',walkable=properties.isWalkable||type==='Green Area',room=object.type==='room'||['Store','Outlet'].includes(type);
-    const fill=wall?'#475569':walkable?'#78e196':room?'#64c3dc':type==='Lift'?'#fad72d':'#d9a97b';
+    const fill=object.type==='voidArea'?'#7c3aed':wall?'#475569':walkable?'#78e196':room?'#64c3dc':type==='Lift'?'#fad72d':'#d9a97b';
     const stroke=boundary?'#d84b55':wall?'#475569':walkable?'#6ca781':room?'#4193a5':'#ad8061';
     Object.assign(properties,{fill,'fill-opacity':boundary ? 0 : wall ? 0.2 : walkable ? 0.18 : 0.22,stroke,'stroke-opacity':wall?0:1,'stroke-width':boundary ? 1.2 : 0.6});
     const box=boundsOf(object),center={x:box.x+box.width/2,y:box.y+box.height/2};

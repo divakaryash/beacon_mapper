@@ -1,0 +1,9 @@
+{
+  "map": "GF.pdf",
+  "annotations": "apolloGF.json",
+  "width": 1132,
+  "height": 1600,
+  "edgeErrorPixels": 1.188672022246084,
+  "widthMeters": 103.7113244447917,
+  "method": "polygon-edges"
+}

@@ -35,20 +35,22 @@ export function selfIntersects(polygon) {
 }
 
 // Engine inputs are metres. This adapter is the only place drawing pixels are converted.
+export const isVoidArea=object=>![object.type,object.geometryRole].includes("restrictedArea")&&![object.category,object.metadata?.sourceType].includes("Restricted Area")&&(object.type==="voidArea"||object.geometryRole==="voidArea"||[object.name,object.category,object.metadata?.sourceType].some(value=>/^void(?: area)?$/i.test(value||"")));
+
 export function compileFloorGeometry(input={}) {
   const floors=new Map();
-  if(input.floors)for(const f of input.floors)floors.set(f.floorId,{boundaries:[],walkableAreas:[],restrictedAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[],...f});
+  if(input.floors)for(const f of input.floors)floors.set(f.floorId,{boundaries:[],walkableAreas:[],restrictedAreas:[],voidAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[],...f});
   else if(input.objects) {
     const scale=Number(input.metersPerPixel);
     if(!Number.isFinite(scale)||scale<=0)throw new Error("Floor geometry requires a positive metres-per-pixel scale.");
     for(const object of input.objects) {
-      const area=["room","polygon","rectangle","walkableArea","restrictedArea","nonWalkableArea"].includes(object.type);
-      const restricted=object.type==="restrictedArea"||(area&&((object.layerId==="restrictedAreas"&&object.type!=="nonWalkableArea")||object.category==="Restricted Area"||object.metadata?.sourceType==="Restricted Area"));
+      const area=["room","polygon","rectangle","walkableArea","restrictedArea","voidArea","nonWalkableArea"].includes(object.type);
+      const restricted=object.type==="restrictedArea"||object.geometryRole==="restrictedArea"||(area&&((object.layerId==="restrictedAreas"&&object.type!=="nonWalkableArea"&&!isVoidArea(object))||object.category==="Restricted Area"||object.metadata?.sourceType==="Restricted Area"));
       const blocked=area&&["Wall","Lift","Escalator","Escalator-up","Escalator-down","Stairs","Steps","Non Walkable","Green Area"].includes(object.metadata?.sourceType||object.category);
-      const role=restricted?"restrictedArea":blocked?"nonWalkableArea":object.geometryRole||(["room","polygon","rectangle"].includes(object.type)?"nonWalkableArea":object.type);
-      if(!["buildingBoundary","walkableArea","restrictedArea","nonWalkableArea","wall","walkablePath"].includes(role))continue;
+      const role=restricted?"restrictedArea":isVoidArea(object)?"voidArea":blocked?"nonWalkableArea":object.geometryRole||(["room","polygon","rectangle"].includes(object.type)?"nonWalkableArea":object.type);
+      if(!["buildingBoundary","walkableArea","restrictedArea","voidArea","nonWalkableArea","wall","walkablePath"].includes(role))continue;
       const floorId=object.floorId||input.defaultFloorId||"floor-1";
-      if(!floors.has(floorId))floors.set(floorId,{floorId,boundaries:[],walkableAreas:[],restrictedAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[]});
+      if(!floors.has(floorId))floors.set(floorId,{floorId,boundaries:[],walkableAreas:[],restrictedAreas:[],voidAreas:[],nonWalkableAreas:[],walls:[],walkablePaths:[]});
       const floor=floors.get(floorId),bounds=boundsOf(object),center={x:bounds.x+bounds.width/2,y:bounds.y+bounds.height/2};
       const points=objectPoints(object).map(p=>rotatedPoint(p,center,object.rotation||0)).map(p=>({x:p.x*scale,y:p.y*scale}));
       if(object.holes?.length)points.holes=object.holes.map(hole=>hole.map(p=>rotatedPoint(p,center,object.rotation||0)).map(p=>({x:p.x*scale,y:p.y*scale})));
@@ -59,20 +61,20 @@ export function compileFloorGeometry(input={}) {
         floor[role==="wall"?"walls":"walkablePaths"].push({points,width});
       } else {
         if(points.length<3)throw new Error("Area geometry requires at least three points.");
-        floor[{buildingBoundary:"boundaries",walkableArea:"walkableAreas",restrictedArea:"restrictedAreas",nonWalkableArea:"nonWalkableAreas"}[role]].push(points);
+        floor[{buildingBoundary:"boundaries",walkableArea:"walkableAreas",restrictedArea:"restrictedAreas",voidArea:"voidAreas",nonWalkableArea:"nonWalkableAreas"}[role]].push(points);
         if(role==='walkableArea'){floor.walkableRegionMetadata??=[];floor.walkableRegionMetadata.push({id:object.id,category:object.category,name:object.name});}
       }
     }
   }
   for(const floor of floors.values()) {
-    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const outer of polygons)for(const polygon of [outer,...(outer.holes||[])])if(polygon.length<3||polygonArea(polygon)<=EPS||polygon.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||selfIntersects(polygon))throw new Error("Invalid, self-intersecting or zero-area floor polygon.");
+    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.voidAreas||[],floor.nonWalkableAreas])for(const outer of polygons)for(const polygon of [outer,...(outer.holes||[])])if(polygon.length<3||polygonArea(polygon)<=EPS||polygon.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))||selfIntersects(polygon))throw new Error("Invalid, self-intersecting or zero-area floor polygon.");
     for(const path of [...floor.walls,...floor.walkablePaths])if(path.points.length<2||!(path.width>0)||!Number.isFinite(path.width)||path.points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))throw new Error("Invalid floor path width or coordinates.");
   }
   // Compiled geometry is a snapshot; reject distant polygons before testing detailed boundaries.
-  for(const floor of floors.values())floor.polygonBounds=new Map([floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas].flat().map(p=>[p,boundsOf({points:p})]));
+  for(const floor of floors.values())floor.polygonBounds=new Map([floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.voidAreas||[],floor.nonWalkableAreas].flat().map(p=>[p,boundsOf({points:p})]));
   for(const floor of floors.values()) {
     floor.polygonIndex=new Map();
-    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas]){
+    for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.voidAreas||[],floor.nonWalkableAreas]){
       const index={bins:new Map(),large:[]};floor.polygonIndex.set(polygons,index);
       for(const polygon of polygons){
         const box=floor.polygonBounds.get(polygon),minX=Math.floor((box.x-EPS)/5),maxX=Math.floor((box.x+box.width+EPS)/5),minY=Math.floor((box.y-EPS)/5),maxY=Math.floor((box.y+box.height+EPS)/5);
@@ -81,15 +83,18 @@ export function compileFloorGeometry(input={}) {
       }
     }
   }
+  for(const floor of floors.values())floor.allowVoidBeacons=input.allowVoidBeacons===true;
   return floors;
 }
-export function geometryConflict(point,floor,{requireWalkable=true}={}) {
+export function geometryConflict(point,floor,{requireWalkable=true,allowVoid=false}={}) {
   if(!floor?.boundaries.length)return "missing-building-boundary";
   if(!inPolygons(point,floor.boundaries,floor.polygonBounds,floor.polygonIndex?.get(floor.boundaries)))return "outside-building";
   if(inPaths(point,floor.walls))return "inside-wall";
   if(inPolygons(point,floor.restrictedAreas,floor.polygonBounds,floor.polygonIndex?.get(floor.restrictedAreas)))return "restricted-area";
   if(inPolygons(point,floor.nonWalkableAreas,floor.polygonBounds,floor.polygonIndex?.get(floor.nonWalkableAreas)))return "non-walkable-area";
-  if(requireWalkable) {
+  const inVoid=inPolygons(point,floor.voidAreas||[],floor.polygonBounds,floor.polygonIndex?.get(floor.voidAreas));
+  if(inVoid&&!allowVoid)return "non-walkable-area";
+  if(requireWalkable&&!(inVoid&&allowVoid)) {
     if(!floor.walkableAreas.length&&!floor.walkablePaths.length)return "missing-walkable-geometry";
     if(!inPolygons(point,floor.walkableAreas,floor.polygonBounds,floor.polygonIndex?.get(floor.walkableAreas))&&!inPaths(point,floor.walkablePaths))return "non-walkable-area";
   }
@@ -112,10 +117,10 @@ function circleCuts(a,b,center,radius,cuts) {
   for(const t of [(-bb-Math.sqrt(disc))/(2*aa),(-bb+Math.sqrt(disc))/(2*aa)])if(t>=0&&t<=1)cuts.push(t);
 }
 // Split at polygon and capsule boundaries, then classify intervals. No sampling can miss a thin wall.
-export function validGraphIntervals(a,b,floor,{requireWalkable=true}={}) {
+export function validGraphIntervals(a,b,floor,{requireWalkable=true,allowVoid=false}={}) {
   if(!floor?.boundaries.length)return [];
   const cuts=[0,1];
-  for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.nonWalkableAreas])for(const polygon of polygonCandidates(polygons,floor.polygonIndex?.get(polygons),a,b)){
+  for(const polygons of [floor.boundaries,floor.walkableAreas,floor.restrictedAreas,floor.voidAreas||[],floor.nonWalkableAreas])for(const polygon of polygonCandidates(polygons,floor.polygonIndex?.get(polygons),a,b)){
     const box=floor.polygonBounds?.get(polygon);
     if(box&&(Math.max(a.x,b.x)<box.x-EPS||Math.min(a.x,b.x)>box.x+box.width+EPS||Math.max(a.y,b.y)<box.y-EPS||Math.min(a.y,b.y)>box.y+box.height+EPS))continue;
     for(const ring of [polygon,...(polygon.holes||[])])for(let i=0;i<ring.length;i++)lineCuts(a,b,ring[i],ring[(i+1)%ring.length],cuts);
@@ -131,13 +136,15 @@ export function validGraphIntervals(a,b,floor,{requireWalkable=true}={}) {
   cuts.sort((a,b)=>a-b);const unique=cuts.filter((t,i)=>!i||t-cuts[i-1]>EPS),intervals=[];
   for(let i=1;i<unique.length;i++) {
     const start=unique[i-1],end=unique[i],t=(start+end)/2;
-    if(end-start>EPS&&!geometryConflict({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)},floor,{requireWalkable})){const previous=intervals.at(-1);if(previous&&Math.abs(previous[1]-start)<EPS)previous[1]=end;else intervals.push([start,end]);}
+    if(end-start>EPS&&!geometryConflict({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)},floor,{requireWalkable,allowVoid})){const previous=intervals.at(-1);if(previous&&Math.abs(previous[1]-start)<EPS)previous[1]=end;else intervals.push([start,end]);}
   }
   return intervals;
 }
+export function beaconGeometryConflict(point,floor,options={}){return geometryConflict(point,floor,{...options,allowVoid:floor?.allowVoidBeacons===true});}
+
 export function visibleGeometrySegment(a,b,floor) {
-  if(Math.hypot(b.x-a.x,b.y-a.y)<EPS)return !geometryConflict(a,floor,{requireWalkable:false});
-  const intervals=validGraphIntervals(a,b,floor,{requireWalkable:false});
+  if(Math.hypot(b.x-a.x,b.y-a.y)<EPS)return !beaconGeometryConflict(a,floor,{requireWalkable:false});
+  const intervals=validGraphIntervals(a,b,floor,{requireWalkable:false,allowVoid:floor?.allowVoidBeacons===true});
   return intervals.reduce((sum,[start,end])=>sum+end-start,0)>=1-1e-7;
 }
 export function nearestValidGraphPosition(beacon,graph,floors) {

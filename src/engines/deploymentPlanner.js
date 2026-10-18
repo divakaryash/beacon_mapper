@@ -1,6 +1,6 @@
 import {planPoiBeacons} from "./poiPlacement.js";
 import { BEACON_PROFILES, planBeacons, analyzePlacement, snapBeaconToGraph, validatePlacementGraph } from "./beaconPlacement.js";
-import { compileFloorGeometry, geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
+import { compileFloorGeometry, beaconGeometryConflict as geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
 import { analyzeCoverage } from "./coverage.js";
 import { deploymentQuality } from "./deploymentQuality.js";
 import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology,nearbyVisibleBeacon} from './topologyPlacement.js';
@@ -10,13 +10,14 @@ export const DEFAULT_PLANNING_SETTINGS = {
   defaultProfileId: BEACON_PROFILES[0].id, spacing: 5.5, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", placementStrategy:"landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
-  wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
+  allowVoidBeacons: false, wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
 };
 const dist = (a,b) => Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY);
 const coverageFields = b => JSON.stringify([b.floorId,b.worldX,b.worldY,b.enabled,b.coverageRadius,b.reliableRadius,b.marginalRadius]);
 
 export function validatePlanningSettings(settings, profiles) {
   validateTopologySettings(settings);
+  if(typeof settings.allowVoidBeacons!=="boolean")throw new Error("Void placement must be enabled or disabled.");
   if(typeof settings.beaconPrefix!=="string"||! /^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(settings.beaconPrefix))throw new Error("Beacon prefix must start with a letter and contain up to 20 letters, digits, underscores or hyphens.");
   if(!Number.isSafeInteger(settings.nextBeaconNumber)||settings.nextBeaconNumber<1)throw new Error("Invalid next beacon number.");
   if (!profiles.some(p=>p.id===settings.defaultProfileId)) throw new Error("Default beacon profile not found.");
@@ -38,7 +39,7 @@ export class DeploymentPlanner {
     validatePlacementGraph(graph);
     if(!graph.edges.length&&settings.placementStrategy!=="pois")throw new Error("No navigation paths detected. Floor analysis must succeed before generating a deployment.");
     for(const p of profiles)planBeacons({graph:{nodes:[],edges:[]},profile:p});
-    this.graph=graph; this.floorGeometry=floorGeometry; this.floors=compileFloorGeometry(floorGeometry);
+    this.graph=graph; this.floorGeometry=floorGeometry; this.floors=compileFloorGeometry({...floorGeometry,allowVoidBeacons:settings.allowVoidBeacons===true});
     if(![...this.floors.values()].some(f=>f.walkableAreas.length||f.walkablePaths.length))throw new Error("No walkable geometry detected. Floor analysis must succeed before generating a deployment.");
     this.profiles=profiles; this.settings={...DEFAULT_PLANNING_SETTINGS,...settings}; this.pois=pois;
     validatePlanningSettings(this.settings,profiles);
@@ -166,15 +167,16 @@ export class DeploymentPlanner {
   configure(patch) {
     const settings={...this.settings,...patch};validatePlanningSettings(settings,this.profiles);const oldSettings=this.settings;this.settings=settings;
     const before=this.beacons;
+    if("allowVoidBeacons" in patch){this.floors=compileFloorGeometry({...this.floorGeometry,allowVoidBeacons:settings.allowVoidBeacons});this.coverage=null;this.results.clear();}
     if(Object.keys(TOPOLOGY_DEFAULTS).some(key=>key in patch))this.topology={edges:analyzeFloorTopology({graph:this.graph,floors:this.floors,pois:this.pois,settings:this.settings}),method:'geometry-cross-sections-greedy-area-coverage'};
     try{this.beacons=this.beacons.map(b=>this.normalize({...b,...("reliableRadius" in patch?{reliableRadius:settings.reliableRadius}:{}),...("marginalRadius" in patch?{marginalRadius:settings.marginalRadius}:{})}));}catch(error){this.settings=oldSettings;throw error;}
-    const placementChanged=["defaultProfileId","reliableRadius","marginalRadius","anchorTypes","junctionAnchors","wallClearance"].some(key=>key in patch);
+    const placementChanged=["defaultProfileId","reliableRadius","marginalRadius","anchorTypes","junctionAnchors","wallClearance","allowVoidBeacons"].some(key=>key in patch);
     return this.evaluate(placementChanged?[...before,...this.beacons]:[]); // Reuse geometry/coverage for metadata-only settings.
   }
   generate() {
     const profile=this.profile(this.settings.defaultProfileId);
     if(this.settings.planningMode==="manual")return this.evaluate();
-    const result=this.settings.placementStrategy==="pois"?planPoiBeacons({pois:this.pois,floors:this.floors,metersPerPixel:this.floorGeometry.metersPerPixel,radius:this.settings.reliableRadius}):planBeacons({graph:this.graph,floorGeometry:this.floorGeometry,profile,pois:this.pois,placementRules:this.settings,configuration:{...this.settings,mode:this.settings.planningMode,spacing:this.settings.spacing}});
+    const result=this.settings.placementStrategy==="pois"?planPoiBeacons({pois:this.pois,floors:this.floors,metersPerPixel:this.floorGeometry.metersPerPixel,radius:this.settings.reliableRadius}):planBeacons({graph:this.graph,floorGeometry:{...this.floorGeometry,allowVoidBeacons:this.settings.allowVoidBeacons},profile,pois:this.pois,placementRules:this.settings,configuration:{...this.settings,mode:this.settings.planningMode,spacing:this.settings.spacing}});
     this.topology=result.topology||{edges:[],method:"poi-proximity-with-visible-shared-mounts"};
     this.topologyWarnings=result.warnings.filter(w=>['topology-candidate-limit','topology-route-resolution','topology-width-capped','unknown-topology','poi-no-mount','poi-offset','poi-spacing-review'].includes(w.code));
     const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));

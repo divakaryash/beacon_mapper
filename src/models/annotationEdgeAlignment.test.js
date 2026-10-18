@@ -60,3 +60,31 @@ test('geometry alignment handles an exterior footprint much larger than the shop
   const m=result.alignment.geoToNormalizedPdf,origin=result.alignment.origin;
   for(const ring of rings.slice(1))for(const [x,y] of ring){const [lon,lat]=coordinate([x,y]);assert.ok(Math.abs(((lon-origin[0])*m[0][0]+(lat-origin[1])*m[1][0]+m[2][0])*width-(x*1.6+35))<3);}
 });
+
+test('sparse rooms use structural walls to realign replacement drawings with new rotation, scale and margins',async()=>{
+  const {annotationSetup,annotatedReference}=await import('./annotatedFloor.js');
+  const {localToGeographic}=await import('./floorPlanSetup.js');
+  const coordinate=([x,y])=>localToGeographic({x,y:-y},{latitude:28,longitude:77});
+  const rings=[[0,0,30,20],[45,0,20,30],[0,50,60,20],[70,40,20,40]].map(([x,y,w,h])=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]]);
+  const payload={features:rings.map((ring,i)=>({id:String(i),properties:{floor:0,type:i===0?'Room':'Wall'},geometry:{type:'Polygon',coordinates:[ring.map(coordinate)]}}))};
+  const reference={...annotatedReference(payload,0,annotationSetup(payload,0)),geometryOnly:true};
+  for(const [width,height,angle,scale,tx,ty] of [[400,400,0,2.5,50,60],[460,380,33,2.2,165,35]]){
+    const data=new Uint8ClampedArray(width*height*4);data.fill(255);
+    const radians=angle*Math.PI/180;
+    const pixel=([x,y])=>[scale*(Math.cos(radians)*x-Math.sin(radians)*y)+tx,scale*(Math.sin(radians)*x+Math.cos(radians)*y)+ty];
+    for(const ring of rings){
+      const pixels=ring.map(pixel);
+      for(let i=1;i<pixels.length;i++){
+        const [ax,ay]=pixels[i-1],[bx,by]=pixels[i],steps=Math.ceil(Math.hypot(bx-ax,by-ay));
+        for(let j=0;j<=steps;j++){const x=Math.round(ax+(bx-ax)*j/steps),y=Math.round(ay+(by-ay)*j/steps),k=(y*width+x)*4;data[k]=data[k+1]=data[k+2]=0;}
+      }
+    }
+    const result=refineAnnotationEdges(reference,{width,height,data},{drawingWidthPixels:width,drawingHeightPixels:height});
+    const m=result.alignment.geoToNormalizedPdf,[lon0,lat0]=result.alignment.origin;
+    for(const ring of rings)for(const point of ring){
+      const [lon,lat]=coordinate(point),[x,y]=pixel(point);
+      assert.ok(Math.hypot(((lon-lon0)*m[0][0]+(lat-lat0)*m[1][0]+m[2][0])*width-x,((lon-lon0)*m[0][1]+(lat-lat0)*m[1][1]+m[2][1])*height-y)<3,`replacement at ${angle} degrees must preserve polygon corners`);
+    }
+    assert.ok(Math.abs(result.alignment.widthMeters-width/scale)<2);
+  }
+});

@@ -1,7 +1,6 @@
-import {alignAnnotationEdgesToMap} from "./models/annotationEdgeAlignment.js";
-import {alignAnnotatedReference} from "./models/annotationAlignment.js";
-import {recognizeFloorLabels} from "./models/floorPlanLabels.js";
-import {annotationFloors,annotationSetup,annotatedReference,waypointRoutes} from "./models/annotatedFloor.js";
+import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
+import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
+import {annotationFloors,annotationSetup,waypointRoutes} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
@@ -17,7 +16,7 @@ import { useHistory } from "./hooks/useHistory.js";
 import { defaultLayers, LAYERS, normalizeProject, POI_CATEGORIES, TOOLS } from "./models/drawing.js";
 import { clearProject, loadProject, saveProject } from "./storage/projectStore.js";
 import {sampleMall,sampleFloorSvg} from "./samples/sampleMall.js";
-import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference, runFloorAnalysis } from "./models/floorPlanImport.js";
+import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference } from "./models/floorPlanImport.js";
 import {useDeploymentPlanner} from "./hooks/useDeploymentPlanner.js";
 
 const acceptedTypes = ".png,.jpg,.jpeg,.svg,.pdf";
@@ -47,7 +46,7 @@ function Inspector({ object, metersPerPixel, onChange, onDuplicate, onDelete }) 
   if (!object) return <section className="panel-section inspector-empty"><h2>Properties</h2><p>Select an object to inspect its geometry and edit its details.</p></section>;
   const metrics = measurements(object, metersPerPixel);
   const detailed = object.type === "room" || object.type === "poi";
-  const field = (name, value) => onChange({ ...object, [name]: value });
+  const field = (name, value) => onChange({ ...object, [name]: value,...(name==="geometryRole"&&value==="voidArea"?{type:"voidArea",layerId:"voidAreas",category:"Void",metadata:{...object.metadata,sourceType:"Void"}}:name==="geometryRole"&&value==="restrictedArea"?{type:"restrictedArea",layerId:"restrictedAreas",category:"Restricted Area",metadata:{...object.metadata,sourceType:"Restricted Area"}}:{}) });
   return (
     <section className="panel-section">
       <div className="section-title"><h2>Properties</h2><span>{object.type}</span></div>
@@ -60,7 +59,7 @@ function Inspector({ object, metersPerPixel, onChange, onDuplicate, onDelete }) 
       {object.type === "text" && <label>Text<input value={object.text || ""} onChange={(event) => field("text", event.target.value)} /></label>}
       <label>Rotation<input type="number" value={Math.round(object.rotation || 0)} onChange={(event) => field("rotation", Number(event.target.value))} /></label>
       <label>Geometry floor ID<input value={object.floorId||"floor-1"} onChange={e=>field("floorId",e.target.value)}/></label>
-      {["rectangle","room","polygon","buildingBoundary","walkableArea","restrictedArea","nonWalkableArea"].includes(object.type)&&<label>Geometry role<select value={object.geometryRole||(["rectangle","room","polygon"].includes(object.type)?"none":object.type)} onChange={e=>field("geometryRole",e.target.value)}>{[["none","Drawing only"],["buildingBoundary","Building boundary"],["walkableArea","Walkable area"],["restrictedArea","Restricted area"],["nonWalkableArea","Non-walkable area"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
+      {["rectangle","room","polygon","buildingBoundary","walkableArea","restrictedArea","voidArea","nonWalkableArea"].includes(object.type)&&<label>Geometry role<select value={object.geometryRole||(["rectangle","room","polygon"].includes(object.type)?"none":object.type)} onChange={e=>field("geometryRole",e.target.value)}>{[["none","Drawing only"],["buildingBoundary","Building boundary"],["walkableArea","Walkable area"],["restrictedArea","Restricted area"],["voidArea","Void area"],["nonWalkableArea","Non-walkable area"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
       {object.type==="wall"&&<label>Wall thickness (m)<input type="number" min=".01" step=".05" value={object.thicknessMeters??.2} onChange={e=>field("thicknessMeters",Number(e.target.value))}/></label>}
       {object.type==="walkablePath"&&<label>Walkable width (m)<input type="number" min=".1" step=".1" value={object.widthMeters??2} onChange={e=>field("widthMeters",Number(e.target.value))}/></label>}
       <div className="metrics-grid">
@@ -93,16 +92,16 @@ export default function App() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const importRequest = useRef(0);
-  const [importMode,setImportMode]=useState(window.location.hash==="#annotated"?"annotated":"automatic");
+  const [importMode,setImportMode]=useState("annotated");
   const [pendingMap,setPendingMap]=useState(null);
   const [annotationData,setAnnotationData]=useState(null);
   const [waypointData,setWaypointData]=useState(null);
   const [annotationFloor,setAnnotationFloor]=useState("");
-  const annotationFields=<section><div className="button-row"><button type="button" onClick={()=>{setImportMode("automatic");window.location.hash="";}}>Map only</button><button type="button" onClick={()=>{setImportMode("annotated");window.location.hash="annotated";}}>Annotated GeoJSON + map</button></div>{importMode==="annotated"&&<><p>Upload annotations, select a floor, then choose its matching map to compute beacon positions and total count. Room labels or polygon outlines automatically align position, rotation and scale.</p><label>Annotated GeoJSON / API JSON<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());const parsed=annotationFloors(payload);const setup=annotationSetup(payload,parsed.floors[0]);setAnnotationData(payload);setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportError("");}catch(error){setAnnotationData(null);setImportError(error.message);}}}/></label><label>Waypoint routes JSON (optional)<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());waypointRoutes(payload);setWaypointData(payload);setImportError("");}catch(error){setWaypointData(null);setImportError(error.message);}}}/></label>{waypointData&&<p><small>Waypoint levels: {[...new Set(waypointRoutes(waypointData).map(f=>f.properties.floor))].sort((a,b)=>a-b).join(", ")}. Only lines from the selected floor / level are used.</small></p>}{annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>{try{setUploadSetup(annotationSetup(annotationData,e.target.value));setAnnotationFloor(e.target.value);setImportError("");}catch(error){setImportError(error.message);}}}>{annotationFloors(annotationData).floors.map(f=><option key={f} value={f}>Floor {f}{waypointData?` · ${waypointRoutes(waypointData).filter(route=>String(route.properties.floor)===f).length} waypoint paths`:""}</option>)}</select></label>}</>}</section>;
+  const annotationFields=<section><div className="button-row"><button type="button" onClick={()=>{setImportMode("automatic");window.location.hash="";}}>Map only</button><button type="button" onClick={()=>{setImportMode("annotated");window.location.hash="annotated";}}>Annotated GeoJSON + map</button></div>{importMode==="annotated"&&<><p>Step 1 · Import GeoJSON and a floor plan, then align the image manually. Importing does not generate beacons.</p><label>Annotated GeoJSON / API JSON<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());const parsed=annotationFloors(payload);const setup=annotationSetup(payload,parsed.floors[0]);setAnnotationData(payload);setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportError("");}catch(error){setAnnotationData(null);setImportError(error.message);}}}/></label><label>Waypoint routes JSON (optional)<input type="file" accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const payload=JSON.parse(await file.text());waypointRoutes(payload);setWaypointData(payload);setImportError("");}catch(error){setWaypointData(null);setImportError(error.message);}}}/></label>{waypointData&&<p><small>Waypoint levels: {[...new Set(waypointRoutes(waypointData).map(f=>f.properties.floor))].sort((a,b)=>a-b).join(", ")}. Only lines from the selected floor / level are used.</small></p>}{annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>{try{setUploadSetup(annotationSetup(annotationData,e.target.value));setAnnotationFloor(e.target.value);setImportError("");}catch(error){setImportError(error.message);}}}>{annotationFloors(annotationData).floors.map(f=><option key={f} value={f}>Floor {f}{waypointData?` · ${waypointRoutes(waypointData).filter(route=>String(route.properties.floor)===f).length} waypoint paths`:""}</option>)}</select></label>}</>}</section>;
   const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
   let uploadReady=false,setupError="";
   try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch(error) {setupError=error.message;}
-  const uploadFields=<div><p><small>{importMode==="annotated"?"Location and dimensions are filled from the selected floor’s GeoJSON bounds. Room labels seed alignment when readable; polygon outlines align unlabeled maps and verify the fit.":"Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins."}</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
+  const uploadFields=<div><p><small>{importMode==="annotated"?"GeoJSON defines the fixed workspace and physical scale. Move, rotate, resize or flip the floor plan overlay in Step 2.":"Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins."}</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing||importMode==="annotated"} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
   const [focusLocation,setFocusLocation]=useState(null);
   const [planningError,setPlanningError]=useState("");
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
@@ -130,6 +129,10 @@ export default function App() {
           saved = { ...saved, floorPlanPreview: rendered.floorPlanPreview, pdfPageCount: rendered.pdfPageCount };
         } catch (error) { setImportError(`PDF could not be opened: ${error.message}. Re-import the file to retry.`); }
       }
+      if(saved?.annotationData){
+        setAnnotationData(saved.annotationData);setAnnotationFloor(saved.annotationFloor);setWaypointData(saved.waypointData||null);
+        setUploadSetup(annotationSetup(saved.annotationData,saved.annotationFloor));setImportMode("annotated");
+      }
       const restored=normalizeProject(saved);
       history.reset(restored);
       setStatus(saved ? "Restored from this browser" : "No project loaded");
@@ -140,7 +143,7 @@ export default function App() {
             const detected=await analyzeImportedFloor(saved,Number(saved.widthMeters)/saved.drawingWidthPixels);
             if(committedRef.current?.objects!==restored.objects)return;
             // Keep the previous drawing in undo history when replacing a bad inferred map.
-            history.commit(normalizeProject({...restored,referencePresentationInitialized:false,objects:detected.objects,graph:detected.graph,widthMeters:detected.widthMeters,heightMeters:detected.heightMeters,floorAnalysis:detected.analysis,beaconPlan:null,coverageAnalysis:null,activeDeploymentId:null,placementNeedsReview:false,planningSettings:{...restored.planningSettings,nextBeaconNumber:1,cellSize:1,additionalBeaconBudget:100},autoPlanPending:true,layers:{...restored.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
+            history.commit(normalizeProject({...restored,referencePresentationInitialized:false,objects:detected.objects,graph:detected.graph,widthMeters:detected.widthMeters,heightMeters:detected.heightMeters,floorAnalysis:detected.analysis,beaconPlan:null,coverageAnalysis:null,activeDeploymentId:null,placementNeedsReview:false,planningSettings:{...restored.planningSettings,nextBeaconNumber:1,cellSize:1,additionalBeaconBudget:100},autoPlanPending:false,layers:{...restored.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
           }
         }catch(error){setImportError(`Reference correction could not be applied: ${error.message}`);}
       }
@@ -176,12 +179,12 @@ export default function App() {
     const changed=project&&(next.graph!==project.graph||next.objects!==project.objects||next.widthMeters!==project.widthMeters||next.heightMeters!==project.heightMeters||next.drawingWidthPixels!==project.drawingWidthPixels||next.drawingHeightPixels!==project.drawingHeightPixels);
     if(project?.floorAnalysis&&next.widthMeters!==project.widthMeters&&Number(next.widthMeters)>0){
       const scale=Number(next.widthMeters)/next.drawingWidthPixels;
-      next={...next,heightMeters:next.drawingHeightPixels*scale,graph:{...next.graph,nodes:next.graph.nodes.map(n=>({...n,worldX:n.x*scale,worldY:n.y*scale})),edges:next.graph.edges.map(e=>{const a=next.graph.nodes.find(n=>n.id===e.source),b=next.graph.nodes.find(n=>n.id===e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*scale};})},beaconPlan:null,coverageAnalysis:null,planningSettings:{...next.planningSettings,nextBeaconNumber:1},autoPlanPending:next.graph.edges.length>0,floorAnalysis:{...next.floorAnalysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters:Number(next.widthMeters),heightMeters:next.drawingHeightPixels*scale}}};
+      next={...next,heightMeters:next.drawingHeightPixels*scale,graph:{...next.graph,nodes:next.graph.nodes.map(n=>({...n,worldX:n.x*scale,worldY:n.y*scale})),edges:next.graph.edges.map(e=>{const a=next.graph.nodes.find(n=>n.id===e.source),b=next.graph.nodes.find(n=>n.id===e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*scale};})},beaconPlan:null,coverageAnalysis:null,planningSettings:{...next.planningSettings,nextBeaconNumber:1},autoPlanPending:false,floorAnalysis:{...next.floorAnalysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters:Number(next.widthMeters),heightMeters:next.drawingHeightPixels*scale}}};
     }
     history.commit(changed?{...next,placementNeedsReview:!!next.beaconPlan,coverageAnalysis:null}:next);
   }
   function beaconAction(action,data,preview=false){
-    if(!scale||!project.beaconPlan)return;
+    if(!scale||(!project.beaconPlan&&action!=="insert"))return;
     planner.command(action,{...data,floorId:data.floorId||project.beaconEditingFloorId||project.graph.nodes[0]?.floorId||"floor-1",worldX:data.x*scale,worldY:data.y*scale},{preview,selection:data.id});
   }
   function graphAction(action, data) {
@@ -224,35 +227,21 @@ export default function App() {
       const setup=validateFloorPlanSetup(uploadSetup);
       const annotated=importMode==="annotated";
       const imported = await readFloorPlan(file,{annotated});
-      const originalHeight=imported.drawingHeightPixels;
-      if(!annotated)imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
-      imported.floorPlanLabels=imported.floorPlanLabels?.map(label=>({...label,y:label.y*imported.drawingHeightPixels/originalHeight,height:label.height*imported.drawingHeightPixels/originalHeight}));
-      if (request !== importRequest.current) return;
-      const opened=normalizeProject({...base,...imported,name:file.name,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},widthMeters:setup.widthMeters,heightMeters:setup.heightMeters});
-      history.reset(opened);
-      setPendingMap(null);
-      setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);
-      setStatus("Analyzing geometry and navigation paths…");
-      // User dimensions establish scale before geometry and placement are generated.
-      let widthMeters=setup.widthMeters,metersPerPixel=widthMeters/imported.drawingWidthPixels,annotationAlignment=null,alignmentWarning="";
-      let detected;
-      try {let reference=annotated?annotatedReference(annotationData,annotationFloor,setup,waypointData):null;
-        if(reference){
-          setStatus("Aligning annotations to drawing labels and polygon edges…");
-          try {
-            try {reference=alignAnnotatedReference(reference,imported.floorPlanLabels,imported);}
-            catch {const labels=await recognizeFloorLabels(imported.floorPlanPreview||file,imported.drawingWidthPixels,imported.drawingHeightPixels,{roomLabels:true});try{reference=alignAnnotatedReference(reference,labels,imported);}catch{reference={...reference,geometryOnly:true};}}
-            reference=await alignAnnotationEdgesToMap(reference,imported);
-            annotationAlignment=reference.alignment;widthMeters=annotationAlignment.widthMeters;metersPerPixel=widthMeters/imported.drawingWidthPixels;
-          }catch(error){throw new Error(`Automatic alignment failed: ${error.message} No polygons or beacons were placed. Use the matching floor JSON and PDF.`);}
-        }
-        detected=reference?await runFloorAnalysis({reference,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,cellSize:Math.max(.6,Math.sqrt(reference.alignment.widthMeters**2*imported.drawingHeightPixels/imported.drawingWidthPixels/350000))}):await analyzeImportedFloor(imported,metersPerPixel);if(reference)detected.analysis={...detected.analysis,method:"uploaded-annotations",warnings:[reference.alignment.boundarySource,annotationAlignment?"Polygons, navigation paths and beacons are registered to matching room labels in the uploaded map.":alignmentWarning||"Approximate GeoJSON bounds fit: review margins and rotation.",...detected.analysis.warnings]};}
-      catch(error){detected={objects:[],graph:{nodes:[],edges:[]},analysis:{method:annotated?"uploaded-annotations":"bounded-raster-topology",status:"failed",warnings:[error.message]}};setImportError(`Map opened, but beacon computation needs correction: ${error.message}`);}
       if(request!==importRequest.current)return;
-      const detectedNodes=new Map(detected.graph.nodes.map(n=>[n.id,n]));
-      detected.graph={...detected.graph,nodes:detected.graph.nodes.map(n=>({...n,worldX:n.x*metersPerPixel,worldY:n.y*metersPerPixel})),edges:detected.graph.edges.map(e=>{const a=detectedNodes.get(e.source),b=detectedNodes.get(e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*metersPerPixel};})};
-      history.reset(normalizeProject({...base,...imported,name:file.name,annotationAlignment,geographicOrigin:annotationAlignment?null:{latitude:setup.latitude,longitude:setup.longitude},widthMeters,heightMeters:imported.drawingHeightPixels*metersPerPixel,planningSettings:annotated?{spacing:7.5,minimumSpacing:5,maximumSpacing:10,placementStrategy:detected.analysis.routeSource==="geojson"?"centerline":"pois",junctionAnchors:true,cellSize:1,additionalBeaconBudget:0}:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:{kind:annotationAlignment?annotationAlignment.method:'user-dimensions',widthMeters,heightMeters:imported.drawingHeightPixels*metersPerPixel}},autoPlanPending:detected.graph.edges.length>0||(annotated&&detected.objects.some(o=>o.type==="poi")),layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
-      setSelectedId(null); setGraphSelection(null); setBeaconSelection(null); setRoute(null);
+      let next;
+      if(annotated){
+        next=createManualAnnotationProject(imported,annotationData,annotationFloor,waypointData);
+      }else{
+        imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
+        const metersPerPixel=setup.widthMeters/imported.drawingWidthPixels;
+        const detected=await analyzeImportedFloor(imported,metersPerPixel);
+        next={...imported,name:file.name,widthMeters:setup.widthMeters,heightMeters:setup.heightMeters,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},objects:detected.objects,graph:detected.graph,floorAnalysis:detected.analysis,autoPlanPending:false};
+      }
+      if(request!==importRequest.current)return;
+      history.reset(normalizeProject({...base,...next,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:false,locked:false}}}));
+      setPendingMap(null);setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
+      setTool(annotated?"alignMap":"select");
+      setStatus(annotated?"Ready for manual alignment":"Map imported · generate placement when ready");
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
     } finally { if (request === importRequest.current) setImporting(false); }
@@ -266,13 +255,13 @@ export default function App() {
     objects: project.objects.length,
   } : null, [project]);
 
-  const importHint=project?.floorAnalysis?.status==="failed"?"Annotations need correction. Review the error above the map, then select the map again to retry.":!pendingMap?"Choose a floor map to continue.":!uploadReady?setupError:importMode==="annotated"&&!annotationData?"Upload the annotated GeoJSON to continue.":"Ready to open the map.";
-  const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name}</p>}<p role="status">{importing?"Opening your map. Please wait…":importHint}</p><button type="button" disabled={importing||!pendingMap||!uploadReady||(importMode==="annotated"&&!annotationData)} onClick={()=>importFloorPlan(pendingMap)}>{importing?"Opening map…":"Open map & compute beacons"}</button></div>;
+  const importHint=project?.floorAnalysis?.status==="failed"?"Annotations need correction. Review the error above the map, then select the map again to retry.":!pendingMap&&!project?.file?"Choose a floor map to continue.":!uploadReady?setupError:importMode==="annotated"&&!annotationData?"Upload the annotated GeoJSON to continue.":"Ready to open the map.";
+  const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name}</p>}<p role="status">{importing?"Opening your map. Please wait…":importHint}</p><button type="button" disabled={importing||(!pendingMap&&!project?.file)||!uploadReady||(importMode==="annotated"&&!annotationData)} onClick={()=>importFloorPlan(pendingMap||project?.file)}>{importing?"Opening map…":"Import · align manually"}</button></div>;
 
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
-      <p className="eyebrow">INPS · Local planning workspace</p><h1>Upload a floor plan. Review an initial deployment.</h1>
-      <p>Automatically infer geometry and navigation paths, then place IW Beacons. Everything stays in this browser.</p>
+      <p className="eyebrow">INPS · Local planning workspace</p><h1>Import your map. Align it yourself.</h1>
+      <p>Import GeoJSON and a floor plan, then position the image over the fixed geometry. Generate beacons when you choose. Everything stays in this browser.</p>
       {annotationFields}{uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}<small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
@@ -292,11 +281,11 @@ export default function App() {
       </nav>
 
       <aside className="left-panel">
-        {importing&&<p role="status">Opening map and computing navigation paths…</p>}
+        {importing&&<p role="status">Importing floor plan…</p>}
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
           {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{annotationFields}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}
-          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="missing-paths"?"POI placement · no route lines needed":project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.routeSource==="geojson"&&<p><strong>{project.floorAnalysis.sourcePathCount} JSON paths · {project.floorAnalysis.junctions} junctions</strong></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
+          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorPlanOverlay?"Manual alignment · no automatic placement":project.floorAnalysis.status==="missing-paths"?"POI placement · no route lines needed":project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":project.floorPlanOverlay?"Manual alignment · GeoJSON fixed":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.routeSource==="geojson"&&<p><strong>{project.floorAnalysis.sourcePathCount} JSON paths · {project.floorAnalysis.junctions} junctions</strong></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
           <div className="field-grid">
@@ -313,8 +302,8 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <aside className="right-panel"><FloorPlanAlignment project={project} update={update} tool={tool} setTool={setTool} /><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );
 }

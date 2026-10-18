@@ -1,4 +1,4 @@
-import {compileFloorGeometry,geometryConflict,visibleGeometrySegment,validGraphIntervals} from "./floorGeometry.js";
+import {compileFloorGeometry,geometryConflict,beaconGeometryConflict,visibleGeometrySegment,validGraphIntervals} from "./floorGeometry.js";
 import {deploymentQuality} from "./deploymentQuality.js";
 
 export const coverageEngineVersion=2;
@@ -7,7 +7,7 @@ export function analyzeCoverage({graph,floorGeometry,beacons,profile,placementQu
   const requestedCellSize=Number(configuration.cellSize??.5),requestedGraphStep=Number(configuration.graphStep??.25);
   if(!(requestedCellSize>0)||!Number.isFinite(requestedCellSize)||!(requestedGraphStep>0)||!Number.isFinite(requestedGraphStep))throw new Error("Coverage resolution must be positive and finite.");
   if(!(Number(profile.coverageRadius)>0)||!Number.isFinite(Number(profile.coverageRadius)))throw new Error("Coverage radius must be positive and finite.");
-  const floors=compiledFloors||compileFloorGeometry(floorGeometry),nodes=graph.nodes instanceof Map?graph.nodes:new Map(graph.nodes.map(n=>[n.id,n])),edges=graph.edges instanceof Map?[...graph.edges.values()]:graph.edges;
+  const floors=compiledFloors||compileFloorGeometry({...floorGeometry,allowVoidBeacons:configuration.allowVoidBeacons??floorGeometry.allowVoidBeacons}),nodes=graph.nodes instanceof Map?graph.nodes:new Map(graph.nodes.map(n=>[n.id,n])),edges=graph.edges instanceof Map?[...graph.edges.values()]:graph.edges;
   const radiusFor=b=>Number(b[configuration.coverageThreshold==="marginal"?"marginalRadius":configuration.coverageThreshold==="reliable"?"reliableRadius":"coverageRadius"]??b.coverageRadius??profile.coverageRadius);
   const incremental=!!(previous&&changes&&previous.resolution.requestedCellSize===requestedCellSize&&previous.resolution.requestedGraphStep===requestedGraphStep&&previous.coverageThreshold===(configuration.coverageThreshold||"nominal"));
   const previousEdges=new Map((previous?.graphEdges||[]).map(e=>[e.edgeId,e])),previousGaps=new Map();
@@ -18,7 +18,7 @@ export function analyzeCoverage({graph,floorGeometry,beacons,profile,placementQu
   for(const b of active) {
     const radius=radiusFor(b);
     if(!(radius>0)||!Number.isFinite(radius)||![b.worldX,b.worldY].every(Number.isFinite))throw new Error("Invalid beacon radius or coordinates.");
-    if(geometryConflict({x:b.worldX,y:b.worldY},floors.get(b.floorId))) {warnings.push({code:"invalid-coverage-beacon",beaconId:b.id,message:`${b.id} is outside valid installation geometry and excluded from coverage.`});continue;}
+    if(beaconGeometryConflict({x:b.worldX,y:b.worldY},floors.get(b.floorId))) {warnings.push({code:"invalid-coverage-beacon",beaconId:b.id,message:`${b.id} is outside valid installation geometry and excluded from coverage.`});continue;}
     if(!groups.has(b.floorId))groups.set(b.floorId,[]);groups.get(b.floorId).push({...b,radius});
   }
   const indices=new Map();

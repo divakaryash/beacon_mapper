@@ -4,7 +4,7 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
   const m=reference.alignment.geoToNormalizedPdf,origin=reference.alignment.origin,points=[];
   const project=([lon,lat])=>({x:((lon-origin[0])*m[0][0]+(lat-origin[1])*m[1][0]+m[2][0])*width,y:((lon-origin[0])*m[0][1]+(lat-origin[1])*m[1][1]+m[2][1])*height});
   for(const feature of reference.features){
-    if(feature.geometry.type!=='Polygon'||!['Store','Outlet','Room'].includes(feature.properties.type))continue;
+    if(feature.geometry.type!=='Polygon'||!(reference.geometryOnly?['Store','Outlet','Room','Wall','Boundary']:['Store','Outlet','Room']).includes(feature.properties.type))continue;
     const ring=feature.geometry.coordinates[0].map(project);
     for(let i=1;i<ring.length;i++){
       const a=ring[i-1],b=ring[i],length=Math.hypot(b.x-a.x,b.y-a.y);
@@ -35,19 +35,14 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
     xs.sort((a,b)=>a-b);ys.sort((a,b)=>a-b);
     const lo=.015,hi=.985,left=xs[Math.floor(xs.length*lo)],right=xs[Math.floor(xs.length*hi)],top=ys[Math.floor(ys.length*lo)],bottom=ys[Math.floor(ys.length*hi)];
     const axisRatio=width*(6378137*Math.PI/180)/(reference.alignment.widthMeters*height*Math.abs(m[1][1]));
-    const histogram=new Float64Array(36);
-    for(const feature of reference.features)if(feature.geometry.type==='Polygon'&&['Store','Outlet','Room'].includes(feature.properties.type)){
-      const ring=feature.geometry.coordinates[0].map(project);
-      for(let i=1;i<ring.length;i++){const a=ring[i-1],b=ring[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(length<12)continue;const angle=((Math.atan2((b.y-a.y)*axisRatio,b.x-a.x)*180/Math.PI)%90+90)%90;histogram[Math.round(angle/2.5)%36]+=length;}
-    }
-    let dominant=0;for(let i=1;i<36;i++)if(histogram[i]>histogram[dominant])dominant=i;
+    // Search the drawing's rotation too: uploaded plans need not have axis-aligned walls.
     best=Infinity;
-    for(let quadrant=0;quadrant<4;quadrant++)for(const offset of [-10,-5,0,5,10]){
-      const angle=(-dominant*2.5+quadrant*90+offset)*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
+    for(let rotation=0;rotation<360;rotation+=10){
+      const angle=rotation*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
       // Geographic dimensions provide a second scale seed when exterior ink dwarfs the shops.
       for(const scale of [.85,1,1.15])for(const dx of [-.1,0,.1])for(const dy of [-.1,0,.1]){
         const t=[scale*cos,-scale*sin*axisRatio,scale*sin,scale*cos*axisRatio,dx*width,dy*height];
-        const value=score(t);seeds.push({t,value,quadrant:quadrant*100+offset+2000});
+        const value=score(t);seeds.push({t,value,quadrant:rotation+2000});
       }
       for(const extent of [samples,reference.alignment.boundary.map(([x,y])=>({x:x*width,y:y*height}))]){
         const rotated=extent.map(p=>({x:cos*(p.x-cx)-sin*(p.y-cy)*axisRatio,y:sin*(p.x-cx)+cos*(p.y-cy)*axisRatio}));
@@ -55,7 +50,7 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
         const fit=Math.sqrt((right-left)*(bottom-top)/((maxX-minX)*(maxY-minY)));
         for(const factor of [.85,.925,1,1.075,1.15])for(const dx of [-.05,0,.05])for(const dy of [-.05,0,.05]){
           const scale=fit*factor,t=[scale*cos,-scale*sin*axisRatio,scale*sin,scale*cos*axisRatio,(left+right)/2-cx-scale*(minX+maxX)/2+dx*width,(top+bottom)/2-cy-scale*(minY+maxY)/2+dy*height];
-          const value=score(t);seeds.push({t,value,quadrant:quadrant*100+offset+(extent===samples?0:1000)});if(value<best){best=value;current=t;}
+          const value=score(t);seeds.push({t,value,quadrant:rotation+(extent===samples?0:1000)});if(value<best){best=value;current=t;}
         }
       }
     }
@@ -66,7 +61,7 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
     current=[...start];best=score(current);const seed=[...current];
     for(const step of [8,4,2,1,.5])for(let iteration=0;iteration<40;iteration++){
       let next=current,nextScore=best;
-      for(let k=0;k<6;k++)for(const sign of [-1,1]){
+      for(let k=reference.geometryOnly?4:0;k<6;k++)for(const sign of [-1,1]){
         const candidate=[...current];candidate[k]+=sign*step/(k<4?(k%2===0?cx:cy):1);
         if(candidate.slice(0,4).some((n,i)=>Math.abs(n-seed[i])>.2)||Math.abs(candidate[4]-seed[4])>width*.1||Math.abs(candidate[5]-seed[5])>height*.1)continue;
         if(candidate[0]*candidate[3]-candidate[1]*candidate[2]<=0)continue;
@@ -86,10 +81,10 @@ export function refineAnnotationEdges(reference,{data,width,height},drawing){
   current=globalTransform;best=globalBest;
   if(reference.geometryOnly&&Math.sqrt(best)>3)throw new Error(`Drawing geometry does not match the annotations closely enough (${Math.sqrt(best).toFixed(1)} px edge error).`);
   if(!reference.geometryOnly&&best>initial*.9)return reference;
-  const [a,b,c,d,tx,ty]=current,det=a*d-b*c;
+  const [a,b,c,d,tx,ty]=current;
   const matrix=m.map(([x,y],i)=>[(a*x*width+b*y*height+(i===2?cx+tx-a*cx-b*cy:0))/width,(c*x*width+d*y*height+(i===2?cy+ty-c*cx-d*cy:0))/height]);
   const boundary=reference.alignment.boundary.map(([x,y])=>{const p=transform({x:x*width,y:y*height},current);return [p.x/width,p.y/height];});
-  return {...reference,alignment:{...reference.alignment,geoToNormalizedPdf:matrix,boundary,widthMeters:reference.alignment.widthMeters/Math.sqrt(det),method:reference.geometryOnly?'polygon-edges':'room-labels-and-polygon-edges',edgeErrorPixels:Math.sqrt(best)/Math.sqrt(ratioX*ratioY),boundarySource:`Polygon edges registered to drawing walls (${(Math.sqrt(best)/Math.sqrt(ratioX*ratioY)).toFixed(1)} px edge error). ${reference.alignment.boundarySource}`}};
+  return {...reference,alignment:{...reference.alignment,geoToNormalizedPdf:matrix,boundary,widthMeters:(6378137*Math.PI/180*Math.cos(origin[1]*Math.PI/180))/Math.hypot(matrix[0][0],matrix[0][1]*height/width),method:reference.geometryOnly?'polygon-edges':'room-labels-and-polygon-edges',edgeErrorPixels:Math.sqrt(best)/Math.sqrt(ratioX*ratioY),boundarySource:`Polygon edges registered to drawing walls (${(Math.sqrt(best)/Math.sqrt(ratioX*ratioY)).toFixed(1)} px edge error). ${reference.alignment.boundarySource}`}};
 }
 
 export async function alignAnnotationEdgesToMap(reference,imported){

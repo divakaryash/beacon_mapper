@@ -1,11 +1,11 @@
-import {selfIntersects} from '../engines/floorGeometry.js';
+import {isVoidArea,beaconGeometryConflict,compileFloorGeometry,selfIntersects} from '../engines/floorGeometry.js';
 import {simplifyContour,straightenPillarNotches} from "../engines/geometry.js";
-import {compileFloorGeometry, geometryConflict} from "../engines/floorGeometry.js";
 export const LAYERS = [
   { id: "floorPlan", label: "Floor Plan", color: "#94a3b8" },
   { id: "walls", label: "Walls", color: "#172033" },
   { id: "rooms", label: "Rooms", color: "#2563eb" },
   { id: "walkableAreas", label: "Walkable Areas", color: "#16a085" },
+  { id: "voidAreas", label: "Void Areas", color: "#7c3aed" },
   { id: "restrictedAreas", label: "Restricted Areas", color: "#dc5d50" },
   { id: "navigationGraph", label: "Navigation Graph", color: "#8b5cf6" },
   { id: "pois", label: "POIs", color: "#d97706" },
@@ -17,11 +17,11 @@ export const LAYERS = [
 ];
 
 export const TOOLS = [
-  ["select", "Select", "V"], ["move", "Move", "M"], ["pan", "Pan", "H"], ["rectangle", "Rectangle", "R"],
+  ["alignMap", "Floor overlay", "F"], ["select", "Select", "V"], ["move", "Move", "M"], ["pan", "Pan", "H"], ["rectangle", "Rectangle", "R"],
   ["room", "Room", "O"], ["polygon", "Polygon", "G"], ["polyline", "Polyline", "L"],
   ["wall", "Wall", "W"], ["walkablePath", "Walkable Path", "K"],
   ["walkableArea", "Walkable Area", "A"], ["restrictedArea", "Restricted Area", "X"],
-  ["buildingBoundary", "Boundary", "B"], ["nonWalkableArea", "Non-walkable", "N"],
+  ["voidArea", "Void area", "U"], ["buildingBoundary", "Boundary", "B"], ["nonWalkableArea", "Non-walkable", "N"],
   ["poi", "POI", "P"], ["text", "Text", "T"], ["delete", "Delete", "D"],
 ];
 
@@ -37,6 +37,7 @@ export function layerForType(type) {
   if (type === "wall") return "walls";
   if (type === "room") return "rooms";
   if (["walkableArea", "walkablePath"].includes(type)) return "walkableAreas";
+  if(type==="voidArea")return "voidAreas";
   if (["restrictedArea","nonWalkableArea"].includes(type)) return "restrictedAreas";
   if (type === "buildingBoundary") return "walls";
   if (type === "poi") return "pois";
@@ -71,14 +72,15 @@ export function normalizeProject(project) {
     project={...project,floorAnalysis:{...project.floorAnalysis,warnings:project.floorAnalysis.warnings.filter(w=>!w.includes('navigation paths and beacons')&&!w.includes('navigation components remain disconnected')&&!w.startsWith('No route lines'))}};
   }
   if(project.floorAnalysis?.routeSource==='missing'&&project.objects?.some(o=>o.type==='poi')&&project.planningSettings?.placementStrategy!=='pois'){
-    project={...project,planningSettings:{...project.planningSettings,placementStrategy:'pois',spacing:9,minimumSpacing:8,maximumSpacing:10,additionalBeaconBudget:0},autoPlanPending:true};
+    project={...project,planningSettings:{...project.planningSettings,placementStrategy:'pois',spacing:9,minimumSpacing:8,maximumSpacing:10,additionalBeaconBudget:0},autoPlanPending:false};
   }
   if(project.planningSettings?.hardSpacing){
     const {hardSpacing,...settings}=project.planningSettings;
     project={...project,planningSettings:{...settings,spacing:7.5,minimumSpacing:5,maximumSpacing:10}};
   }
   const reference = !!project.floorAnalysis;
-  let objects=project.objects||[],floorAnalysis=project.floorAnalysis,updatedContours=false;
+  const legacyVoid=object=>isVoidArea(object)&&object.type!=="restrictedArea"&&(object.type!=="voidArea"||object.layerId!=="voidAreas");
+  let objects=project.objects?.some(legacyVoid)?project.objects.map(object=>legacyVoid(object)?{...object,type:"voidArea",geometryRole:"voidArea",layerId:"voidAreas"}:object):project.objects||[],floorAnalysis=project.floorAnalysis,updatedContours=false;
   if(floorAnalysis?.method==="bounded-raster-topology"&&(floorAnalysis.contourVersion||0)<2){
     const {width,height}=floorAnalysis.resolution||{};
     const tolerance=1.25*Math.min(project.drawingWidthPixels/width,project.drawingHeightPixels/height);
@@ -115,9 +117,9 @@ export function normalizeProject(project) {
   if(beaconPlan&&project.objects?.length&&Number(project.widthMeters)>0&&Number(project.drawingWidthPixels)>0){
     const scale=Number(project.widthMeters)/Number(project.drawingWidthPixels);
     try {
-      const floors=compileFloorGeometry({objects,metersPerPixel:scale});
+      const floors=compileFloorGeometry({objects,metersPerPixel:scale,allowVoidBeacons:project.planningSettings?.allowVoidBeacons});
       const beacons=beaconPlan.beacons.filter(b=>{
-        const floor=floors.get(b.floorId||"floor-1"),conflict=floor&&geometryConflict({x:b.x*scale,y:b.y*scale},floor,{requireWalkable:false});
+        const floor=floors.get(b.floorId||"floor-1"),conflict=floor&&beaconGeometryConflict({x:b.x*scale,y:b.y*scale},floor,{requireWalkable:false});
         const remove=!b.locked&&b.origin!=="manual"&&["restricted-area","non-walkable-area","inside-wall"].includes(conflict);
         removedBlockedAutomatic ||= remove;return !remove;
       });

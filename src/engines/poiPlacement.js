@@ -1,4 +1,4 @@
-import {geometryConflict,visibleGeometrySegment} from './floorGeometry.js';
+import {beaconGeometryConflict as geometryConflict,visibleGeometrySegment} from './floorGeometry.js';
 const vertical=new Set(['Lift','Escalator','Stairs']);
 const distance=(a,b)=>Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY);
 export function planPoiBeacons({pois,floors,metersPerPixel,radius=6}){

@@ -1,3 +1,4 @@
+import {overlayPoint,overlayTransform,snapFloorPlanOverlay} from "../models/floorPlanOverlay.js";
 import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boundsOf, moveObject, resizeObject, moveVertex, rotatedPoint, rotationFromCenter } from "../engines/geometry.js";
@@ -6,7 +7,7 @@ import { LAYERS, makeObject, visibleAnnotation } from "../models/drawing.js";
 import CoverageOverlay from "./CoverageOverlay.jsx";
 
 const pointString = (points = []) => points.map(({ x, y }) => `${x},${y}`).join(" ");
-const polygonTools = new Set(["room", "polygon", "walkableArea", "restrictedArea","buildingBoundary","nonWalkableArea"]);
+const polygonTools = new Set(["room", "polygon", "walkableArea", "restrictedArea","voidArea","buildingBoundary","nonWalkableArea"]);
 const lineTools = new Set(["polyline", "wall", "walkablePath"]);
 const boxTools = new Set(["rectangle"]);
 
@@ -19,7 +20,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
 
   if (["rectangle", "room"].includes(object.type) && !object.points) {
     shape = <rect {...common} x={object.x} y={object.y} width={object.width} height={object.height} rx={object.type === "room" ? 2 : 0} />;
-  } else if (["room", "polygon", "walkableArea", "restrictedArea","buildingBoundary","nonWalkableArea"].includes(object.type)) {
+  } else if (["room", "polygon", "walkableArea", "restrictedArea","voidArea","buildingBoundary","nonWalkableArea"].includes(object.type)) {
     shape = object.holes?.length?<path {...common} fillRule="evenodd" d={[object.points,...object.holes].map(ring=>`M ${ring.map(p=>`${p.x},${p.y}`).join(' L ')} Z`).join(' ')} />:<polygon {...common} points={pointString(object.points)} />;
   } else if (["polyline", "wall", "walkablePath"].includes(object.type)) {
     shape = <polyline {...common} points={pointString(object.points)} />;
@@ -71,7 +72,7 @@ function FloorPlan({ project, source }) {
   return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
-export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation }) {
+export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation, onOverlayChange }) {
   const svgRef = useRef(null);
   const viewRef = useRef({ x: 0, y: 0, width: 1200, height: 800 });
   const interaction = useRef(null);
@@ -81,6 +82,10 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   const [draftCursor, setDraftCursor] = useState(null);
   const [rectDraft, setRectDraft] = useState(null);
   const [previewObject, setPreviewObject] = useState(null);
+  const [previewOverlay,setPreviewOverlay]=useState(null);
+  const overlay=previewOverlay||project.floorPlanOverlay;
+  const overlayEditing=tool==="alignMap"&&!!overlay&&!project.layers.floorPlan?.locked;
+  const referencePoints=useMemo(()=>project.objects.flatMap(object=>object.points||((Number.isFinite(object.x)&&Number.isFinite(object.y))?[{x:object.x,y:object.y}]:[])),[project.objects]);
   const [spacePressed, setSpacePressed] = useState(false);
   const source = useMemo(() => {
     const background = project.floorPlanPreview || project.file;
@@ -166,6 +171,15 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
     }
   }
 
+  function handleOverlayDown(event,mode="overlayMove"){
+    if(!overlayEditing||spacePressed||event.button!==0)return;
+    event.stopPropagation();
+    svgRef.current.setPointerCapture(event.pointerId);
+    const start=clientToWorld(event,svgRef.current);
+    const initial={...overlay};
+    interaction.current={mode,start,overlay:initial,currentOverlay:initial};
+  }
+
   function handleObjectDown(event, object) {
     if(spacePressed||event.button===1||!["select","move","delete"].includes(tool))return;
     event.stopPropagation();
@@ -202,6 +216,21 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
       applyView(next);
       return;
     }
+    if(active.mode.startsWith("overlay")){
+      const point=clientToWorld(event,svgRef.current),original=active.overlay;
+      let next={...original};
+      if(active.mode==="overlayMove"){
+        next={...original,x:original.x+point.x-active.start.x,y:original.y+point.y-active.start.y};
+        next=snapFloorPlanOverlay(next,referencePoints,10*viewRef.current.width/svgRef.current.getBoundingClientRect().width);
+      }else if(active.mode==="overlayScale"){
+        const radius=Math.hypot(active.start.x-original.x,active.start.y-original.y);
+        next.scale=Math.max(.001,original.scale*Math.hypot(point.x-original.x,point.y-original.y)/Math.max(radius,.001));
+      }else{
+        const angle=Math.atan2(point.y-original.y,point.x-original.x)-Math.atan2(active.start.y-original.y,active.start.x-original.x);
+        next.rotation=original.rotation+angle*180/Math.PI;
+      }
+      active.currentOverlay=next;setPreviewOverlay(next);return;
+    }
     const point = worldPoint(event);
     if (active.mode === "graphMove") {
       active.current = point;
@@ -229,6 +258,12 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   function handlePointerUp(event) {
     const active = interaction.current;
     if (!active) return;
+    if(active.mode.startsWith("overlay")){
+      if(active.currentOverlay!==active.overlay)onOverlayChange(active.currentOverlay);
+      setPreviewOverlay(null);interaction.current=null;
+      try{svgRef.current.releasePointerCapture(event.pointerId);}catch{ /* Capture may already be released. */ }
+      return;
+    }
     if(active.mode === "beaconMove" && active.current){svgRef.current.querySelector(`[data-beacon-id="${active.beacon.id}"]`)?.removeAttribute("transform");onBeaconAction("move",{...active.beacon,x:active.beacon.x+active.current.x-active.start.x,y:active.beacon.y+active.current.y-active.start.y});}
     if (active.mode === "graphMove") {
       svgRef.current.querySelector(`[data-node-id="${active.node.id}"]`)?.removeAttribute("transform");
@@ -288,7 +323,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
   return (
     <div className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
-      {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Voids / restricted</span><span><i className="legend-boundary" />Boundary</span></div>}
+      {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span></div>}
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
         ref={svgRef}
@@ -296,7 +331,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={event=>{if(interaction.current?.mode.startsWith("overlay")){interaction.current=null;setPreviewOverlay(null);}else handlePointerUp(event);}}
         onDoubleClick={finishPath}
         onWheel={handleWheel}
       >
@@ -311,8 +346,9 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         </defs>
         <rect x="-50000" y="-50000" width="100000" height="100000" className="canvas-paper" />
         {!project.floorAnalysis && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
-        <FloorPlan project={project} source={source} />
+        {!overlay&&<FloorPlan project={project} source={source} />}
         <CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>
+        <g visibility={overlay?.geojsonVisible===false?"hidden":"visible"}>
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
             {displayObjects.filter((object) => object.layerId === layer.id && visibleAnnotation(object)).map((object) => (
@@ -320,8 +356,17 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
             ))}
           </g>
         ))}
+        </g>
+        {overlay&&source&&project.layers.floorPlan?.visible!==false&&<g data-floor-plan-overlay="true" transform={overlayTransform(overlay)}>
+          <image className="manual-floor-source" href={source} width={overlay.width} height={overlay.height} preserveAspectRatio="none" opacity={overlay.opacity} pointerEvents="none"/>
+          {overlayEditing&&<rect x="0" y="0" width={overlay.width} height={overlay.height} fill="transparent" stroke="#087f69" vectorEffect="non-scaling-stroke" pointerEvents="all" style={{cursor:"move"}} onPointerDown={event=>handleOverlayDown(event)}/>}
+        </g>}
+        {overlayEditing&&project.layers.floorPlan?.visible!==false&&<g className="selection-box overlay-handles">
+          {[[0,0],[overlay.width,0],[overlay.width,overlay.height],[0,overlay.height]].map(([x,y],index)=>{const p=overlayPoint(overlay,{x,y});return <circle key={index} className="resize-handle" cx={p.x} cy={p.y} r={6*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)} aria-label={`Scale floor plan corner ${index+1}`} onPointerDown={event=>handleOverlayDown(event,"overlayScale")}/>;})}
+          {(()=>{const top=overlayPoint(overlay,{x:overlay.width/2,y:0}),angle=overlay.rotation*Math.PI/180,offset=35*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)*(overlay.flipY?-1:1),p={x:top.x-Math.sin(angle)*offset,y:top.y+Math.cos(angle)*offset};return <><line x1={top.x} y1={top.y} x2={p.x} y2={p.y}/><circle className="rotate-handle" cx={p.x} cy={p.y} r={7*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)} aria-label="Rotate floor plan" onPointerDown={event=>handleOverlayDown(event,"overlayRotate")}/></>;})()}
+        </g>}
         {rectDraft && <rect className="drawing-preview" {...rectDraft} />}
-        {graphDrawing}
+        <g visibility={overlay?.geojsonVisible===false?"hidden":"visible"}>{graphDrawing}</g>
         {beaconDrawing}
         {project.layers.warnings?.visible&&<g pointerEvents="none">{(project.beaconPlan?.warnings||[]).filter(w=>Number.isFinite(w.x)).slice(0,100).map((w,i)=><circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2"><title>{w.message}</title></circle>)}</g>}
         {draftPoints.length>=3&&(polygonTools.has(tool)||tool==="polyline")&&<circle className="drawing-preview" cx={draftPoints[0].x} cy={draftPoints[0].y} r={8*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)}><title>Click to close polygon</title></circle>}
@@ -329,9 +374,9 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
           ? <polygon className="drawing-preview" points={pointString(draftPath)} />
           : <polyline className="drawing-preview" points={pointString(draftPath)} />)}
         <SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons||[]}/>
-        <SelectionHandles object={previewObject || selected} onHandleDown={handleHandleDown} />
+        <SelectionHandles object={overlayEditing?null:previewObject || selected} onHandleDown={handleHandleDown} />
       </svg>
-      <div className="canvas-hint">Wheel to zoom · Space-drag to pan · Line / Polygon: click corners, click starting point to close · Select: drag vertex dots</div>
+      <div className="canvas-hint">{overlayEditing?"Drag image to align · Corners: uniform scale · Round handle: rotate · Wheel: zoom · Space-drag: pan":"Wheel to zoom · Space-drag to pan · Line / Polygon: click corners, click starting point to close · Select: drag vertex dots"}</div>
     </div>
   );
 }
