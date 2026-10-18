@@ -7,7 +7,7 @@ import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorT
 
 export const DEFAULT_PLANNING_SETTINGS = {
   ...TOPOLOGY_DEFAULTS,
-  defaultProfileId: BEACON_PROFILES[0].id, spacing: 5.5, reliableRadius: 6, marginalRadius: 8,
+  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7, minimumSpacing: 5, maximumSpacing: 9, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", placementStrategy:"landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
   allowVoidBeacons: false, wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,

@@ -111,7 +111,7 @@ export function nearbyVisibleBeacon(beacons, candidate, floors, minimum=automati
 
 function mergeNearbyBeacons(beacons, floors, minimum) {
   const kept=[];
-  for(const beacon of beacons) {
+  for(const beacon of [...beacons].sort((a,b)=>Number(!!b.requiredTurn)-Number(!!a.requiredTurn))) {
     const existing=nearbyVisibleBeacon(kept,beacon,floors,minimum);
     if(existing)existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,...(beacon.anchorNodeIds||[]),beacon.nodeId].filter(Boolean))];
     else kept.push({...beacon});

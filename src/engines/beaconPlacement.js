@@ -54,6 +54,13 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   if(!Number.isFinite(Number(profile.rssiPlanningThreshold)))throw new Error("RSSI planning threshold must be finite.");
   const incident=new Map([...nodes.keys()].map(id=>[id,[]]));
   for(const edge of edges){incident.get(edge.source).push(edge);incident.get(edge.target).push(edge);}
+  const turnNodes=new Set([...nodes.values()].filter(node=>{
+    const links=incident.get(node.id).filter(edge=>{const other=nodes.get(edge.source===node.id?edge.target:edge.source);return other.floorId===node.floorId;});
+    if(links.length!==2)return false;
+    const [a,b]=links.map(edge=>nodes.get(edge.source===node.id?edge.target:edge.source));
+    const ux=a.worldX-node.worldX,uy=a.worldY-node.worldY,vx=b.worldX-node.worldX,vy=b.worldY-node.worldY;
+    return Math.min(Math.hypot(ux,uy),Math.hypot(vx,vy))>=1.5&&(ux*vx+uy*vy)/(Math.hypot(ux,uy)*Math.hypot(vx,vy))>-Math.cos(Math.PI/4);
+  }).map(node=>node.id));
   const beacons=[]; const nodeBeacons=new Map(); const cells=new Map(); const dedup=configuration.placementStrategy==='centerline'?1e-7:placementRules.duplicateTolerance ?? .25;
   if(!(dedup>0)||!Number.isFinite(dedup))throw new Error("Duplicate tolerance must be positive.");
   function add(input) {
@@ -83,24 +90,24 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   for(const node of configuration.placementStrategy==='centerline'?[...nodes.values()].sort((a,b)=>Number(incident.get(b.id).length>=3)-Number(incident.get(a.id).length>=3)):nodes.values()) {
     const degree=incident.get(node.id).length;
     const transition=incident.get(node.id).some(e=>nodes.get(e.source).floorId!==nodes.get(e.target).floorId);
-    const anchor=(placementRules.anchorTypes?placementRules.anchorTypes.includes(node.type):anchorTypes.has(node.type))||(placementRules.junctionAnchors!==false&&degree>=3)||transition||node.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(node.metadata?.category);
+    const anchor=turnNodes.has(node.id)||(placementRules.anchorTypes?placementRules.anchorTypes.includes(node.type):anchorTypes.has(node.type))||(placementRules.junctionAnchors!==false&&degree>=3)||transition||node.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(node.metadata?.category);
     if(anchor)requiredAnchors.push(node.id);
-    if(configuration.placementStrategy!=="landmarks"&&(anchor||!coveredPathEnd(node))&&(anchor||important.has(node.type)||degree<=1)) add({...node,type:"Navigation",nodeId:node.id});
+    if(configuration.placementStrategy!=="landmarks"&&(anchor||!coveredPathEnd(node))&&(anchor||important.has(node.type)||degree<=1)) add({...node,type:"Navigation",nodeId:node.id,requiredTurn:turnNodes.has(node.id)});
   }
   if(configuration.placementStrategy==="landmarks"){
     const vertical=new Set(["Lift","Escalator","Stairs"]);
-    const targets=[...nodes.values()].filter(n=>vertical.has(n.type)||["Room Entrance","Entrance","Exit"].includes(n.type)||incident.get(n.id).length>=3);
-    targets.sort((a,b)=>Number(vertical.has(b.type))-Number(vertical.has(a.type)));
+    const targets=[...nodes.values()].filter(n=>turnNodes.has(n.id)||incident.get(n.id).length===1||vertical.has(n.type)||["Room Entrance","Entrance","Exit"].includes(n.type)||incident.get(n.id).length>=3);
+    targets.sort((a,b)=>Number(turnNodes.has(b.id))-Number(turnNodes.has(a.id))||Number(vertical.has(b.type))-Number(vertical.has(a.type)));
     function place(target,strategy,outletId){
       const floor=floors.get(target.floorId);
       let candidate=target;
       if(geometryConflict({x:target.worldX,y:target.worldY},floor)){if(!vertical.has(target.type))return;candidate=nearestValidGraphPosition(target,{nodes,edges},floors);}
       if(!candidate||distance(candidate,target)>6)return;
-      const nearby=beacons.find(b=>b.floorId===candidate.floorId&&distance(b,candidate)<(vertical.has(target.type)?6:5)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:candidate.worldX,y:candidate.worldY},floor));
+      const nearby=beacons.find(b=>b.floorId===candidate.floorId&&distance(b,candidate)<(turnNodes.has(target.id)?.25:vertical.has(target.type)?6:5)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:candidate.worldX,y:candidate.worldY},floor));
       if(nearby){nearby.anchorNodeIds=[...new Set([...(nearby.anchorNodeIds||[]),target.id].filter(Boolean))];if(outletId)nearby.outletIds=[...new Set([...(nearby.outletIds||[]),outletId])];return;}
-      add({...candidate,type:"Navigation",nodeId: candidate.nodeId||(!candidate.edgeId?target.id:undefined),placementStrategy:strategy,anchorNodeIds:target.id?[target.id]:[],...(outletId?{outletIds:[outletId]}:{})});
+      add({...candidate,type:"Navigation",nodeId: candidate.nodeId||(!candidate.edgeId?target.id:undefined),placementStrategy:turnNodes.has(target.id)?"Route turn":strategy,requiredTurn:turnNodes.has(target.id),anchorNodeIds:target.id?[target.id]:[],...(outletId?{outletIds:[outletId]}:{})});
     }
-    for(const target of targets)place(target,vertical.has(target.type)?"Shared vertical lobby":target.type==="Room Entrance"?"Store entrance":"Junction / entrance");
+    for(const target of targets)place(target,vertical.has(target.type)?"Shared vertical lobby":target.type==="Room Entrance"?"Store entrance":incident.get(target.id).length===1?"Route end":"Junction / entrance");
     const scale=floorGeometry.metersPerPixel||1;
     const validNodes=[...nodes.values()].filter(n=>!geometryConflict({x:n.worldX,y:n.worldY},floors.get(n.floorId)));
     // shortcut: eight boundary probes suggest exterior entrances; use detected doorway geometry for confirmed door positions.
@@ -189,7 +196,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     const targets=[...verticalPois,...final.map(b=>({...b,spacingOnly:true}))];
     for(const poi of targets){
       const separation=poi.spacingOnly?minimum:10;
-      const candidates=final.filter(b=>b.enabled!==false&&!b.locked&&distance(b,poi)<separation&&visible(b,poi)).sort((a,b)=>distance(a,poi)-distance(b,poi));
+      const candidates=final.filter(b=>b.enabled!==false&&!b.locked&&!turnNodes.has(b.nodeId)&&distance(b,poi)<separation&&visible(b,poi)).sort((a,b)=>distance(a,poi)-distance(b,poi));
       const shared=candidates[0];if(!shared)continue;
       for(const redundant of candidates.slice(1)){
         if(distance(shared,redundant)>=separation||!visible(shared,redundant))continue;
@@ -204,6 +211,17 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
         shared.poiIds=[...new Set(assigned)];
         final.splice(final.indexOf(redundant),1);covered=next;
       }
+    }
+  }
+  if(configuration.placementStrategy==='landmarks'&&configuration.beacons===undefined&&configuration.mode!=='manual'){
+    const reliable=Number(configuration.reliableRadius??profile.coverageRadius);
+    for(const beacon of [...final]){
+      if(beacon.requiredTurn||beacon.locked||beacon.enabled===false)continue;
+      const node=nodes.get(beacon.nodeId);if(!node)continue;
+      const shared=final.find(other=>other!==beacon&&other.enabled!==false&&other.floorId===beacon.floorId&&distance(other,beacon)<minimum&&distance(other,node)<=reliable&&visibleGeometrySegment({x:other.worldX,y:other.worldY},{x:node.worldX,y:node.worldY},floors.get(node.floorId))&&(other.requiredTurn||other.id<beacon.id));
+      if(!shared)continue;
+      shared.anchorNodeIds=[...new Set([...(shared.anchorNodeIds||[]),beacon.nodeId,...(beacon.anchorNodeIds||[])].filter(Boolean))];
+      final.splice(final.indexOf(beacon),1);
     }
   }
   const result=analyzePlacement({graph,beacons:final,profile,placementRules:{...placementRules,minimumSpacing:minimum,maximumSpacing:maximum},requiredAnchors,floors,geometryFailures:failures});

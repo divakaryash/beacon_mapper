@@ -35,8 +35,10 @@ test('landmark deployment gives a room one exterior suggestion and none inside i
   const graph={nodes:[n('a',0,2),n('b',30,2)],edges:[{id:'ab',source:'a',target:'b',distance:30}]};
   const room={id:'shop',type:'room',floorId:'G',points:box(50,50,100,100)};
   const result=generate({graph,configuration:{placementStrategy:'landmarks'},floorGeometry:{metersPerPixel:.1,objects:[{type:'buildingBoundary',floorId:'G',points:box(-10,-10,400,200)},{type:'walkableArea',floorId:'G',points:box(-10,-10,400,200)},room]}});
-  assert.equal(result.beacons.length,1);assert.deepEqual(result.beacons[0].outletIds,['shop']);
-  assert.ok(result.beacons[0].worldY<5);
+  assert.equal(result.beacons.filter(b=>b.outletIds?.includes('shop')).length,1);
+  assert.ok(result.beacons.some(b=>b.nodeId==='a'));
+  assert.ok(result.beacons.some(b=>b.nodeId==='b'));
+  assert.ok(result.beacons.find(b=>b.outletIds?.includes('shop')).worldY<5);
 });
 
 test('distinct close junctions each retain an exact beacon in centerline mode',()=>{
