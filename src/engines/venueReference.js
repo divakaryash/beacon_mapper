@@ -48,10 +48,24 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
   const floors=compileFloorGeometry({objects,metersPerPixel:scale}),floor=floors.get(floorId);
   if(reference.uploaded){
     const graph=generateGraphFromWalkablePaths(paths,{metersPerPixel:scale,insertIntermediate:false,snapDistanceMeters:.001});
-    let rejectedEdges=0;
+    let rejectedEdges=0,clippedEdges=0;
     for(const edge of [...graph.edges.values()]){
       const a=graph.nodes.get(edge.source),b=graph.nodes.get(edge.target);
-      if(validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor).reduce((sum,[lo,hi])=>sum+hi-lo,0)<1-1e-7){graph.removeEdge(edge.id);rejectedEdges++;}
+      const intervals=validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor);
+      if(intervals.length===1&&intervals[0][0]<1e-7&&intervals[0][1]>1-1e-7)continue;
+      graph.removeEdge(edge.id);
+      if(!intervals.length){rejectedEdges++;continue;}
+      for(const [start,end] of intervals){
+        if((end-start)*edge.distance<.01)continue;
+        const endpoint=t=>{
+          if(t<1e-7)return a;if(t>1-1e-7)return b;
+          const value=t+(t===start?1:-1)*Math.min(1e-5,(end-start)/4);
+          return graph.addNode({floorId:a.floorId,x:a.x+value*(b.x-a.x),y:a.y+value*(b.y-a.y),worldX:a.worldX+value*(b.worldX-a.worldX),worldY:a.worldY+value*(b.worldY-a.worldY),type:'Corridor',metadata:{generated:true,clippedWaypoint:true}},{snapDistance:0}).node;
+        };
+        const first=endpoint(start),last=endpoint(end);
+        if(first.id!==last.id)graph.addEdge({source:first.id,target:last.id,edgeType:edge.edgeType});
+      }
+      clippedEdges++;
     }
     for(const node of [...graph.nodes.values()]){
       const degree=graph.adjacency.get(node.id).size;
@@ -60,6 +74,7 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
     const junctions=[...graph.nodes.values()].filter(node=>node.type==='Junction').length;
     if(!paths.length)warnings.push('POI-based placement uses shared beacons for nearby access points, lifts, stairs and escalators. No walking routes are inferred.');
     if(rejectedEdges)warnings.push(`${rejectedEdges} supplied route segments cross excluded geometry and were rejected. Correct those source paths.`);
+    if(clippedEdges)warnings.push(`${clippedEdges} supplied route segments crossed excluded geometry; their valid endpoint sections were retained. Review the clipped ends.`);
     if(paths.length&&!graph.edges.size)warnings.push('No valid supplied route segments remain. Correct paths that cross excluded geometry.');
     return {objects,graph:graph.serialize(),widthMeters:alignment.widthMeters,heightMeters:drawingHeight*scale,analysis:{method:'uploaded-annotations',status:!paths.length?'missing-paths':graph.edges.size?'needs-review':'failed',routeSource:paths.length?'geojson':'missing',sourcePathCount:paths.length,junctions,rejectedEdges,scaleAssumed:false,referenceFloor:reference.floor,detected:{boundaries:1,walkableRegions:1,walls:counts.Wall||0,roomCandidates:(counts.Store||0)+(counts.Outlet||0),labeledLandmarks:pois.length},warnings}};
   }

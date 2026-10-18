@@ -92,7 +92,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     const transition=incident.get(node.id).some(e=>nodes.get(e.source).floorId!==nodes.get(e.target).floorId);
     const anchor=turnNodes.has(node.id)||(placementRules.anchorTypes?placementRules.anchorTypes.includes(node.type):anchorTypes.has(node.type))||(placementRules.junctionAnchors!==false&&degree>=3)||transition||node.metadata?.anchorRequired||["Food Court","Atrium","Main Entrance","Major Exit"].includes(node.metadata?.category);
     if(anchor)requiredAnchors.push(node.id);
-    if(configuration.placementStrategy!=="landmarks"&&(anchor||!coveredPathEnd(node))&&(anchor||important.has(node.type)||degree<=1)) add({...node,type:"Navigation",nodeId:node.id,requiredTurn:turnNodes.has(node.id)});
+    if(configuration.placementStrategy!=="landmarks"&&(anchor||configuration.requireRouteEnds&&degree===1||!coveredPathEnd(node))&&(anchor||important.has(node.type)||degree<=1)) add({...node,type:"Navigation",nodeId:node.id,requiredTurn:turnNodes.has(node.id),requiredRouteEnd:!!configuration.requireRouteEnds&&degree===1});
   }
   if(configuration.placementStrategy==="landmarks"){
     const vertical=new Set(["Lift","Escalator","Stairs"]);
@@ -196,9 +196,10 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     const targets=[...verticalPois,...final.map(b=>({...b,spacingOnly:true}))];
     for(const poi of targets){
       const separation=poi.spacingOnly?minimum:10;
-      const candidates=final.filter(b=>b.enabled!==false&&!b.locked&&!turnNodes.has(b.nodeId)&&distance(b,poi)<separation&&visible(b,poi)).sort((a,b)=>distance(a,poi)-distance(b,poi));
+      const candidates=final.filter(b=>b.enabled!==false&&!b.locked&&distance(b,poi)<separation&&visible(b,poi)).sort((a,b)=>Number(!!b.requiredTurn)-Number(!!a.requiredTurn)||Number(!!a.requiredRouteEnd)-Number(!!b.requiredRouteEnd)||distance(a,poi)-distance(b,poi));
       const shared=candidates[0];if(!shared)continue;
       for(const redundant of candidates.slice(1)){
+        if(redundant.requiredTurn)continue;
         if(distance(shared,redundant)>=separation||!visible(shared,redundant))continue;
         const assigned=[...(redundant.poiIds||[]),...(shared.poiIds||[]),...(poi.spacingOnly?[]:[poi.id])];
         if(assigned.some(id=>{const p=verticalPois.find(p=>p.id===id);return p&&(distance(shared,p)>=10||!visible(shared,p));}))continue;

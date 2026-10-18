@@ -65,6 +65,7 @@ export function normalizeBeaconPlan(plan) {
 
 export function normalizeProject(project) {
   if (!project) return null;
+  if(project.floorAnalysis?.routeSource==='geojson'&&project.planningSettings?.requireRouteEnds===undefined)project={...project,planningSettings:{...project.planningSettings,requireRouteEnds:true}};
   if(project.floorAnalysis?.method==='uploaded-annotations'&&project.floorAnalysis.status!=='failed'&&!project.floorAnalysis.routeSource){
     project={...project,graph:{nodes:[],edges:[]},beaconPlan:null,coverageAnalysis:null,autoPlanPending:false,floorAnalysis:{...project.floorAnalysis,status:'missing-paths',routeSource:'missing',warnings:[...project.floorAnalysis.warnings,'No route lines were retained in this older import. Its inferred paths and beacon draft were removed. Re-import the floor JSON containing explicit route lines.']}};
   }

@@ -94,6 +94,17 @@ test('supplied multiline routes create one T-junction without invented POI links
   const beacons=planner.generate().plan.beacons,junction=junctions[0];
   assert.equal(beacons.filter(b=>Math.hypot(b.worldX-junction.worldX,b.worldY-junction.worldY)<1e-6).length,1);
 });
+test('a blocked middle waypoint section retains both valid route ends',()=>{
+  const values={...setup,widthMeters:40,heightMeters:40};
+  const polygon=(id,type,points,extra={})=>({id,properties:{floor:1,type,...extra},geometry:{type:'Polygon',coordinates:[points.map(([x,y])=>coordinate(x,y))]}});
+  const data={features:[polygon('area','Walkable Area',[[0,0],[40,0],[40,40],[0,40],[0,0]],{isWalkable:true}),polygon('block','Store',[[19,18],[21,18],[21,22],[19,22],[19,18]]),{id:'route',properties:{floor:1,type:'Navigation Path'},geometry:{type:'LineString',coordinates:[[2,20],[38,20]].map(([x,y])=>coordinate(x,y))}}]};
+  const result=analyzeVenueReference(annotatedReference(data,1,values),{drawingWidth:400,drawingHeight:400});
+  assert.equal(result.graph.edges.length,2);
+  const ends=result.graph.nodes.filter(n=>result.graph.edges.filter(e=>e.source===n.id||e.target===n.id).length===1);
+  assert.ok(ends.some(n=>Math.abs(n.worldX-2)<.01));
+  assert.ok(ends.some(n=>Math.abs(n.worldX-38)<.01));
+  assert.ok(result.analysis.warnings.some(w=>w.includes('valid endpoint sections')));
+});
 test('older uploaded projects discard invented routes while retaining aligned polygons',async()=>{
   const {normalizeProject}=await import('./drawing.js');
   const object={id:'shop',type:'room',points:[{x:0,y:0},{x:10,y:0},{x:10,y:10}],fillColor:'#a4d3df'};
