@@ -68,6 +68,7 @@ export function placeByTopology({graph,floors,beacons,profile,pois=[],settings={
   if(routeStep>.25)warnings.push({code:'topology-route-resolution',message:`Topology route constraints sampled at ${routeStep.toFixed(2)} m; final coverage validation remains authoritative.`});
   const placed=beacons.map((original,index)=>{
     const b={...referenceBeacon(original,graph),reliableRadius:radius,marginalRadius:settings.marginalRadius??radius*4/3},context=lookup.get(b.edgeId),floor=floors.get(b.floorId),node=nodes.get(b.nodeId);
+    if(b.requiredJunction&&!beaconGeometryConflict(point(b),floor))return {...b,placementStrategy:'Junction'};
     if(!context?.normal)return {...b,placementStrategy:special[node?.type]||'Lift'};
     const nearby=context.nearbyPOIs.filter(p=>(special[p.category]||special[p.type])&&Math.hypot(p.worldX-b.worldX,p.worldY-b.worldY)<=s.topologySearchRadius).sort((a,c)=>Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY)-Math.hypot(c.worldX-b.worldX,c.worldY-b.worldY));
     const strategy=special[node?.metadata?.category]||special[node?.type]||special[nearby[0]?.category]||special[nearby[0]?.type]||(context.junctionNodes.includes(b.nodeId)?'Junction':context.strategy);
@@ -111,7 +112,7 @@ export function nearbyVisibleBeacon(beacons, candidate, floors, minimum=automati
 
 function mergeNearbyBeacons(beacons, floors, minimum) {
   const kept=[];
-  for(const beacon of [...beacons].sort((a,b)=>Number(!!b.requiredTurn)-Number(!!a.requiredTurn))) {
+  for(const beacon of [...beacons].sort((a,b)=>Number(!!b.requiredJunction)-Number(!!a.requiredJunction)||Number(!!b.requiredTurn)-Number(!!a.requiredTurn))) {
     const existing=nearbyVisibleBeacon(kept,beacon,floors,minimum);
     if(existing)existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,...(beacon.anchorNodeIds||[]),beacon.nodeId].filter(Boolean))];
     else kept.push({...beacon});
