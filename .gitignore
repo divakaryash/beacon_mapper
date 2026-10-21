@@ -7,3 +7,5 @@ screenshots/
 reports/professional/*-source.json
 
 __pycache__/
+
+.env

@@ -189,3 +189,12 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 
 .legend-restricted { background: #fbe2dc; border: 1px solid #dc5d50; }
 .polygon-legend .legend-void { background: #ede9fe; border-color: #7c3aed; }
+
+.mapbox-view { position: relative; width: 100%; height: 100%; min-height: 500px; }
+.mapbox-view > .mapbox-map { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mapbox-settings { position: absolute; top: 12px; left: 12px; z-index: 1; width: 280px; max-width: calc(100% - 70px); padding: 12px; background: #fff; border-radius: 6px; box-shadow: 0 2px 12px #0002; }
+.mapbox-settings small { display: block; margin-top: 8px; }
+
+.mapbox-beacon { width: 18px; height: 18px; padding: 0; border: 2px solid white; border-radius: 50%; cursor: pointer; }
+.mapbox-beacon[aria-pressed="true"] { outline: 3px solid #172033; }
+.mapbox-beacon:focus-visible { outline: 3px solid #172033; }

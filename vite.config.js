@@ -5,7 +5,7 @@ import {copyFile,mkdir,readdir} from 'node:fs/promises';
 import path from 'node:path';
 
 // Serve the same bundled OCR assets in development and production, without CDN requests.
-export default defineConfig({plugins:[annotationService(),{
+export default defineConfig({envPrefix:["VITE_","MAPBOX_PUBLIC_"],plugins:[annotationService(),{
   name:'local-ocr-assets',
   async configureServer(server){
     const assets=await ocrAssets();

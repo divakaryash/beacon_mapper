@@ -67,7 +67,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
   function add(input) {
     const cx=Math.floor(input.worldX/dedup),cy=Math.floor(input.worldY/dedup);
     for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const existing of cells.get(`${input.floorId}:${cx+dx}:${cy+dy}`)||[]){
-      if(distance(existing,input)<=dedup){if(input.nodeId){nodeBeacons.set(input.nodeId,existing);existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,input.nodeId].filter(Boolean))];}return existing;}
+      if(distance(existing,input)<=(input.requiredJunction?1e-7:dedup)){if(input.nodeId){nodeBeacons.set(input.nodeId,existing);existing.anchorNodeIds=[...new Set([...(existing.anchorNodeIds||[]),existing.nodeId,input.nodeId].filter(Boolean))];}return existing;}
     }
     const beacon={profileId:profile.id,type:"Navigation",enabled:true,origin:"automatic",...input,id:`beacon-${beacons.length+1}`};
     beacons.push(beacon);const bucket=key(input.floorId,input.worldX,input.worldY,dedup);if(!cells.has(bucket))cells.set(bucket,[]);cells.get(bucket).push(beacon);if(input.nodeId)nodeBeacons.set(input.nodeId,beacon);return beacon;
@@ -104,7 +104,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
       let candidate=target;
       if(geometryConflict({x:target.worldX,y:target.worldY},floor)){if(!vertical.has(target.type))return;candidate=nearestValidGraphPosition(target,{nodes,edges},floors);}
       if(!candidate||distance(candidate,target)>6)return;
-      const nearby=beacons.find(b=>b.floorId===candidate.floorId&&distance(b,target)<(incident.get(target.id)?.length>=3?0.25:5)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:target.worldX,y:target.worldY},floor));
+      const nearby=beacons.find(b=>b.floorId===candidate.floorId&&distance(b,target)<(incident.get(target.id)?.length>=3?1e-7:5)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:target.worldX,y:target.worldY},floor));
       if(nearby){nearby.anchorNodeIds=[...new Set([...(nearby.anchorNodeIds||[]),target.id].filter(Boolean))];if(outletId)nearby.outletIds=[...new Set([...(nearby.outletIds||[]),outletId])];return;}
       add({...candidate,type:"Navigation",nodeId: candidate.nodeId||(!candidate.edgeId?target.id:undefined),placementStrategy:incident.get(target.id)?.length>=3?"Junction":turnNodes.has(target.id)?"Route turn":strategy,requiredJunction:incident.get(target.id)?.length>=3,optionalTurn:turnNodes.has(target.id),requiredRouteEnd:incident.get(target.id)?.length===1&&!vertical.has(target.type),anchorNodeIds:target.id?[target.id]:[],...(outletId?{outletIds:[outletId]}:{})});
     }
@@ -185,7 +185,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
       if(!moved){failures++;geometryWarnings.push({code:"geometry-rejected",beaconId:beacon.id,message:`${beacon.id}: ${conflict}; no valid same-floor graph position. Beacon omitted.`});continue;}
       beacon=moved;geometryWarnings.push({code:"geometry-relocated",beaconId:beacon.id,message:`${beacon.id} moved ${distance(original,beacon).toFixed(2)} m to resolve ${conflict}.`});
     }
-    if(configuration.beacons===undefined){let duplicate=null;const cx=Math.floor(beacon.worldX/finalTolerance),cy=Math.floor(beacon.worldY/finalTolerance);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const b of finalBins.get(`${beacon.floorId}:${cx+dx}:${cy+dy}`)||[])if(distance(b,beacon)<finalTolerance-1e-6&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:beacon.worldX,y:beacon.worldY},floors.get(beacon.floorId)))duplicate=b;if(duplicate){duplicate.anchorNodeIds=[...new Set([...(duplicate.anchorNodeIds||[]),duplicate.nodeId,duplicate.anchorNodeId,beacon.nodeId,beacon.anchorNodeId].filter(Boolean))];geometryWarnings.push({code:"relocation-deduplicated",message:`${beacon.id} merged with ${duplicate.id} after relocation.`});continue;}const bucket=key(beacon.floorId,beacon.worldX,beacon.worldY,finalTolerance);if(!finalBins.has(bucket))finalBins.set(bucket,[]);finalBins.get(bucket).push(beacon);}
+    if(configuration.beacons===undefined){let duplicate=null;const cx=Math.floor(beacon.worldX/finalTolerance),cy=Math.floor(beacon.worldY/finalTolerance);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const b of finalBins.get(`${beacon.floorId}:${cx+dx}:${cy+dy}`)||[])if(!beacon.requiredJunction&&distance(b,beacon)<finalTolerance-1e-6&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:beacon.worldX,y:beacon.worldY},floors.get(beacon.floorId)))duplicate=b;if(duplicate){duplicate.anchorNodeIds=[...new Set([...(duplicate.anchorNodeIds||[]),duplicate.nodeId,duplicate.anchorNodeId,beacon.nodeId,beacon.anchorNodeId].filter(Boolean))];geometryWarnings.push({code:"relocation-deduplicated",message:`${beacon.id} merged with ${duplicate.id} after relocation.`});continue;}const bucket=key(beacon.floorId,beacon.worldX,beacon.worldY,finalTolerance);if(!finalBins.has(bucket))finalBins.set(bucket,[]);finalBins.get(bucket).push(beacon);}
     final.push(beacon);
   }
   if(configuration.placementStrategy==='centerline'&&configuration.beacons===undefined&&configuration.mode!=='manual'){
@@ -248,7 +248,7 @@ export function planBeacons({ graph, floorGeometry = {}, profile = BEACON_PROFIL
     let attempts=0;
     for(let i=0;i<final.length&&attempts<2000;i++)for(let j=i+1;j<final.length&&attempts<2000;j++){
       const a=final[i],b=final[j],floor=floors.get(a.floorId);
-      if(a.locked||b.locked||a.enabled===false||b.enabled===false||a.floorId!==b.floorId||distance(a,b)>=minimum-1e-6||!visibleGeometrySegment({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor))continue;
+      if((a.requiredJunction&&b.requiredJunction)||a.locked||b.locked||a.enabled===false||b.enabled===false||a.floorId!==b.floorId||distance(a,b)>=minimum-1e-6||!visibleGeometrySegment({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floor))continue;
       attempts++;
       const preferred=a.requiredJunction?a:b.requiredJunction?b:a;
       const midpoint=preferred.requiredJunction?{x:preferred.x,y:preferred.y,worldX:preferred.worldX,worldY:preferred.worldY}:{x:(a.x+b.x)/2,y:(a.y+b.y)/2,worldX:(a.worldX+b.worldX)/2,worldY:(a.worldY+b.worldY)/2};

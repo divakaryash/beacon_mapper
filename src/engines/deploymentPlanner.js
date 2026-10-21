@@ -183,7 +183,7 @@ export class DeploymentPlanner {
     const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
     for(const b of preserved)if(b.enabled!==false&&geometryConflict({x:b.worldX,y:b.worldY},this.floors.get(b.floorId)))throw new Error(`${b.id} is inside blocked geometry. Move or unlock it before generating a deployment.`);
     const positionKey=b=>`${b.floorId}:${b.worldX.toFixed(6)}:${b.worldY.toFixed(6)}`,existing=new Map(this.beacons.map(b=>[positionKey(b),b.id]));
-    this.beacons=[...preserved,...result.beacons.filter(b=>!nearbyVisibleBeacon(preserved,b,this.floors)).map(b=>{let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});})];
+    this.beacons=[...preserved,...result.beacons.filter(b=>!nearbyVisibleBeacon(preserved,b,this.floors,b.requiredJunction?2e-6:undefined)).map(b=>{let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});})];
     return this.evaluate();
   }
   inspector(id) {

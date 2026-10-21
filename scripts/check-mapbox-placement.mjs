@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {mapboxPlacement} from '../src/models/mapboxPlacement.js';
+const project={geographicOrigin:{latitude:12,longitude:77},widthMeters:100,heightMeters:50,drawingWidthPixels:1000,drawingHeightPixels:500};
+const result=mapboxPlacement(project);
+assert.deepEqual(result.coordinates[0],[77,12]);
+assert(result.coordinates[1][0]>77);
+assert(result.coordinates[2][1]<12);
+assert.deepEqual(mapboxPlacement({...project,geographicOrigin:null,annotationAlignment:{origin:[77,12]}}),result);
+assert.deepEqual(mapboxPlacement({...project,floorPlanOverlay:{width:1000,height:500,x:500,y:250,scale:1,rotation:0}}),result);
+assert.throws(()=>mapboxPlacement({...project,geographicOrigin:null}),/latitude/);
+assert.throws(()=>mapboxPlacement({...project,widthMeters:0}),/positive/);
+console.log('Mapbox placement checks passed');

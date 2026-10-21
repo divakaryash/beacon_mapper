@@ -3,6 +3,7 @@ import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
 import {annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import MapboxView from "./components/MapboxView.jsx";
 import StudioCanvas from "./components/StudioCanvas.jsx";
 import GraphPanel from "./components/GraphPanel.jsx";
 import BeaconPanel from "./components/BeaconPanel.jsx";
@@ -78,6 +79,7 @@ function Inspector({ object, metersPerPixel, onChange, onDuplicate, onDelete }) 
 
 export default function App() {
   const history = useHistory();
+  const [mapView,setMapView]=useState("mapbox");
   const committedProject = history.project;
   const [liveProject,setLiveProject]=useState(null);
   const project=liveProject||committedProject;
@@ -313,7 +315,7 @@ export default function App() {
       <header className="app-header">
         <div><p className="eyebrow">Indoor Navigation Planning Studio</p><h1>{project.name || "Untitled floor"}</h1></div>
         <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span>{project.beaconPlan&&<span>{project.beaconPlan.beacons.length} IW beacons</span>}</div>
-        <div className="header-actions"><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
+        <div className="header-actions"><button type="button" className={mapView==="mapbox"?"active":""} onClick={()=>setMapView("mapbox")}>Mapbox</button><button type="button" className={mapView==="canvas"?"active":""} onClick={()=>setMapView("canvas")}>Canvas</button><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
       </header>
 
       <nav className="tool-rail" aria-label="Drawing tools">
@@ -328,6 +330,9 @@ export default function App() {
           {project.floorAnalysis&&<div role="status"><p><strong>{project.floorPlanOverlay?"Manual alignment · no automatic placement":project.floorAnalysis.status==="missing-paths"?"POI placement · no route lines needed":project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":project.floorPlanOverlay?"Manual alignment · GeoJSON fixed":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.routeSource==="geojson"&&<p><strong>{project.floorAnalysis.sourcePathCount} JSON paths · {project.floorAnalysis.junctions} junctions</strong></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
+          {project.geographicOrigin&&<div className="field-grid">
+            {[["latitude","Map latitude",-89.899,89.899],["longitude","Map longitude",-180,180]].map(([key,label,min,max])=><label key={key}>{label}<input type="number" step="any" min={min} max={max} value={project.geographicOrigin[key]} onChange={e=>{const value=e.target.valueAsNumber;if(Number.isFinite(value)&&value>=min&&value<=max)update({...project,geographicOrigin:{...project.geographicOrigin,[key]:value}});}}/></label>)}
+          </div>}
           <div className="field-grid">
             <label>Width (m)<input type="number" min="0" step="0.1" value={project.widthMeters ?? ""} onChange={(event) => update({ ...project, widthMeters: event.target.value })} /></label>
             <label>Height (m)<input readOnly={!!project.floorAnalysis} type="number" min="0" step="0.1" value={project.heightMeters ?? ""} onChange={(event) => update({ ...project, heightMeters: event.target.value })} /></label>
@@ -342,7 +347,7 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}{mapView==="mapbox"?<MapboxView project={project} tool={tool} beaconSelection={beaconSelection} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction}/>:<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/>}</section>
       <aside className="right-panel"><FloorPlanAlignment project={project} update={update} tool={tool} setTool={setTool} /><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );

@@ -72,7 +72,7 @@ Run the scale checks and production build with `npm run check`.
 
 The independent `NavigationGraph` engine supports calibrated nodes, directed/accessibility-aware edges, snapping and node merging, splitting/merging edges, editable graph generation from walkable paths, Dijkstra/A*, multi-floor connectors, and validation. The graph panel provides creation, connection, node movement, metadata editing, edge editing, route selection between POIs, and warnings. Graph changes use the existing undo history and IndexedDB persistence.
 
-Run `node scripts/graph-demo.mjs` for the manually defined Main Entrance → West Retail route, validation demonstration, and a 10,201-node / 20,200-edge benchmark. Run `npm run benchmark` for the performance regression check. See ARCHITECTURE.md for coordinate conventions and deployment-relevant limitations.
+Run `node scripts/graph-demo.mjs` for the manually defined Main Entrance → West Retail route, validation demonstration, and a 10,201-node / 20,200-edge benchmark. See ARCHITECTURE.md for coordinate conventions and deployment-relevant limitations.
 
 ## Beacon deployments — Milestone 4 (approved) + geometry hardening
 
@@ -92,7 +92,7 @@ Coverage circles, count heatmap, dead zones, overlaps, graph gaps, area/graph pe
 
 Defaults: 0.5 m area cells, 0.25 m graph sampling. Analysis coarsens large rasters with a warning. Graph geometry boundaries are inserted into the samples so a thin wall cannot disappear between graph samples. The rendered heatmap is a cached raster, not thousands of React cell components. Reports explicitly disclose resolution and sampled area.
 
-Run `npm run check` for all tests/build, `node scripts/beacon-demo.mjs` for placement, and `node scripts/coverage-demo.mjs` to regenerate the sample coverage diagrams and quality report. The sample is hand-modelled from the Milestone 2 drawing, not a surveyed mall: 17 beacons (5 anchors), 38.2% walkable-area coverage, 100% graph coverage, 5 dead zones (1493.5 m²), and 669 m² overlap. Disabling three adjacent beacons exposes an 11.5 m graph gap. This deliberately imperfect sample demonstrates warnings, not a deployment recommendation.
+Run `npm run check` for TypeScript validation and the production build, `node scripts/beacon-demo.mjs` for placement, and `node scripts/coverage-demo.mjs` to regenerate the sample coverage diagrams and quality report. The sample is hand-modelled from the Milestone 2 drawing, not a surveyed mall: 17 beacons (5 anchors), 38.2% walkable-area coverage, 100% graph coverage, 5 dead zones (1493.5 m²), and 669 m² overlap. Disabling three adjacent beacons exposes an 11.5 m graph gap. This deliberately imperfect sample demonstrates warnings, not a deployment recommendation.
 
 See ALGORITHMS.md for score formulas and geometry/coverage limits. Profile defaults remain editable assumptions requiring hardware/site confirmation. RSSI thresholds, TX power and advertisement intervals are metadata only. RF propagation, RF/RSSI heatmaps, survey analysis and CSV imports remain deferred. Semantic floor analysis remains the active priority.
 
@@ -118,7 +118,7 @@ Reports include distance, walking time, floors/nodes, handovers, weak sections, 
 
 Signal is a dimensionless geometry-proximity score, not RSSI/dBm. Cross-floor connector interiors are conservatively unverified. Off-graph POI approaches are excluded and warned. Validation samples at 0.25 m with exact graph/geometry clipping; narrow RF gaps cannot be certified. The engine runs in a worker; graph and beacon JSX are cached during playback.
 
-Run `npm run check` (TypeScript check, unit tests, production build; Node 22.18+ or 24+ required for native TypeScript test execution) and `node scripts/simulation-demo.mjs`. Sample Main entrance → Lift lobby: 57 m, 42.22 s, 10 handovers, 100% sampled route coverage, score 100. This does not contradict 38.16% floor-area coverage: the chosen corridor is covered while large floor regions are not. Disabling three route beacons exposes a 7.5 m gap and lowers navigation score to 66.93. No Bluetooth scanning, Flutter, live positioning, RSSI calibration, RF propagation or fingerprinting.
+Run `npm run check` (TypeScript check and production build) and `node scripts/simulation-demo.mjs`. Sample Main entrance → Lift lobby: 57 m, 42.22 s, 10 handovers, 100% sampled route coverage, score 100. This does not contradict 38.16% floor-area coverage: the chosen corridor is covered while large floor regions are not. Disabling three route beacons exposes a 7.5 m gap and lowers navigation score to 66.93. No Bluetooth scanning, Flutter, live positioning, RSSI calibration, RF propagation or fingerprinting.
 # Beacon identification
 
 New planner beacons use sequential IDs (`IW001`, `IW002`, …). Configure **Beacon ID prefix** in the deployment panel; changes apply only to future IDs. The project saves its next number, deletion never renumbers survivors, and version reload retains the numbering high-water mark. Existing saved IDs are preserved. **Show beacon IDs** toggles map text independently of beacon icons; map tooltips contain IDs, while beacon types remain in the inspector and reports.
