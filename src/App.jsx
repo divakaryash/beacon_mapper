@@ -1,18 +1,14 @@
 import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
-import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
 import {annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import MapboxView from "./components/MapboxView.jsx";
 import StudioCanvas from "./components/StudioCanvas.jsx";
-import GraphPanel from "./components/GraphPanel.jsx";
 import BeaconPanel from "./components/BeaconPanel.jsx";
-import SimulationPanel from "./components/SimulationPanel.jsx";
-import CoveragePanel from "./components/CoveragePanel.jsx";
 import { BEACON_PROFILES } from "./engines/beaconPlacement.js";
 import { NavigationGraph } from "./engines/navigationGraph.js";
 import { calculateScale, formatScale } from "./domain/scale.js";
-import { measurements, moveObject } from "./engines/geometry.js";
+import { moveObject } from "./engines/geometry.js";
 import { useHistory } from "./hooks/useHistory.js";
 import { defaultLayers, LAYERS, normalizeProject, POI_CATEGORIES, TOOLS } from "./models/drawing.js";
 import { clearProject, loadProject, saveProject } from "./storage/projectStore.js";
@@ -39,40 +35,6 @@ function LayersPanel({ project, update }) {
           </div>
         ))}
       </div>
-    </section>
-  );
-}
-
-function Inspector({ object, metersPerPixel, onChange, onDuplicate, onDelete }) {
-  if (!object) return <section className="panel-section inspector-empty"><h2>Properties</h2><p>Select an object to inspect its geometry and edit its details.</p></section>;
-  const metrics = measurements(object, metersPerPixel);
-  const detailed = object.type === "room" || object.type === "poi";
-  const field = (name, value) => onChange({ ...object, [name]: value,...(name==="geometryRole"&&value==="voidArea"?{type:"voidArea",layerId:"voidAreas",category:"Void",metadata:{...object.metadata,sourceType:"Void"}}:name==="geometryRole"&&value==="restrictedArea"?{type:"restrictedArea",layerId:"restrictedAreas",category:"Restricted Area",metadata:{...object.metadata,sourceType:"Restricted Area"}}:{}) });
-  return (
-    <section className="panel-section">
-      <div className="section-title"><h2>Properties</h2><span>{object.type}</span></div>
-      <label>ID<input value={object.id} readOnly /></label>
-      {detailed && <>
-        <label>Name<input value={object.name || ""} onChange={(event) => field("name", event.target.value)} /></label>
-        <label>Category<input value={object.category || ""} onChange={(event) => field("category", event.target.value)} /></label>
-        <label>Floor<input value={object.floor || ""} onChange={(event) => field("floor", event.target.value)} /></label>
-      </>}
-      {object.type === "text" && <label>Text<input value={object.text || ""} onChange={(event) => field("text", event.target.value)} /></label>}
-      <label>Rotation<input type="number" value={Math.round(object.rotation || 0)} onChange={(event) => field("rotation", Number(event.target.value))} /></label>
-      <label>Geometry floor ID<input value={object.floorId||"floor-1"} onChange={e=>field("floorId",e.target.value)}/></label>
-      {["rectangle","room","polygon","buildingBoundary","walkableArea","restrictedArea","voidArea","nonWalkableArea"].includes(object.type)&&<label>Geometry role<select value={object.geometryRole||(["rectangle","room","polygon"].includes(object.type)?"none":object.type)} onChange={e=>field("geometryRole",e.target.value)}>{[["none","Drawing only"],["buildingBoundary","Building boundary"],["walkableArea","Walkable area"],["restrictedArea","Restricted area"],["voidArea","Void area"],["nonWalkableArea","Non-walkable area"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
-      {object.type==="wall"&&<label>Wall thickness (m)<input type="number" min=".01" step=".05" value={object.thicknessMeters??.2} onChange={e=>field("thicknessMeters",Number(e.target.value))}/></label>}
-      {object.type==="walkablePath"&&<label>Walkable width (m)<input type="number" min=".1" step=".1" value={object.widthMeters??2} onChange={e=>field("widthMeters",Number(e.target.value))}/></label>}
-      <div className="metrics-grid">
-        {metrics.area !== null && <div><span>Area</span><strong>{metrics.area.toFixed(2)} m²</strong></div>}
-        {metrics.perimeter !== null && <div><span>Perimeter</span><strong>{metrics.perimeter.toFixed(2)} m</strong></div>}
-        {metrics.length !== null && <div><span>Length</span><strong>{metrics.length.toFixed(2)} m</strong></div>}
-        <div><span>Coordinates</span><strong>{object.points?.length ?? 1}</strong></div>
-      </div>
-      <div className="coordinate-list">
-        {(object.points || [{ x: object.x, y: object.y }]).map((point, index) => <code key={index}>{index + 1}: {point.x.toFixed(1)}, {point.y.toFixed(1)} px</code>)}
-      </div>
-      <div className="button-row"><button className="secondary" type="button" onClick={onDuplicate}>Duplicate</button><button className="danger" type="button" onClick={onDelete}>Delete</button></div>
     </section>
   );
 }
@@ -348,7 +310,7 @@ export default function App() {
       </aside>
 
       <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}{mapView==="mapbox"?<MapboxView project={project} tool={tool} beaconSelection={beaconSelection} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction}/>:<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/>}</section>
-      <aside className="right-panel"><FloorPlanAlignment project={project} update={update} tool={tool} setTool={setTool} /><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError}/></aside>
     </main>
   );
 }

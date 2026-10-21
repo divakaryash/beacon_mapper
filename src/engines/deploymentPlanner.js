@@ -3,11 +3,11 @@ import { BEACON_PROFILES, planBeacons, analyzePlacement, snapBeaconToGraph, vali
 import { compileFloorGeometry, beaconGeometryConflict as geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
 import { analyzeCoverage } from "./coverage.js";
 import { deploymentQuality } from "./deploymentQuality.js";
-import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology,nearbyVisibleBeacon} from './topologyPlacement.js';
+import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology} from './topologyPlacement.js';
 
 export const DEFAULT_PLANNING_SETTINGS = {
   ...TOPOLOGY_DEFAULTS,
-  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7, minimumSpacing: 5, maximumSpacing: 9, reliableRadius: 6, marginalRadius: 8,
+  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7.5, minimumSpacing: 7.5, maximumSpacing: 9, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", placementStrategy:"landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
   allowVoidBeacons: false, wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
@@ -183,7 +183,14 @@ export class DeploymentPlanner {
     const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
     for(const b of preserved)if(b.enabled!==false&&geometryConflict({x:b.worldX,y:b.worldY},this.floors.get(b.floorId)))throw new Error(`${b.id} is inside blocked geometry. Move or unlock it before generating a deployment.`);
     const positionKey=b=>`${b.floorId}:${b.worldX.toFixed(6)}:${b.worldY.toFixed(6)}`,existing=new Map(this.beacons.map(b=>[positionKey(b),b.id]));
-    this.beacons=[...preserved,...result.beacons.filter(b=>!nearbyVisibleBeacon(preserved,b,this.floors,b.requiredJunction?2e-6:undefined)).map(b=>{let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});})];
+    // Manual and locked positions stay fixed; automatic candidates obey the physical spacing limit.
+    const accepted=[...preserved];
+    for(const candidate of [...result.beacons].sort((a,b)=>Number(!!b.requiredJunction)-Number(!!a.requiredJunction))){
+      if(accepted.some(b=>b.enabled!==false&&b.floorId===candidate.floorId&&dist(b,candidate)<this.settings.minimumSpacing-1e-6))continue;
+      let id=existing.get(positionKey(candidate));if(!id||ids.has(id))id=this.allocateId();ids.add(id);
+      accepted.push(this.normalize({...candidate,id}));
+    }
+    this.beacons=accepted;
     return this.evaluate();
   }
   inspector(id) {

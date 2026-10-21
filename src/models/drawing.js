@@ -79,6 +79,10 @@ export function normalizeProject(project) {
     const {hardSpacing,...settings}=project.planningSettings;
     project={...project,planningSettings:{...settings,spacing:7.5,minimumSpacing:5,maximumSpacing:10}};
   }
+  if(!project.beaconSpacingVersion){
+    const settings=project.planningSettings||{};
+    project={...project,beaconSpacingVersion:1,planningSettings:{...settings,minimumSpacing:7.5,spacing:Math.max(7.5,settings.spacing??7.5),maximumSpacing:Math.max(7.5,settings.maximumSpacing??9)}};
+  }
   const reference = !!project.floorAnalysis;
   const legacyVoid=object=>isVoidArea(object)&&object.type!=="restrictedArea"&&(object.type!=="voidArea"||object.layerId!=="voidAreas");
   let objects=project.objects?.some(legacyVoid)?project.objects.map(object=>legacyVoid(object)?{...object,type:"voidArea",geometryRole:"voidArea",layerId:"voidAreas"}:object):project.objects||[],floorAnalysis=project.floorAnalysis,updatedContours=false;
