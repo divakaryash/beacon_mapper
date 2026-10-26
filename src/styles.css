@@ -189,3 +189,9 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 
 .legend-restricted { background: #fbe2dc; border: 1px solid #dc5d50; }
 .polygon-legend .legend-void { background: #ede9fe; border-color: #7c3aed; }
+
+.studio-canvas:fullscreen { width:100vw; height:100vh; background:#f7f8f8; }
+.map-controls {position:absolute;z-index:3;top:12px;left:12px;display:flex;gap:6px;}
+.map-controls button {padding:9px;background:white;border:1px solid #c8d0d6;border-radius:5px;}
+.map-controls button[aria-pressed="true"] {background:#d6eee8;}
+.map-status {position:absolute;z-index:4;top:50px;background:white;padding:8px;}

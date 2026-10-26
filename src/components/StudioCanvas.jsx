@@ -74,6 +74,12 @@ function FloorPlan({ project, source }) {
 
 export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation, onOverlayChange }) {
   const svgRef = useRef(null);
+  const containerRef=useRef(null);
+  const [fullscreen,setFullscreen]=useState(false);
+  const [mapError,setMapError]=useState("");
+  useEffect(()=>{const changed=()=>setFullscreen(document.fullscreenElement===containerRef.current);document.addEventListener("fullscreenchange",changed);return ()=>document.removeEventListener("fullscreenchange",changed);},[]);
+  useEffect(()=>{const observer=new ResizeObserver(()=>{const svg=svgRef.current;if(!svg)return;const rect=svg.getBoundingClientRect(),v=viewRef.current;const next={...v,height:v.width*rect.height/rect.width};viewRef.current=next;applyView(next);});observer.observe(containerRef.current);return ()=>observer.disconnect();},[]);
+  async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await containerRef.current.requestFullscreen();}catch{setMapError("Fullscreen is unavailable in this browser.");}}
   const viewRef = useRef({ x: 0, y: 0, width: 1200, height: 800 });
   const interaction = useRef(null);
   const handlers=useRef();
@@ -323,8 +329,10 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   const warnedBeaconIds=new Set((project.beaconPlan?.warnings||[]).flatMap(w=>[w.beaconId,...(w.beaconIds||[])]).filter(Boolean));
   const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
   return (
-    <div className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
+    <div ref={containerRef} className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
       {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span></div>}
+      <div className="map-controls"><button type="button" onClick={toggleFullscreen}>{fullscreen?"Exit fullscreen":"Fullscreen"}</button><button type="button" aria-pressed={spacePressed} onClick={()=>setSpacePressed(value=>!value)}>Pan map</button></div>
+      {mapError&&<p className="map-status" role="alert">{mapError}</p>}
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
         ref={svgRef}
