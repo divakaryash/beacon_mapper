@@ -81,7 +81,7 @@ export default function App() {
   const committedProject = history.project;
   const [liveProject,setLiveProject]=useState(null);
   const project=liveProject||committedProject;
-  const [tool, setTool] = useState("select");
+  const [tool, setTool] = useState("pan");
   const [poiCategory, setPoiCategory] = useState("Store");
   const [selectedId, setSelectedId] = useState(null);
   const [status, setStatus] = useState("Loading local project…");
@@ -205,10 +205,8 @@ export default function App() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? history.redo() : history.undo(); return; }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") { event.preventDefault(); history.redo(); return; }
       if (typing) return;
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedId) { event.preventDefault(); deleteObject(selectedId); }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && selected) { event.preventDefault(); duplicateObject(selected); }
-      const match = TOOLS.find(([, , shortcut]) => shortcut.toLowerCase() === event.key.toLowerCase());
-      if (match && !event.metaKey && !event.ctrlKey) setTool(match[0]);
+      if (event.key === "Escape") setTool("pan");
+
     }
     window.addEventListener("keydown", shortcuts);
     return () => window.removeEventListener("keydown", shortcuts);
@@ -222,9 +220,11 @@ export default function App() {
     }
     history.commit(changed?{...next,placementNeedsReview:!!next.beaconPlan,coverageAnalysis:null}:next);
   }
-  function beaconAction(action,data,preview=false){
+  async function beaconAction(action,data,preview=false){
     if(!scale||(!project.beaconPlan&&action!=="insert"))return;
-    planner.command(action,{...data,floorId:data.floorId||project.beaconEditingFloorId||project.graph.nodes[0]?.floorId||"floor-1",worldX:data.x*scale,worldY:data.y*scale},{preview,selection:data.id});
+    if(!preview)setTool("pan");
+    const output=await planner.command(action,{...data,snapToWaypoint:["move","insert"].includes(action)&&project.graph.edges.length>0,floorId:data.floorId||project.beaconEditingFloorId||project.graph.nodes[0]?.floorId||"floor-1",worldX:data.x*scale,worldY:data.y*scale},{preview,selection:data.id});
+    if(output&&!preview)setBeaconSelection(data.id||output.plan.beacons.at(-1)?.id||null);
   }
   function graphAction(action, data) {
     if (!scale) { setStatus("Calibrate scale first"); return; }
@@ -316,10 +316,6 @@ export default function App() {
         <div className="header-actions"><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
       </header>
 
-      <nav className="tool-rail" aria-label="Drawing tools">
-        {TOOLS.map(([id, label, shortcut]) => <button key={id} className={tool === id ? "active" : ""} type="button" title={`${label} (${shortcut})`} onClick={() => setTool(id)}><span>{label.slice(0, 2)}</span><small>{label}</small></button>)}
-      </nav>
-
       <aside className="left-panel">
         {importing&&<p role="status">Importing floor plan…</p>}
         <section className="panel-section">
@@ -342,8 +338,8 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/></aside>
+      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <aside className="right-panel"><BeaconPanel project={project} tool={tool} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/></aside>
     </main>
   );
 }

@@ -17,7 +17,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .welcome-card p:not(.eyebrow) { color: #657283; }
 .welcome-card small { display: block; margin-top: 0.75rem; color: #82909d; }
 
-.app-shell { height: 100vh; display: grid; grid-template: 66px minmax(0, 1fr) / 70px 280px minmax(500px, 1fr) 280px; }
+.app-shell { height: 100vh; display: grid; grid-template: 66px minmax(0, 1fr) / 280px minmax(500px, 1fr) 280px; }
 .app-header { grid-column: 1 / -1; display: flex; align-items: center; gap: 2rem; padding: 0 1.25rem; color: #f8fbfc; background: #10253f; border-bottom: 3px solid #2ca58d; }
 .app-header h1 { margin: 0.1rem 0 0; max-width: 360px; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
 .eyebrow { margin: 0; color: #8fd0c2; font-size: 0.67rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -35,8 +35,8 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tool-rail button small { max-width: 56px; overflow: hidden; font-size: 0.57rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .left-panel, .right-panel { min-height: 0; padding: 14px; overflow: auto; background: #f8fafb; }
-.left-panel { grid-column: 2; border-right: 1px solid #cbd3da; }
-.right-panel { grid-column: 4; border-left: 1px solid #cbd3da; }
+.left-panel { grid-column: 1; border-right: 1px solid #cbd3da; }
+.right-panel { grid-column: 3; border-left: 1px solid #cbd3da; }
 .panel-section { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dfe4e8; }
 .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem; }
 h2 { margin: 0; color: #14273b; font-size: 0.84rem; letter-spacing: 0.02em; }
@@ -69,7 +69,7 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .danger, .reset { color: #82463d; background: #f6e9e6; }
 .reset { width: 100%; }
 
-.canvas-area { grid-column: 3; min-width: 0; min-height: 0; background: #dbe1e5; }
+.canvas-area { grid-column: 2; min-width: 0; min-height: 0; background: #dbe1e5; }
 .studio-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; }
 .studio-canvas svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .studio-canvas.is-panning svg { cursor: grab; }
@@ -149,7 +149,7 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .reference-canvas .navigation-graph circle:not(.selected-node) { fill: transparent; stroke: transparent; }
 
 @media (max-width: 1100px) {
-  .app-shell { grid-template-columns: 48px 190px minmax(240px, 1fr) 230px; }
+  .app-shell { grid-template-columns: 190px minmax(240px, 1fr) 230px; }
   .app-header { gap: .75rem; padding: 0 .75rem; }
   .app-header h1 { max-width: 270px; font-size: .9rem; }
   .project-stats span:not(:last-child) { display: none; }

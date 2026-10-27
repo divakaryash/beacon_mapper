@@ -1,3 +1,4 @@
+import WaypointCoverageOverlay from "./WaypointCoverageOverlay.jsx";
 import {overlayPoint,overlayTransform,snapFloorPlanOverlay} from "../models/floorPlanOverlay.js";
 import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -155,6 +156,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
       return;
     }
     if(tool === "beaconInsert"){onBeaconAction("insert",point);return;}
+    if(tool === "beaconMove"){const beacon=project.beaconPlan?.beacons.find(b=>b.id===beaconSelection);if(beacon&&!beacon.locked)onBeaconAction("move",{...point,id:beacon.id,floorId:beacon.floorId});return;}
     if (tool === "graphNode") { onGraphAction("create", point); return; }
     if (tool === "select" || tool === "move") { onSelect(null); return; }
     if (boxTools.has(tool)) {
@@ -327,11 +329,11 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   </g>,[project.graph,project.layers.navigationGraph?.visible,graphNodes,graphSelection,route,project.floorAnalysis?.method]);
 
   const warnedBeaconIds=new Set((project.beaconPlan?.warnings||[]).flatMap(w=>[w.beaconId,...(w.beaconIds||[])]).filter(Boolean));
-  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
+  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(tool==="beaconMove"&&!spacePressed&&e.button===0){e.stopPropagation();setBeaconSelection(b.id);return;}if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
   return (
     <div ref={containerRef} className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
       {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span></div>}
-      <div className="map-controls"><button type="button" onClick={toggleFullscreen}>{fullscreen?"Exit fullscreen":"Fullscreen"}</button><button type="button" aria-pressed={spacePressed} onClick={()=>setSpacePressed(value=>!value)}>Pan map</button></div>
+      <div className="map-controls"><button type="button" onClick={toggleFullscreen}>{fullscreen?"Exit fullscreen":"Fullscreen"}</button></div>
       {mapError&&<p className="map-status" role="alert">{mapError}</p>}
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
@@ -377,6 +379,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         {rectDraft && <rect className="drawing-preview" {...rectDraft} />}
         <g visibility={overlay?.geojsonVisible===false?"hidden":"visible"}>{graphDrawing}</g>
         {beaconDrawing}
+        <WaypointCoverageOverlay project={project}/>
         {project.layers.warnings?.visible&&<g pointerEvents="none">{(project.beaconPlan?.warnings||[]).filter(w=>Number.isFinite(w.x)).slice(0,100).map((w,i)=><circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2"><title>{w.message}</title></circle>)}</g>}
         {draftPoints.length>=3&&(polygonTools.has(tool)||tool==="polyline")&&<circle className="drawing-preview" cx={draftPoints[0].x} cy={draftPoints[0].y} r={8*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)}><title>Click to close polygon</title></circle>}
         {draftPath.length > 1 && (polygonTools.has(tool)
@@ -385,7 +388,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         <SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons||[]}/>
         <SelectionHandles object={overlayEditing?null:previewObject || selected} onHandleDown={handleHandleDown} />
       </svg>
-      <div className="canvas-hint">{overlayEditing?"Drag image to align · Corners: uniform scale · Round handle: rotate · Wheel: zoom · Space-drag: pan":"Wheel to zoom · Space-drag to pan · Line / Polygon: click corners, click starting point to close · Select: drag vertex dots"}</div>
+      <div className="canvas-hint">{tool==="beaconInsert"?"Click near a waypoint line to place a beacon · Escape to cancel":tool==="beaconMove"?"Choose a beacon, then click near its new waypoint position · Escape to cancel":overlayEditing?"Drag image to align · Corners: uniform scale · Round handle: rotate · Wheel: zoom · Space-drag: pan":"Drag to pan · Wheel to zoom · Fullscreen for a larger view"}</div>
     </div>
   );
 }

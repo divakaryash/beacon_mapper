@@ -136,13 +136,14 @@ export class DeploymentPlanner {
     if(!["insert","move","patch","delete","duplicate"].includes(action))throw new Error("Invalid beacon command.");
     const old=this.beacons.find(b=>b.id===data.id);if(action!=="insert"&&!old)throw new Error("Select a beacon first.");
     if(old?.locked&&["move","delete"].includes(action))throw new Error("Unlock the beacon before moving or deleting it.");
+    const {snapToWaypoint,...placement}=data;
     let next;
     if(action==="delete"){this.beacons=this.beacons.filter(b=>b.id!==old.id);return this.evaluate([old]);}
     if(action==="duplicate"||action==="insert"){
       const newId=data.newId||this.allocateId();
       if(this.beacons.some(b=>b.id===newId))throw new Error("Beacon IDs must be unique.");
       const profile=this.profile(this.settings.defaultProfileId);
-      next=this.normalize(action==="duplicate"?{...old,id:newId,locked:false,origin:"manual"}:{...data,id:newId,profileId:profile.id,origin:"manual"});
+      next=this.normalize(action==="duplicate"?{...old,id:newId,locked:false,origin:"manual"}:{...placement,id:newId,profileId:profile.id,origin:"manual"});
     }else {
       const allowed=["type","profileId","installationType","mountingHeight","orientation","notes","installationStatus","coverageRadius","reliableRadius","marginalRadius","enabled","locked"];
       if(action==="patch"&&Object.keys(data.patch||{}).some(key=>!allowed.includes(key)))throw new Error("Use Move to edit beacon position.");
@@ -150,6 +151,7 @@ export class DeploymentPlanner {
       next=this.normalize({...old,...(action==="move"?{...position,origin:"manual"}:data.patch),id:old.id});
     }
     if(action==="move"||action==="insert"||action==="duplicate"){
+      if(snapToWaypoint===true){const snapped=nearestValidGraphPosition(next,this.graph,this.floors);if(!snapped)throw new Error("No valid waypoint position on this floor.");next=snapped;}
       if(geometryConflict({x:next.worldX,y:next.worldY},this.floors.get(next.floorId))){const repaired=nearestValidGraphPosition(next,this.graph,this.floors);if(!repaired)throw new Error("No valid installation position on this floor.");next=repaired;}else next=referenceBeacon({...next,nodeId:undefined,edgeId:undefined,placementStrategy:'Manual'},this.graph);
     }
     this.beacons=action==="duplicate"||action==="insert"?[...this.beacons,next]:this.beacons.map(b=>b.id===old.id?next:b);

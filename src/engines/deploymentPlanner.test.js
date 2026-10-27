@@ -78,3 +78,28 @@ test('empty upload geometry cannot produce a misleading zero-score deployment',(
   assert.throws(()=>new DeploymentPlanner({...inputs(),graph:{nodes:[],edges:[]}}),/No navigation paths detected/);
   assert.throws(()=>new DeploymentPlanner({...inputs(),floorGeometry:{objects:[],metersPerPixel:.1}}),/No walkable geometry detected/);
 });
+
+test('manual placement and relocation refresh waypoint coverage against a full analysis',()=>{
+  const planner=new DeploymentPlanner(inputs());
+  const initial=planner.output.coverage.graphCoveredLength;
+  const placed=planner.edit('insert',{floorId:'floor-1',x:555,y:158,worldX:55.5,worldY:15.8});
+  assert.equal(placed.plan.beacons.length,1);
+  assert.ok(placed.coverage.graphCoveredLength>initial);
+  equivalent(placed,fresh(planner));
+  const id=placed.plan.beacons[0].id;
+  const moved=planner.edit('move',{id,floorId:'floor-1',x:560,y:161,worldX:56,worldY:16.1});
+  assert.equal(moved.plan.beacons[0].id,id);
+  assert.equal(moved.plan.beacons[0].worldX,56);
+  equivalent(moved,fresh(planner));
+});
+
+test('manual waypoint snapping uses line interiors and deletion refreshes coverage',()=>{
+  const nodes=[{id:'a',type:'Corridor',floorId:'G',x:1,y:5,worldX:1,worldY:5},{id:'b',type:'Corridor',floorId:'G',x:29,y:5,worldX:29,worldY:5}];
+  const region=[{x:0,y:0},{x:30,y:0},{x:30,y:10},{x:0,y:10}];
+  const planner=new DeploymentPlanner({graph:{nodes,edges:[{id:'line',source:'a',target:'b',distance:28,direction:'bidirectional'}]},floorGeometry:{metersPerPixel:1,floors:[{floorId:'G',boundaries:[region],walkableAreas:[region]}]},settings:{additionalBeaconBudget:0}});
+  let output=planner.edit('insert',{floorId:'G',x:15,y:7,worldX:15,worldY:7,snapToWaypoint:true});
+  const b=output.plan.beacons[0];assert.equal(b.worldX,15);assert.equal(b.worldY,5);assert.equal(b.edgeOffset,14);assert.equal(b.snapToWaypoint,undefined);assert.ok(output.coverage.graphCoveredLength>0);
+  output=planner.edit('move',{id:b.id,floorId:'G',x:20,y:8,worldX:20,worldY:8,snapToWaypoint:true});
+  assert.equal(output.plan.beacons[0].worldX,20);assert.equal(output.plan.beacons[0].worldY,5);assert.equal(output.plan.beacons[0].id,b.id);
+  output=planner.edit('delete',{id:b.id});assert.equal(output.plan.beacons.length,0);assert.equal(output.coverage.graphCoveragePercentage,0);assert.equal(output.coverage.gaps.length,1);
+});
