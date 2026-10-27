@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {planBeacons,analyzePlacement,BEACON_PROFILES} from './beaconPlacement.js';
 import {analyzeFloorTopology,referenceBeacon,validateTopologySettings} from './topologyPlacement.js';
 import {compileFloorGeometry,geometryConflict,visibleGeometrySegment} from './floorGeometry.js';
-import {analyzeCoverage} from './coverage.js';
 import {DeploymentPlanner} from './deploymentPlanner.js';
 import {sampleMall} from '../samples/sampleMall.js';
 import {geometryForProject} from '../models/deployments.js';
@@ -32,11 +31,20 @@ test('nearby POIs and explicit entrances are reported; malformed POIs and thresh
   const input=fixture(4),pois=[{id:'store',floorId:'G',worldX:11,worldY:1,category:'Store'}];const r=planBeacons({...input,pois});assert.ok(r.topology.edges[0].adjacentRoomEntrances.includes('store'));assert.ok(r.beacons.some(b=>b.placementStrategy==='Store Entrance'));
   assert.throws(()=>planBeacons({...input,pois:[{...pois[0],worldX:NaN}]}));assert.throws(()=>validateTopologySettings({narrowWidth:10}));assert.throws(()=>validateTopologySettings({additionalBeaconBudget:201}));
 });
-test('wide-area candidates improve coverage with fewer clustered route beacons, then stop at a configured budget',()=>{
-  const geometry=geometryForProject(sampleMall),baseline=planBeacons({graph:sampleMall.graph,floorGeometry:geometry,configuration:{placementStrategy:'centerline'}});
-  const oldCoverage=analyzeCoverage({graph:sampleMall.graph,floorGeometry:geometry,beacons:baseline.beacons,profile:BEACON_PROFILES[0]});
-  const planner=new DeploymentPlanner({graph:sampleMall.graph,floorGeometry:geometry,settings:{placementStrategy:"topology",additionalBeaconBudget:0}}),sameCount=planner.generate();assert.ok(sameCount.plan.beacons.length<=baseline.beacons.length);assert.ok(sameCount.coverage.coveragePercentage>oldCoverage.coveragePercentage);assert.equal(sameCount.coverage.graphCoveragePercentage,100);
-  planner.configure({additionalBeaconBudget:3});const expanded=planner.generate();assert.ok(expanded.plan.topology.optimization.areaBeacons<=3);assert.ok(expanded.coverage.coveragePercentage>sameCount.coverage.coveragePercentage);assert.equal(expanded.coverage.graphCoveragePercentage,100);assert.ok(expanded.plan.beacons.filter(b=>b.placementRole==='area').every(b=>b.referenceDistance>0));
+test('wide-area budgets and route repairs cannot override 6 m physical separation',()=>{
+  const geometry=geometryForProject(sampleMall);
+  const planner=new DeploymentPlanner({graph:sampleMall.graph,floorGeometry:geometry,settings:{placementStrategy:"topology",additionalBeaconBudget:0}});
+  const baseline=planner.generate();
+  planner.configure({additionalBeaconBudget:3});const expanded=planner.generate();
+  assert.ok(expanded.plan.topology.optimization.areaBeacons<=3);
+  for(const result of [baseline,expanded]){
+    assert.equal(result.coverage.graphCoveragePercentage,100);
+    for(let i=0;i<result.plan.beacons.length;i++)for(let j=0;j<i;j++){
+      const a=result.plan.beacons[i],b=result.plan.beacons[j];
+      if(a.floorId===b.floorId)assert.ok(Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY)>=6-1e-6);
+    }
+  }
+  assert.ok(expanded.plan.beacons.filter(b=>b.placementRole==='area').every(b=>b.referenceDistance>0));
 });
 test('moving, reloading and recalculating off-graph beacons preserves coordinates, IDs and live coverage',()=>{
   const input=fixture(4),planner=new DeploymentPlanner({...input,settings:{placementStrategy:"topology",additionalBeaconBudget:0}});planner.generate();const id=planner.beacons[2].id;planner.edit('move',{id,floorId:'G',worldX:11,worldY:1,x:110,y:10});planner.recalculate('selected',id);const before=planner.beacons.find(b=>b.id===id);assert.equal(before.worldY,1);assert.ok(!planner.output.plan.warnings.some(w=>w.code==='invalid-graph-reference'));

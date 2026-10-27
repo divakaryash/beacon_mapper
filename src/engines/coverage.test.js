@@ -15,3 +15,10 @@ test("missing boundary reports unavailable area rather than fabricated coverage"
 test("invalid sampling input is rejected",()=>{assert.throws(()=>analyzeCoverage({graph,floorGeometry:{floors:[floor]},beacons:[],profile:BEACON_PROFILES[0],configuration:{cellSize:0}}));});
 test("thin wall gaps cannot disappear between graph samples",()=>{const r=analyze([beacon("a",2,5,20),beacon("b",8,5,20)],[{...floor,walls:[{points:[{x:5,y:0},{x:5,y:10}],width:.02}]}]);assert.ok(r.gaps.some(g=>g.length>=.019));assert.ok(r.graphCoveragePercentage<100);});
 test("dead-zone clustering respects walls thinner than the area grid",()=>{const r=analyze([],[{...floor,walls:[{points:[{x:5,y:0},{x:5,y:10}],width:.02}]}]);assert.equal(r.deadZones.length,2);});
+test('waypoint heatmap samples expose uncovered, single and overlapping visible coverage',()=>{
+  const result=analyze([beacon('a',2,5,2),beacon('b',4,5,2)]);
+  const edge=result.graphEdges[0];assert.equal(edge.floorId,'G');
+  assert.deepEqual([...new Set(edge.segments.map(s=>s.count))].sort(),[0,1,2]);
+  assert.equal(edge.segments[0].x1,1);assert.equal(edge.segments.at(-1).x2,9);
+  assert.ok(edge.segments.every(s=>s.y1===5&&s.y2===5));
+});

@@ -76,13 +76,17 @@ export function analyzeCoverage({graph,floorGeometry,beacons,profile,placementQu
     recomputedEdges++;
     if(!(edge.distance>0)||!Number.isFinite(edge.distance))throw new Error("Coverage graph requires positive finite edge distances.");
     const count=Math.max(1,Math.ceil(edge.distance/graphStep)),valid=validGraphIntervals({x:a.worldX,y:a.worldY},{x:b.worldX,y:b.worldY},floors.get(a.floorId));
-    const cuts=[...Array.from({length:count+1},(_,i)=>i/count),...valid.flat()].sort((a,b)=>a-b).filter((t,i,array)=>!i||t-array[i-1]>1e-9);let covered=0,gapStart=null;
+    const cuts=[...Array.from({length:count+1},(_,i)=>i/count),...valid.flat()].sort((a,b)=>a-b).filter((t,i,array)=>!i||t-array[i-1]>1e-9);let covered=0,gapStart=null;const segments=[];
     function closeGap(end) {if(gapStart===null)return;const start=gapStart,t0=start/edge.distance,t1=end/edge.distance;gaps.push({floorId:a.floorId,edgeId:edge.id,start,end,length:end-start,x1:a.x+t0*(b.x-a.x),y1:a.y+t0*(b.y-a.y),x2:a.x+t1*(b.x-a.x),y2:a.y+t1*(b.y-a.y)});gapStart=null;}
     for(let i=1;i<cuts.length;i++) {
       const t=(cuts[i-1]+cuts[i])/2,point={x:a.worldX+t*(b.worldX-a.worldX),y:a.worldY+t*(b.worldY-a.worldY)};
-      if(!geometryConflict(point,floors.get(a.floorId))&&coverageCount(point,a.floorId)){covered+=(cuts[i]-cuts[i-1])*edge.distance;closeGap(cuts[i-1]*edge.distance);}else if(gapStart===null)gapStart=cuts[i-1]*edge.distance;
+      const visibleCount=geometryConflict(point,floors.get(a.floorId))?0:coverageCount(point,a.floorId);
+      const end={x2:a.x+cuts[i]*(b.x-a.x),y2:a.y+cuts[i]*(b.y-a.y)};
+      if(segments.at(-1)?.count===visibleCount)Object.assign(segments.at(-1),end);
+      else segments.push({x1:a.x+cuts[i-1]*(b.x-a.x),y1:a.y+cuts[i-1]*(b.y-a.y),...end,count:visibleCount});
+      if(visibleCount){covered+=(cuts[i]-cuts[i-1])*edge.distance;closeGap(cuts[i-1]*edge.distance);}else if(gapStart===null)gapStart=cuts[i-1]*edge.distance;
     }
-    closeGap(edge.distance);covered=Math.min(edge.distance,covered);graphCoveredLength+=covered;graphEdges.push({edgeId:edge.id,length:edge.distance,coveredLength:covered});
+    closeGap(edge.distance);covered=Math.min(edge.distance,covered);graphCoveredLength+=covered;graphEdges.push({edgeId:edge.id,floorId:a.floorId,length:edge.distance,coveredLength:covered,segments});
   }
   graphCoveredLength=Math.min(totalGraphLength,graphCoveredLength);
   const deadZones=floorReports.flatMap(f=>f.deadZones),coveragePercentage=totalArea?Math.min(100,100*coveredArea/totalArea):0,graphCoveragePercentage=totalGraphLength?Math.min(100,100*graphCoveredLength/totalGraphLength):0;

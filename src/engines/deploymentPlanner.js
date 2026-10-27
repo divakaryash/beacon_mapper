@@ -1,13 +1,14 @@
+import {suggestWaypointCoverage} from "./waypointSuggestions.js";
 import {planPoiBeacons} from "./poiPlacement.js";
 import { BEACON_PROFILES, planBeacons, analyzePlacement, snapBeaconToGraph, validatePlacementGraph } from "./beaconPlacement.js";
 import { compileFloorGeometry, beaconGeometryConflict as geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
 import { analyzeCoverage } from "./coverage.js";
 import { deploymentQuality } from "./deploymentQuality.js";
-import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology,nearbyVisibleBeacon} from './topologyPlacement.js';
+import {TOPOLOGY_DEFAULTS,validateTopologySettings,referenceBeacon,analyzeFloorTopology} from './topologyPlacement.js';
 
 export const DEFAULT_PLANNING_SETTINGS = {
   ...TOPOLOGY_DEFAULTS,
-  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7, minimumSpacing: 5, maximumSpacing: 9, reliableRadius: 6, marginalRadius: 8,
+  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7, minimumSpacing: 6, maximumSpacing: 10, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", placementStrategy:"landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
   allowVoidBeacons: false, wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
@@ -103,6 +104,7 @@ export class DeploymentPlanner {
     const parts=[...this.results.values()],samples=parts.flatMap(p=>p.spacingSamples),active=this.beacons.filter(b=>b.enabled!==false),warnings=[...parts.flatMap(p=>p.warnings.filter(w=>!["duplicate-beacons","physical-spacing-too-small","disconnected-beacon-chain"].includes(w.code))),...(this.topologyWarnings||[])];
     const present=new Set();for(const b of active)for(const id of nearbyAnchors(b))present.add(id);
     for(const id of required)if(!present.has(id))warnings.push({code:"missing-anchor",nodeId:id,message:`Uncovered navigation landmark requiring reliable visible coverage: ${id}.`});
+    for(const poi of this.pois.filter(p=>['Lift','Stairs','Escalator','Entrance','Exit','Junction'].includes(p.category)))if(!active.some(b=>b.floorId===poi.floorId&&dist(b,poi)<=Math.min(b.reliableRadius,['Lift','Stairs','Escalator'].includes(poi.category)?5:Infinity)&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:poi.worldX,y:poi.worldY},this.floors.get(poi.floorId))))warnings.push({code:'missing-landmark',poiId:poi.id,floorId:poi.floorId,x:poi.x,y:poi.y,message:`Uncovered ${poi.category}: ${poi.name||poi.id}. Review the access point and mounting geometry.`});
     const bins=new Map();for(const b of active){const x=Math.floor(b.worldX/.25),y=Math.floor(b.worldY/.25);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const other of bins.get(`${b.floorId}:${x+dx}:${y+dy}`)||[])if(dist(b,other)<.25)warnings.push({code:"duplicate-beacons",beaconIds:[b.id,other.id],message:"Duplicate beacon positions."});const key=`${b.floorId}:${x}:${y}`;if(!bins.has(key))bins.set(key,[]);bins.get(key).push(b);}
     const minimum=this.settings.minimumSpacing??5,spacingBins=new Map();for(const b of active){const x=Math.floor(b.worldX/minimum),y=Math.floor(b.worldY/minimum);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const other of spacingBins.get(`${b.floorId}:${x+dx}:${y+dy}`)||[])if(dist(b,other)<minimum-1e-6&&visibleGeometrySegment({x:b.worldX,y:b.worldY},{x:other.worldX,y:other.worldY},this.floors.get(b.floorId)))warnings.push({code:"physical-spacing-too-small",beaconIds:[b.id,other.id],floorId:b.floorId,x:(b.x+other.x)/2,y:(b.y+other.y)/2,message:`${b.id} and ${other.id} are ${dist(b,other).toFixed(2)} m apart, below ${minimum} m.`});const key=`${b.floorId}:${x}:${y}`;if(!spacingBins.has(key))spacingBins.set(key,[]);spacingBins.get(key).push(b);}
     let geometryFailures=0;
@@ -177,16 +179,37 @@ export class DeploymentPlanner {
     return this.evaluate(placementChanged?[...before,...this.beacons]:[]); // Reuse geometry/coverage for metadata-only settings.
   }
   generate() {
+    this.settings={...this.settings,minimumSpacing:6,maximumSpacing:10,spacing:Math.max(6,Math.min(10,this.settings.spacing))};
     const profile=this.profile(this.settings.defaultProfileId);
     if(this.settings.planningMode==="manual")return this.evaluate();
-    const result=this.settings.placementStrategy==="pois"?planPoiBeacons({pois:this.pois,floors:this.floors,metersPerPixel:this.floorGeometry.metersPerPixel,radius:this.settings.reliableRadius}):planBeacons({graph:this.graph,floorGeometry:{...this.floorGeometry,allowVoidBeacons:this.settings.allowVoidBeacons},profile,pois:this.pois,placementRules:this.settings,configuration:{...this.settings,mode:this.settings.planningMode,spacing:this.settings.spacing}});
+    const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
+    const result=this.settings.placementStrategy==="pois"?planPoiBeacons({pois:this.pois,floors:this.floors,metersPerPixel:this.floorGeometry.metersPerPixel,radius:this.settings.reliableRadius}):planBeacons({graph:this.graph,floorGeometry:{...this.floorGeometry,allowVoidBeacons:this.settings.allowVoidBeacons},profile,pois:this.pois,placementRules:this.settings,configuration:{...this.settings,mode:this.settings.planningMode,spacing:this.settings.spacing,seedBeacons:preserved}});
     this.topology=result.topology||{edges:[],method:"poi-proximity-with-visible-shared-mounts"};
     this.topologyWarnings=result.warnings.filter(w=>['topology-candidate-limit','topology-route-resolution','topology-width-capped','unknown-topology','poi-no-mount','poi-offset','poi-spacing-review'].includes(w.code));
-    const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
     for(const b of preserved)if(b.enabled!==false&&geometryConflict({x:b.worldX,y:b.worldY},this.floors.get(b.floorId)))throw new Error(`${b.id} is inside blocked geometry. Move or unlock it before generating a deployment.`);
     const positionKey=b=>`${b.floorId}:${b.worldX.toFixed(6)}:${b.worldY.toFixed(6)}`,existing=new Map(this.beacons.map(b=>[positionKey(b),b.id]));
-    this.beacons=[...preserved,...result.beacons.filter(b=>!nearbyVisibleBeacon(preserved,b,this.floors)).map(b=>{let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});})];
-    return this.evaluate();
+    const activePreserved=preserved.filter(b=>b.enabled!==false);
+    const tooClose=(list,b)=>list.find(other=>other.floorId===b.floorId&&other.enabled!==false&&dist(other,b)<this.settings.minimumSpacing-1e-6);
+    for(let i=0;i<activePreserved.length;i++){
+      const other=tooClose(activePreserved.slice(0,i),activePreserved[i]);
+      if(other)throw new Error(`${other.id} and ${activePreserved[i].id} are less than 6 m apart. Move or disable one of the preserved beacons before generating a spaced layout.`);
+    }
+    const spaced=[...preserved];let spacingNotice=null;
+    for(const b of result.beacons){
+      if(tooClose(spaced,b))continue;
+      spaced.push(b);
+    }
+    // Five-metre path coverage targets at most 10 m between stations; 6 m separation always wins.
+    if(this.graph.edges.length){
+      const advice=suggestWaypointCoverage({graph:this.graph,floorGeometry:this.floorGeometry,beacons:spaced.map(b=>({...b,reliableRadius:Math.min(5,b.reliableRadius??this.settings.reliableRadius)})),profile,configuration:{...this.settings,coverageThreshold:'reliable',reliableRadius:Math.min(5,this.settings.reliableRadius)},coverage:null});
+      for(const suggestion of advice.suggestions)if(!tooClose(spaced,suggestion))spaced.push(referenceBeacon({...suggestion,reliableRadius:this.settings.reliableRadius,origin:'automatic'},this.graph));
+      if(advice.remainingLength>1e-6)spacingNotice=`6 m separation is enforced. The repair search could not establish the 10 m spacing target on every route section${advice.limitReached?' within its 50-position limit':''}; review the remaining gaps and landmark coverage.`;
+    }
+    const preservedSet=new Set(preserved);
+    this.beacons=spaced.map(b=>{if(preservedSet.has(b))return b;let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});});
+    const output=this.evaluate();
+    if(spacingNotice)output.plan.spacingNotice=spacingNotice;
+    return output;
   }
   inspector(id) {
     const beacon=this.beacons.find(b=>b.id===id);if(!beacon)return null;

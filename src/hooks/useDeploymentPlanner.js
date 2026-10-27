@@ -32,7 +32,7 @@ export function useDeploymentPlanner(project, onResult, onError) {
     observedPlan.current=p.beaconPlan;
     try {
       let inputs;
-      if(changed){const geometry=geometryForProject(p),scale=geometry.metersPerPixel;inputs={graph:p.graph,floorGeometry:geometry,profiles:[...BEACON_PROFILES,...(p.beaconProfiles||[])],settings:{...DEFAULT_PLANNING_SETTINGS,defaultProfileId:p.beaconProfile?.id||BEACON_PROFILES[0].id,spacing:p.beaconPlan?.configuration?.spacing||5.5,planningMode:p.beaconPlan?.configuration?.mode||"hybrid",cellSize:p.coverageSettings?.cellSize||.5,...p.planningSettings},beacons:p.beaconPlan?.beacons||[],pois:p.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:o.floorId||p.graph.nodes[0]?.floorId||"floor-1",worldX:o.x*scale,worldY:o.y*scale}))};source.current=p;}
+      if(changed){const geometry=geometryForProject(p),scale=geometry.metersPerPixel;inputs={graph:p.graph,floorGeometry:geometry,profiles:[...BEACON_PROFILES,...(p.beaconProfiles||[])],settings:{...DEFAULT_PLANNING_SETTINGS,defaultProfileId:p.beaconProfile?.id||BEACON_PROFILES[0].id,spacing:p.beaconPlan?.configuration?.spacing||8,planningMode:p.beaconPlan?.configuration?.mode||"hybrid",cellSize:p.coverageSettings?.cellSize||.5,...p.planningSettings},beacons:p.beaconPlan?.beacons||[],pois:p.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:o.floorId||p.graph.nodes[0]?.floorId||"floor-1",worldX:o.x*scale,worldY:o.y*scale}))};source.current=p;}
       active.current=task;worker.current.postMessage({id:task.id,inputs,action:task.action,data:task.data,selection:task.selection});
     }catch(error){current.current.onError(error.message);task.resolve(null);setBusy(false);}
   }

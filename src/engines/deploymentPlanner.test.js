@@ -103,3 +103,36 @@ test('manual waypoint snapping uses line interiors and deletion refreshes covera
   assert.equal(output.plan.beacons[0].worldX,20);assert.equal(output.plan.beacons[0].worldY,5);assert.equal(output.plan.beacons[0].id,b.id);
   output=planner.edit('delete',{id:b.id});assert.equal(output.plan.beacons.length,0);assert.equal(output.coverage.graphCoveragePercentage,0);assert.equal(output.coverage.gaps.length,1);
 });
+
+test('6 m separation takes precedence over clustered junctions, connections and coverage in every generation mode',()=>{
+  const point=(id,x,y,type='Corridor')=>({id,floorId:'G',x,y,worldX:x,worldY:y,type});
+  const nodes=[point('a',1,5,'Entrance'),point('lift',9,5,'Lift'),point('stairs',10,5,'Stairs'),point('junction',11,5,'Junction'),point('exit',29,5,'Exit'),point('branch',11,14)];
+  const edges=[['a','lift'],['lift','stairs'],['stairs','junction'],['junction','exit'],['junction','branch']].map(([source,target],i)=>({id:`e${i}`,source,target,distance:Math.hypot(nodes.find(n=>n.id===source).worldX-nodes.find(n=>n.id===target).worldX,nodes.find(n=>n.id===source).worldY-nodes.find(n=>n.id===target).worldY)}));
+  const region=[{x:0,y:0},{x:32,y:0},{x:32,y:16},{x:0,y:16}],floorGeometry={metersPerPixel:1,floors:[{floorId:'G',boundaries:[region],walkableAreas:[region]}]};
+  const pois=nodes.filter(n=>n.type!=='Corridor').map(n=>({...n,category:n.type}));
+  for(const placementStrategy of ['centerline','landmarks','topology','pois']){
+    const planner=new DeploymentPlanner({graph:{nodes,edges},floorGeometry,pois,settings:{placementStrategy,cellSize:1,additionalBeaconBudget:0}});
+    const result=planner.generate(),active=result.plan.beacons.filter(b=>b.enabled!==false);
+    assert.ok(active.length>=2,placementStrategy);
+    for(let i=0;i<active.length;i++)for(let j=i+1;j<active.length;j++)assert.ok(Math.hypot(active[i].worldX-active[j].worldX,active[i].worldY-active[j].worldY)>=6-1e-6,`${placementStrategy}: ${active[i].id}/${active[j].id}`);
+    assert.ok(!result.plan.warnings.some(w=>w.code==='physical-spacing-too-small'),placementStrategy);
+  }
+});
+
+test('generation refuses to retain a cluster of fixed manual beacons',()=>{
+  const planner=new DeploymentPlanner(inputs());
+  planner.edit('insert',{floorId:'floor-1',x:555,y:158,worldX:55.5,worldY:15.8});
+  planner.edit('insert',{floorId:'floor-1',x:560,y:158,worldX:56,worldY:15.8});
+  const before=structuredClone(planner.beacons);
+  assert.throws(()=>planner.generate(),/less than 6 m apart/);
+  assert.deepEqual(planner.beacons,before);
+});
+
+test('a clear corridor keeps consecutive physical beacon distances inside 6–10 m',()=>{
+  const region=[{x:0,y:0},{x:44,y:0},{x:44,y:4},{x:0,y:4}];
+  const graph={nodes:[{id:'a',floorId:'G',type:'Entrance',x:1,y:2,worldX:1,worldY:2},{id:'b',floorId:'G',type:'Exit',x:43,y:2,worldX:43,worldY:2}],edges:[{id:'ab',source:'a',target:'b',distance:42}]};
+  const planner=new DeploymentPlanner({graph,floorGeometry:{metersPerPixel:1,floors:[{floorId:'G',boundaries:[region],walkableAreas:[region]}]},settings:{placementStrategy:'centerline',spacing:8,cellSize:1,additionalBeaconBudget:0}});
+  const beacons=planner.generate().plan.beacons.sort((a,b)=>a.worldX-b.worldX);
+  assert.ok(beacons.length>2);
+  for(let i=1;i<beacons.length;i++){const gap=Math.hypot(beacons[i].worldX-beacons[i-1].worldX,beacons[i].worldY-beacons[i-1].worldY);assert.ok(gap>=6-1e-6&&gap<=10+1e-6,`Physical gap ${gap} m`);}
+});

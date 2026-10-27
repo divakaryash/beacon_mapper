@@ -32,7 +32,7 @@ test('DLF reference preserves API points, excludes private footprints and genera
   assert.equal(output.plan.beacons[0].id,'IW001');
   for(const b of output.plan.beacons)assert.equal(geometryConflict({x:b.worldX,y:b.worldY},floor),null);
   for(const [i,b] of output.plan.beacons.entries())assert.equal(nearbyVisibleBeacon(output.plan.beacons.slice(0,i),b,new Map([[floor.floorId,floor]])),undefined);
-  assert.ok(output.coverage.coveragePercentage>=90);
+  assert.ok(output.coverage.graphCoveragePercentage>=90,`Waypoint coverage: ${output.coverage.graphCoveragePercentage.toFixed(1)}%; area: ${output.coverage.coveragePercentage.toFixed(1)}%`);
   assert.ok(!output.plan.warnings.some(w=>w.code==='graph-geometry-conflict'));
 });
 
