@@ -74,7 +74,7 @@ function FloorPlan({ project, source }) {
   return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
-export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation, onOverlayChange, onBeaconViewChange }) {
+export default function StudioCanvas({ beaconEditingDisabled, project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation, onOverlayChange, onBeaconViewChange }) {
   const svgRef = useRef(null);
   const containerRef=useRef(null);
   const [fullscreen,setFullscreen]=useState(false);
@@ -134,6 +134,15 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
 
   function applyView(view) {
     svgRef.current?.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
+    const popup=svgRef.current?.querySelector('[data-beacon-popup]');
+    if(popup)popup.setAttribute('transform',popupTransform(Number(popup.dataset.x),Number(popup.dataset.y),Number(popup.dataset.height)));
+  }
+
+  function popupTransform(x,y,popupHeight){
+    const view=viewRef.current,scale=view.width/(svgRef.current?.getBoundingClientRect().width||1200);
+    const left=Math.max(view.x+4*scale,Math.min(x+12*scale,view.x+view.width-234*scale));
+    const top=Math.max(view.y+4*scale,Math.min(y+20*scale,view.y+view.height-(popupHeight+4)*scale));
+    return `translate(${left} ${top}) scale(${scale})`;
   }
 
   function worldPoint(event) {
@@ -247,7 +256,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
       element?.setAttribute("transform", `translate(${point.x-active.start.x} ${point.y-active.start.y})`);
       return;
     }
-    if(active.mode === "beaconMove"){active.current=point;onBeaconAction("move",{id:active.beacon.id,floorId:active.beacon.floorId,x:active.beacon.x+point.x-active.start.x,y:active.beacon.y+point.y-active.start.y},true);return;}
+    if(active.mode === "beaconMove"){active.current=point;svgRef.current.querySelector(`[data-beacon-id="${active.beacon.id}"]`)?.setAttribute("transform",`translate(${point.x-active.start.x} ${point.y-active.start.y})`);return;}
     if (active.mode === "rectangle") {
       setRectDraft({ x: Math.min(active.start.x, point.x), y: Math.min(active.start.y, point.y), width: Math.abs(point.x - active.start.x), height: Math.abs(point.y - active.start.y) });
     } else if (active.mode === "move") {
@@ -335,10 +344,14 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
     try{return compareAnnotatedBeacons(project);}catch(error){return {error:error.message};}
   },[beaconView,project.annotationData,project.annotationAlignment,project.annotationFloor,project.widthMeters,project.heightMeters,project.drawingWidthPixels,project.graph,project.beaconPlan]);
   const modelBeacons=['data','missing'].includes(beaconView)?[]:['differences','extra'].includes(beaconView)?comparison?.extraBeacons||[]:project.beaconPlan?.beacons||[];
+  const popupBeacon=project.layers.beacons?.visible?modelBeacons.find(b=>b.id===beaconSelection&&project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false):null;
+  const popupLines=popupBeacon?[`Beacon ${beaconLabel(popupBeacon.id)}`,...nearbyBeacons(popupBeacon,project.beaconPlan.beacons).map(b=>`${b.direction}: ${beaconLabel(b.id)} · ${b.meters.toFixed(2)} m`)]:[];
+  if(popupBeacon&&popupLines.length===1)popupLines.push('No nearby beacons on this floor');
+  const popupHeight=popupLines.length*16+12;
   const referenceBeacons=['data','both'].includes(beaconView)?comparison?.referenceBeacons||[]:['differences','missing'].includes(beaconView)?comparison?.missingBeacons||[]:[];
   const missingIds=new Set((comparison?.missingBeacons||[]).map(b=>b.id)),extraIds=new Set((comparison?.extraBeacons||[]).map(b=>b.id));
   const warnedBeaconIds=new Set((project.beaconPlan?.warnings||[]).flatMap(w=>[w.beaconId,...(w.beaconIds||[])]).filter(Boolean));
-  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{modelBeacons.filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(tool==="beaconMove"&&!spacePressed&&e.button===0){e.stopPropagation();setBeaconSelection(b.id);return;}if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":extraIds.has(b.id)?"#dc2626":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{beaconLabel(b.id)}</text>}<title>{`Beacon ${beaconLabel(b.id)}\n${nearbyBeacons(b,project.beaconPlan.beacons).map(n=>`${n.direction}: ${beaconLabel(n.id)} · ${n.meters.toFixed(2)} m`).join("\n")}`}</title></g>)}</g>),[beaconView,comparison,modelBeacons,project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
+  const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{modelBeacons.filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button!==0||!["pan","beaconMove","select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(beaconSelection!==b.id||beaconEditingDisabled)return;if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":extraIds.has(b.id)?"#dc2626":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{beaconLabel(b.id)}</text>}<title>{`Beacon ${beaconLabel(b.id)}\n${nearbyBeacons(b,project.beaconPlan.beacons).map(n=>`${n.direction}: ${beaconLabel(n.id)} · ${n.meters.toFixed(2)} m`).join("\n")}`}</title></g>)}</g>),[beaconEditingDisabled,beaconView,comparison,modelBeacons,project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
   return (
     <div ref={containerRef} className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
       {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span><span style={{color:"#0891b2"}}>● Model</span><span style={{color:"#15803d"}}>○ Annotated data</span><span style={{color:"#b45309"}}>◆ Missing match</span><span style={{color:"#dc2626"}}>● Extra model</span></div>}
@@ -352,6 +365,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
       <svg
         ref={svgRef}
         aria-label="Infinite floor planning canvas"
+        onPointerDownCapture={event=>{if(!event.target.closest('[data-beacon-id]'))setBeaconSelection(null);}}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -407,6 +421,10 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
           ? <polygon className="drawing-preview" points={pointString(draftPath)} />
           : <polyline className="drawing-preview" points={pointString(draftPath)} />)}
         {["model","both"].includes(beaconView)&&<SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons||[]}/>}
+        {popupBeacon&&<g data-beacon-popup="true" data-x={popupBeacon.x} data-y={popupBeacon.y} data-height={popupHeight} transform={popupTransform(popupBeacon.x,popupBeacon.y,popupHeight)} pointerEvents="none" role="status" aria-label={popupLines.join('. ')}>
+          <rect width="230" height={popupHeight} rx="4" fill="#444" fillOpacity=".95" stroke="#fff" strokeOpacity=".3"/>
+          {popupLines.map((line,i)=><text key={i} x="7" y={17+i*16} fill="white" style={{fontSize:12,fontFamily:'Arial, sans-serif',fontWeight:i===0?600:400}}>{line}</text>)}
+        </g>}
         <SelectionHandles object={overlayEditing?null:previewObject || selected} onHandleDown={handleHandleDown} />
       </svg>
       <div className="canvas-hint">{tool==="beaconInsert"?"Click near a waypoint line to place a beacon · Escape to cancel":tool==="beaconMove"?"Choose a beacon, then click near its new waypoint position · Escape to cancel":overlayEditing?"Drag image to align · Corners: uniform scale · Round handle: rotate · Wheel: zoom · Space-drag: pan":"Drag to pan · Wheel to zoom · Fullscreen for a larger view"}</div>

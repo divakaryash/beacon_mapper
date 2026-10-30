@@ -29,7 +29,7 @@ export function beaconRuleSummary(project){
     const rules=new Set();
     for(const w of project.beaconPlan?.warnings||[]){
       if(w.beaconId!==b.id&&!w.beaconIds?.includes(b.id))continue;
-      if(w.code.includes('spacing')||w.code==='duplicate-beacons')rules.add('6–10 m spacing');
+      if(w.code.includes('spacing')||w.code==='duplicate-beacons')rules.add(`${project.planningSettings?.minimumSpacing??6}–${project.planningSettings?.maximumSpacing??10} m spacing`);
       else if(w.code.includes('geometry')||w.code.includes('wall')||w.code.includes('restricted'))rules.add('Valid mounting position');
     }
     const served=landmarks.filter(n=>covers(b,n));

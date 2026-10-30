@@ -9,7 +9,7 @@ self.onmessage = ({data:{id,inputs,action,data,selection}}) => {
     if(action==="suggestCoverage"){
       output={...planner.output,coverage:{...planner.output.coverage,waypointSuggestions:suggestWaypointCoverage({graph:planner.graph,floorGeometry:planner.floorGeometry,beacons:planner.beacons,profile:planner.profile(planner.settings.defaultProfileId),configuration:planner.settings,coverage:planner.output.coverage})}};
     }
-    else if(action==="generate")output=planner.generate();
+    else if(action==="generate"){if(Object.keys(data||{}).length)planner.configure(data);output=planner.generate();}
     else if(action==="configure")output=planner.configure(data);
     else if(action==="recalculate")output=planner.recalculate(data.scope,data.id);
     else if(action==="inspect")output=planner.output;

@@ -179,7 +179,7 @@ export class DeploymentPlanner {
     return this.evaluate(placementChanged?[...before,...this.beacons]:[]); // Reuse geometry/coverage for metadata-only settings.
   }
   generate() {
-    this.settings={...this.settings,minimumSpacing:6,maximumSpacing:10,spacing:Math.max(6,Math.min(10,this.settings.spacing))};
+    validatePlanningSettings(this.settings,this.profiles);
     const profile=this.profile(this.settings.defaultProfileId);
     if(this.settings.planningMode==="manual")return this.evaluate();
     const locked=this.beacons.filter(b=>b.locked),manual=this.settings.planningMode==="hybrid"?this.beacons.filter(b=>b.origin==="manual"&&!b.locked):[],preserved=[...locked,...manual],ids=new Set(preserved.map(b=>b.id));
@@ -192,18 +192,18 @@ export class DeploymentPlanner {
     const tooClose=(list,b)=>list.find(other=>other.floorId===b.floorId&&other.enabled!==false&&dist(other,b)<this.settings.minimumSpacing-1e-6);
     for(let i=0;i<activePreserved.length;i++){
       const other=tooClose(activePreserved.slice(0,i),activePreserved[i]);
-      if(other)throw new Error(`${other.id} and ${activePreserved[i].id} are less than 6 m apart. Move or disable one of the preserved beacons before generating a spaced layout.`);
+      if(other)throw new Error(`${other.id} and ${activePreserved[i].id} are less than ${this.settings.minimumSpacing} m apart. Move or disable one of the preserved beacons before generating a spaced layout.`);
     }
     const spaced=[...preserved];let spacingNotice=null;
     for(const b of result.beacons){
       if(tooClose(spaced,b))continue;
       spaced.push(b);
     }
-    // Five-metre path coverage targets at most 10 m between stations; 6 m separation always wins.
+    // Repair gaps using the requested spacing while retaining the minimum separation.
     if(this.graph.edges.length){
-      const advice=suggestWaypointCoverage({graph:this.graph,floorGeometry:this.floorGeometry,beacons:spaced.map(b=>({...b,reliableRadius:Math.min(5,b.reliableRadius??this.settings.reliableRadius)})),profile,configuration:{...this.settings,coverageThreshold:'reliable',reliableRadius:Math.min(5,this.settings.reliableRadius)},coverage:null});
+      const advice=suggestWaypointCoverage({graph:this.graph,floorGeometry:this.floorGeometry,beacons:spaced.map(b=>({...b,reliableRadius:Math.min(this.settings.maximumSpacing/2,b.reliableRadius??this.settings.reliableRadius)})),profile,configuration:{...this.settings,coverageThreshold:'reliable',reliableRadius:Math.min(this.settings.maximumSpacing/2,this.settings.reliableRadius)},coverage:null});
       for(const suggestion of advice.suggestions)if(!tooClose(spaced,suggestion))spaced.push(referenceBeacon({...suggestion,reliableRadius:this.settings.reliableRadius,origin:'automatic'},this.graph));
-      if(advice.remainingLength>1e-6)spacingNotice=`6 m separation is enforced. The repair search could not establish the 10 m spacing target on every route section${advice.limitReached?' within its 50-position limit':''}; review the remaining gaps and landmark coverage.`;
+      if(advice.remainingLength>1e-6)spacingNotice=`${this.settings.minimumSpacing} m separation is enforced. The repair search could not establish the ${this.settings.maximumSpacing} m spacing target on every route section${advice.limitReached?' within its 50-position limit':''}; review the remaining gaps and landmark coverage.`;
     }
     const preservedSet=new Set(preserved);
     this.beacons=spaced.map(b=>{if(preservedSet.has(b))return b;let id=existing.get(positionKey(b));if(!id||ids.has(id))id=this.allocateId();ids.add(id);return this.normalize({...b,id});});

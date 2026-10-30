@@ -136,3 +136,18 @@ test('a clear corridor keeps consecutive physical beacon distances inside 6–10
   assert.ok(beacons.length>2);
   for(let i=1;i<beacons.length;i++){const gap=Math.hypot(beacons[i].worldX-beacons[i-1].worldX,beacons[i].worldY-beacons[i-1].worldY);assert.ok(gap>=6-1e-6&&gap<=10+1e-6,`Physical gap ${gap} m`);}
 });
+
+test("generation retains custom spacing and regenerates the automatic layout",()=>{
+  const planner=new DeploymentPlanner(inputs());
+  const initial=planner.generate().plan.beacons.length;
+  planner.configure({minimumSpacing:12,maximumSpacing:18,spacing:15});
+  const output=planner.generate();
+  assert.equal(output.settings.minimumSpacing,12);
+  assert.equal(output.settings.maximumSpacing,18);
+  assert.equal(output.plan.configuration.spacing,15);
+  assert.ok(output.plan.beacons.length>0);
+  assert.notEqual(output.plan.beacons.length,initial);
+  for(const [i,a] of output.plan.beacons.entries())for(const b of output.plan.beacons.slice(i+1))if(a.floorId===b.floorId)assert.ok(Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY)>=12-1e-6);
+  assert.throws(()=>planner.configure({minimumSpacing:0}),/Spacing/);
+  assert.throws(()=>planner.configure({minimumSpacing:20,maximumSpacing:10}),/Spacing/);
+});
