@@ -27,3 +27,23 @@ test('comparison applies the full affine annotation alignment',()=>{
   const p=reference();p.annotationAlignment.geoToNormalizedPdf=[[0,1],[-1,0],[.5,.5]];
   p.beaconPlan.beacons=[b('a',50,50),b('b',50,60)];assert.equal(compareAnnotatedBeacons(p).accuracy,100);
 });
+test('canvas comparison exposes the exact missing and extra markers behind the score without changing the plan',()=>{
+  const p=reference();p.drawingWidthPixels=200;
+  p.annotationData.features[1].id='source-a';p.annotationData.features[1].properties.name='Reference A';
+  p.annotationData.features.push({id:'other-floor',properties:{floor:1,type:'Beacon'},geometry:{type:'Point',coordinates:[.5,0]}});
+  p.beaconPlan.beacons=[b('matched',0),b('extra',50),{...b('disabled',10),enabled:false},b('other-model-floor',10,0,'L2')];
+  const before=structuredClone(p),result=compareAnnotatedBeacons(p);
+  assert.equal(result.referenceBeacons.length,2);assert.equal(result.modelBeacons.length,2);
+  assert.equal(result.missingBeacons.length,1);assert.equal(result.extraBeacons.length,1);
+  assert.equal(result.missingBeacons[0].worldX,10);assert.equal(result.missingBeacons[0].x,20);
+  assert.equal(result.extraBeacons[0].id,'extra');
+  assert.equal(result.referenceBeacons[0].sourceId,'source-a');assert.equal(result.referenceBeacons[0].label,'Reference A');
+  assert.equal(result.pairs[0].modelId,'matched');assert.equal(result.pairs[0].distance,0);
+  assert.deepEqual(p,before);
+});
+test('annotated markers remain available before model generation and on a floor with no graph nodes',()=>{
+  const p=reference();p.graph.nodes=[];p.beaconPlan=null;
+  const result=compareAnnotatedBeacons(p);
+  assert.equal(result.referenceBeacons.length,2);assert.equal(result.missingBeacons.length,2);assert.equal(result.extraBeacons.length,0);
+  assert.equal(result.referenceBeacons[0].floorId,'floor-1');
+});

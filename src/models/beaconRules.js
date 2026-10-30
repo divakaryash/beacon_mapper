@@ -1,6 +1,7 @@
 import {compileFloorGeometry,visibleGeometrySegment} from '../engines/floorGeometry.js';
 import {annotationFloors} from './annotatedFloor.js';
 import {geometryForProject} from './deployments.js';
+export const BEACON_VIEWS={model:'Model beacons',data:'Annotated data beacons',both:'Both layouts',differences:'Differences: missing + extra',missing:'Missing annotated beacons',extra:'Extra model beacons'};
 export const beaconLabel=id=>/^IW\d+$/.test(id)?String(Number(id.slice(2))):id;
 const distance=(a,b)=>Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY);
 export function nearbyBeacons(beacon,beacons){
@@ -37,18 +38,25 @@ export function beaconRuleSummary(project){
   });
   return {landmarks:landmarks.length,landmarksCovered:covered(landmarks),waypoints:nodes.length,waypointsCovered:covered(nodes),conflicts};
 }
-export function compareAnnotatedBeacons(project,tolerance=3){
+export function annotatedBeaconPositions(project){
   const alignment=project.annotationAlignment;
   if(!alignment)throw new Error('Import annotated floor data before comparing.');
   const matrix=alignment.geoToNormalizedPdf;
-  const actual=annotationFloors(project.annotationData).features.filter(f=>f.properties?.type==='Beacon'&&String(f.properties.floor??f.properties.level??'0')===String(project.annotationFloor)&&f.geometry?.type==='Point').map(f=>{
+  const floorId=project.graph.nodes[0]?.floorId||project.beaconPlan?.beacons[0]?.floorId||'floor-1';
+  const scale=Number(project.widthMeters)/Number(project.drawingWidthPixels||project.widthMeters);
+  const actual=annotationFloors(project.annotationData).features.filter(f=>f.properties?.type==='Beacon'&&String(f.properties.floor??f.properties.level??'0')===String(project.annotationFloor)&&f.geometry?.type==='Point').map((f,index)=>{
     const [lon,lat]=f.geometry.coordinates;
     if(!Number.isFinite(lon)||!Number.isFinite(lat))throw new Error('Reference beacon has invalid coordinates.');
     const dx=lon-alignment.origin[0],dy=lat-alignment.origin[1];
-    return {worldX:(dx*matrix[0][0]+dy*matrix[1][0]+matrix[2][0])*project.widthMeters,worldY:(dx*matrix[0][1]+dy*matrix[1][1]+matrix[2][1])*project.heightMeters};
+    const worldX=(dx*matrix[0][0]+dy*matrix[1][0]+matrix[2][0])*project.widthMeters,worldY=(dx*matrix[0][1]+dy*matrix[1][1]+matrix[2][1])*project.heightMeters;
+    return {id:`annotated-${index+1}`,sourceId:String(f.id??f._id??index+1),label:beaconLabel(String(f.properties.name||index+1)),floorId,worldX,worldY,x:worldX/scale,y:worldY/scale};
   });
   if(!actual.length)throw new Error('No annotated Beacon points found on this floor.');
-  const planned=(project.beaconPlan?.beacons||[]).filter(b=>b.enabled!==false&&b.floorId===(project.graph.nodes[0]?.floorId));
+  return actual;
+}
+export function compareAnnotatedBeacons(project,tolerance=3){
+  const actual=annotatedBeaconPositions(project);
+  const planned=(project.beaconPlan?.beacons||[]).filter(b=>b.enabled!==false&&b.floorId===actual[0].floorId);
   const candidates=actual.map(a=>planned.map((b,j)=>({j,meters:distance(a,b)})).filter(p=>p.meters<=tolerance).sort((a,b)=>a.meters-b.meters));
   const matches=new Map();
   for(let i=0;i<actual.length;i++){
@@ -63,5 +71,7 @@ export function compareAnnotatedBeacons(project,tolerance=3){
     while(free!==null){const index=via.get(free),previous=parents.get(index);matches.set(free,index);free=previous;}
   }
   const matched=matches.size,error=[...matches].reduce((sum,[j,i])=>sum+distance(actual[i],planned[j]),0);
-  return {matched,actual:actual.length,planned:planned.length,accuracy:100*2*matched/(actual.length+planned.length),recall:100*matched/actual.length,precision:planned.length?100*matched/planned.length:0,meanError:matched?error/matched:null,tolerance};
+  const matchedActual=new Set(matches.values());
+  const pairs=[...matches].map(([j,i])=>({annotatedId:actual[i].id,modelId:planned[j].id,distance:distance(actual[i],planned[j])}));
+  return {referenceBeacons:actual,modelBeacons:planned,pairs,missingBeacons:actual.filter((_,i)=>!matchedActual.has(i)),extraBeacons:planned.filter((_,j)=>!matches.has(j)),matched,actual:actual.length,planned:planned.length,accuracy:100*2*matched/(actual.length+planned.length),recall:100*matched/actual.length,precision:planned.length?100*matched/planned.length:0,meanError:matched?error/matched:null,tolerance};
 }

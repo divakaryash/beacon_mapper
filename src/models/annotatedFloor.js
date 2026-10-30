@@ -1,8 +1,36 @@
 import polygonClipping from 'polygon-clipping';
 import {validateFloorPlanSetup} from './floorPlanSetup.js';
 
+export function annotationFeatures(payload){
+  const features=Array.isArray(payload)?payload:payload?.features??payload?.data??payload?.mappingElements;
+  if(!Array.isArray(features)||!features.length||features.length>10000)throw new Error('Provide GeoJSON features, mappingElements, or an API data array (up to 10,000 features).');
+  if(!payload?.mappingElements||!payload.masterGraph)return features;
+  const graph=payload.masterGraph;
+  if(typeof graph!=='object'||Array.isArray(graph)||Object.keys(graph).length>10000)throw new Error('Invalid masterGraph node collection.');
+  const nodes=new Map(Object.keys(graph).map(key=>{
+    const fields=key.split(','),floor=Number(fields[3]),coordinates=fields.slice(4).map(Number);
+    if(fields.length!==6||fields.slice(1).some(v=>v.trim()===''||!Number.isFinite(Number(v)))||Math.abs(coordinates[0])>180||Math.abs(coordinates[1])>=89.9)throw new Error('masterGraph nodes require local x/y, floor and valid longitude/latitude.');
+    return [key,{floor,coordinates}];
+  }));
+  const routes=[],seen=new Set();
+  for(const [key,a] of nodes){
+    if(!Array.isArray(graph[key]))throw new Error('masterGraph neighbors must be arrays.');
+    for(const target of graph[key]){
+      const b=nodes.get(target);
+      if(!b)throw new Error('masterGraph contains a missing destination node.');
+      const pair=JSON.stringify([key,target].sort());
+      // Cross-floor transport is represented by its landmarks, never by a same-floor walking line.
+      if(a.floor!==b.floor||seen.has(pair)||a.coordinates.every((n,i)=>n===b.coordinates[i]))continue;
+      seen.add(pair);
+      routes.push({type:'Feature',id:`master-route-${routes.length+1}`,properties:{level:a.floor,lineCategory:'waypoint',source:'masterGraph'},geometry:{type:'LineString',coordinates:[a.coordinates,b.coordinates]}});
+      if(features.length+routes.length>10000)throw new Error('Annotation export exceeds the 10,000-feature import limit.');
+    }
+  }
+  return [...features,...routes];
+}
+
 export function annotationFloors(payload){
-  const features=Array.isArray(payload)?payload:payload?.features??payload?.data;
+  const features=annotationFeatures(payload);
   if(!Array.isArray(features)||!features.length||features.length>10000)throw new Error('Provide a GeoJSON FeatureCollection, feature array, or API response with data (up to 10,000 features).');
   const floors=[...new Set(features.filter(f=>f?.geometry?.type==='Polygon'&&f.properties?.type!=='Boundary').map(f=>String(f.properties?.floor??f.properties?.level??'0')))];
   if(!floors.length)throw new Error('No annotated floor polygons found.');
@@ -10,7 +38,7 @@ export function annotationFloors(payload){
 }
 
 export function waypointRoutes(payload){
-  const features=Array.isArray(payload)?payload:payload?.features??payload?.data;
+  const features=annotationFeatures(payload);
   if(!Array.isArray(features)||!features.length||features.length>10000)throw new Error('Provide waypoint JSON with up to 10,000 features.');
   const routes=features.filter(f=>f.properties?.lineCategory==='waypoint'&&['LineString','MultiLineString'].includes(f.geometry?.type));
   if(!routes.length)throw new Error('No waypoint LineString or MultiLineString features found.');

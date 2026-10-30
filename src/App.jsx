@@ -1,6 +1,6 @@
 import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
 import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
-import {annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
+import {annotationFeatures,annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
@@ -122,10 +122,8 @@ export default function App() {
       const files=Array.from(e.target.files||[]);if(!files.length)return;
       try{
         const payload={type:"FeatureCollection",features:(await Promise.all(files.map(async file=>{
-          const data=JSON.parse(await file.text());
-          const features=Array.isArray(data)?data:data?.features??data?.data;
-          if(!Array.isArray(features)||!features.length)throw new Error(`${file.name}: provide GeoJSON features or an API data array.`);
-          return features;
+          try{return annotationFeatures(JSON.parse(await file.text()));}
+          catch(error){throw new Error(`${file.name}: ${error.message}`);}
         }))).flat()};
         const parsed=annotationFloors(payload);
         const setup=annotationSetup(payload,parsed.floors[0]);
@@ -338,7 +336,7 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas project={project} onBeaconViewChange={beaconView=>update({...project,beaconView})} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
       <aside className="right-panel"><BeaconPanel project={project} tool={tool} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/></aside>
     </main>
   );

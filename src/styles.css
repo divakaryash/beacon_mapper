@@ -195,3 +195,7 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .map-controls button {padding:9px;background:white;border:1px solid #c8d0d6;border-radius:5px;}
 .map-controls button[aria-pressed="true"] {background:#d6eee8;}
 .map-status {position:absolute;z-index:4;top:50px;background:white;padding:8px;}
+.map-controls { align-items: center; flex-wrap: wrap; max-width: calc(100% - 24px); }
+.map-controls select { width: auto; max-width: 100%; margin: 0; padding: 8px; background: white; border: 1px solid #c8d0d6; border-radius: 5px; }
+.map-controls small { padding: 6px 8px; background: rgb(255 255 255 / 94%); border-radius: 5px; }
+.reference-canvas .polygon-legend { top: auto; bottom: 46px; max-width: calc(100% - 24px); }

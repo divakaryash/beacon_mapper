@@ -1,4 +1,4 @@
-import {beaconLabel,beaconRuleSummary,compareAnnotatedBeacons} from "../models/beaconRules.js";
+import {BEACON_VIEWS,beaconLabel,beaconRuleSummary,compareAnnotatedBeacons} from "../models/beaconRules.js";
 import React,{useEffect,useState,useMemo} from "react";
 import {DEFAULT_PLANNING_SETTINGS} from "../engines/deploymentPlanner.js";
 export default function BeaconPanel({project,tool,update,setTool,selection,setSelection,planner,error,focus}) {
@@ -13,6 +13,13 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
   const command=(action,data)=>planner.command(action,data,{});
   const setting=(field,value)=>result?command("configure",{[field]:value}):update({...project,planningSettings:{...settings,[field]:value}});
   return <section className="panel-section graph-panel deployment-panel"><h2>{project.floorPlanOverlay?"Step 3 · Beacon placement":"Deployment planner"}</h2><small>{planner.busy?"Updating live analysis…":"Live geometry + graph analysis"} · no RF simulation</small>{result&&<p role="status"><strong>{result.beacons.length} beacons generated</strong>{project.floorAnalysis?.method==="aligned-venue-reference"&&<small>Blue: navigation beacons · red: API access points. Review this initial draft before installation.</small>}</p>}
+    <section className="panel-section" aria-label="Beacon map comparison">
+      <label>Beacons shown on map<select value={project.beaconView||"model"} onChange={e=>update({...project,beaconView:e.target.value})}>
+        {Object.entries(BEACON_VIEWS).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select></label>
+      <small>Blue: model · green ring: annotated data · orange diamond: missing annotation match · red: extra model beacon. Differences use the same one-to-one 3 m matching as the comparison.</small>
+      <small>Annotated positions are read only. Coverage calculations always describe the model layout.</small>
+    </section>
     <p>Priority 1: 6–10 m beacon spacing. Then cover floor connections → entry / exit → important junctions → remaining waypoints. Automatic positions less than 6 m apart are rejected, even if landmark coverage decreases. Covered dead ends need no extra beacon.</p>
     {result?.spacingNotice&&<p role="status">{result.spacingNotice}</p>}
     {summary&&<section className="panel-section" aria-label="Placement rules">
@@ -22,7 +29,7 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
       {summary.conflicts.map(({beacon,rules})=><button key={beacon.id} className="warning-link" onClick={()=>{setSelection(beacon.id);focus(beacon);}}>{beaconLabel(beacon.id)} · {rules.join(" + ")}</button>)}
       <small>Conflicts flag spacing / mounting warnings where a beacon also serves landmark coverage. Shared coverage alone is not a conflict.</small>
       <button disabled={planner.busy} onClick={()=>{try{setComparison(compareAnnotatedBeacons(project));}catch(error){setComparison({error:error.message});}}}>Compare annotated beacons</button>
-      {comparison&&(comparison.error?<p role="alert">{comparison.error}</p>:<p role="status">Placement agreement: <strong>{comparison.accuracy.toFixed(1)}%</strong> · {comparison.matched}/{comparison.actual} reference beacons matched within {comparison.tolerance} m. Precision {comparison.precision.toFixed(1)}%, recall {comparison.recall.toFixed(1)}%. {comparison.meanError!==null?`Mean matched distance ${comparison.meanError.toFixed(2)} m.`:""} Maximum one-to-one matches within tolerance; percentage is F1, including extra and missing beacons.</p>)}
+      {comparison&&(comparison.error?<p role="alert">{comparison.error}</p>:<p role="status">Placement agreement: <strong>{comparison.accuracy.toFixed(1)}%</strong> · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra model beacons · {comparison.matched}/{comparison.actual} reference beacons matched within {comparison.tolerance} m. Precision {comparison.precision.toFixed(1)}%, recall {comparison.recall.toFixed(1)}%. {comparison.meanError!==null?`Mean matched distance ${comparison.meanError.toFixed(2)} m.`:""} Maximum one-to-one matches within tolerance; percentage is F1, including extra and missing beacons.</p>)}
     </section>}
     <section className="panel-section" aria-label="Waypoint path coverage">
       <h3>Waypoint paths covered by beacons</h3>

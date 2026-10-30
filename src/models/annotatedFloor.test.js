@@ -142,3 +142,17 @@ test('saved strict-spacing drafts restore the previous nonblocking spacing setti
   const result=normalizeProject({objects:[],graph:{nodes:[],edges:[]},drawingWidthPixels:100,widthMeters:10,heightMeters:10,planningSettings:{hardSpacing:true,minimumSpacing:6,maximumSpacing:10,spacing:10,placementStrategy:'centerline'}});
   assert.deepEqual(result.planningSettings,{minimumSpacing:5,maximumSpacing:10,spacing:7.5,placementStrategy:'centerline'});
 });
+
+test('building exports unwrap mappingElements and convert explicit masterGraph links into floor-scoped routes',async()=>{
+  const {annotationFeatures,waypointRoutes}=await import('./annotatedFloor.js');
+  const a='building,0,0,1,77,28',b='building,10,0,1,77.0001,28',upper='building,10,0,2,77.0001,28';
+  const exported={mappingElements:payload.data,masterGraph:{[a]:[b],[b]:[a,upper],[upper]:[b]}};
+  const features=annotationFeatures(exported),routes=waypointRoutes(exported);
+  assert.equal(features.length,payload.data.length+1);
+  assert.equal(routes.length,1);assert.equal(routes[0].properties.floor,1);
+  assert.deepEqual(routes[0].geometry.coordinates,[[77,28],[77.0001,28]]);
+  assert.deepEqual(annotationFloors(exported).floors,['1']);
+  assert.deepEqual(annotationFeatures({mappingElements:payload.data}),payload.data);
+  assert.throws(()=>annotationFeatures({...exported,masterGraph:{[a]:['missing']}}),/missing destination/);
+  assert.throws(()=>annotationFeatures({...exported,masterGraph:{'building,0,0,1,999,28':[]}}),/valid longitude/);
+});
