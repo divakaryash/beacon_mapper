@@ -6,7 +6,8 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 0; min-height: 100vh; overflow: auto; }
+html, body, #root { height: 100%; }
+body { margin: 0; min-width: 0; overflow: hidden; overscroll-behavior: none; }
 button, input, select { font: inherit; }
 button { border: 0; cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.42; }
@@ -17,7 +18,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .welcome-card p:not(.eyebrow) { color: #657283; }
 .welcome-card small { display: block; margin-top: 0.75rem; color: #82909d; }
 
-.app-shell { height: 100vh; display: grid; grid-template: 66px minmax(0, 1fr) / 280px minmax(500px, 1fr) 280px; }
+.app-shell { height: 100vh; height: 100dvh; overflow-x: auto; overflow-y: hidden; display: grid; grid-template: 66px minmax(0, 1fr) / 280px minmax(500px, 1fr) 280px; }
 .app-header { grid-column: 1 / -1; display: flex; align-items: center; gap: 2rem; padding: 0 1.25rem; color: #f8fbfc; background: #10253f; border-bottom: 3px solid #2ca58d; }
 .app-header h1 { margin: 0.1rem 0 0; max-width: 360px; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
 .eyebrow { margin: 0; color: #8fd0c2; font-size: 0.67rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -34,7 +35,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tool-rail button span { font-size: 0.72rem; font-weight: 850; text-transform: uppercase; }
 .tool-rail button small { max-width: 56px; overflow: hidden; font-size: 0.57rem; text-overflow: ellipsis; white-space: nowrap; }
 
-.left-panel, .right-panel { min-height: 0; padding: 14px; overflow: auto; background: #f8fafb; }
+.left-panel, .right-panel { min-height: 0; padding: 14px; overflow: auto; overscroll-behavior: contain; background: #f8fafb; }
 .left-panel { grid-column: 1; border-right: 1px solid #cbd3da; }
 .right-panel { grid-column: 3; border-left: 1px solid #cbd3da; }
 .panel-section { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dfe4e8; }

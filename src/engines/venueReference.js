@@ -33,6 +33,7 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
       continue;
     }
     if(geometry.type==='Polygon'){
+      if(type==='Section')continue;
       if(!reference.uploaded&&geometry.coordinates.length!==1)throw new Error(`Polygon holes require explicit exclusion geometry: ${feature.id}`);
       const points=geometry.coordinates[0].map(project).filter((p,i,array)=>!i||Math.hypot(p.x-array[i-1].x,p.y-array[i-1].y)>1e-7);
       if(points.length>1&&Math.hypot(points[0].x-points.at(-1).x,points[0].y-points.at(-1).y)<1e-7)points.pop();

@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeProject, defaultLayers, makeObject} from './drawing.js';
 
+test('section annotations stay hidden without hiding other annotation types',async()=>{
+  const {visibleAnnotation}=await import('./drawing.js');
+  for(const origin of ['automatic','reference','manual']){
+    assert.equal(visibleAnnotation({origin,type:'polygon',points:[{x:0,y:0}],metadata:{sourceType:'Section'}}),false);
+    assert.equal(visibleAnnotation({origin,type:'walkablePath',points:[{x:0,y:0}],metadata:{sourceType:'Section'}}),true);
+    assert.equal(visibleAnnotation({origin,type:'polygon',metadata:{sourceType:'Store'}}),true);
+  }
+});
+
 test('reference uploads open a clear annotated plan without discarding deployment data', () => {
   const graph = {nodes:[{id:'entrance'}],edges:[]};
   const beaconPlan = {beacons:[{id:'IW001'}],geometryValidation:{rejected:0}};

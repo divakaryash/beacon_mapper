@@ -8,3 +8,5 @@ reports/professional/*-source.json
 
 __pycache__/
 .env
+
+.env.local

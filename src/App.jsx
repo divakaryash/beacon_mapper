@@ -1,3 +1,5 @@
+import {beaconCountSummary} from "./models/beaconRules.js";
+import ApiAnnotationImport from "./components/ApiAnnotationImport.jsx";
 import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
 import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
 import {annotationFeatures,annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
@@ -116,19 +118,25 @@ export default function App() {
       setUploadSetup(setup);setAnnotationFloor(floor);setImportError("");
     }catch(error){setImportError(error.message);}
   }
+  function loadAnnotationPayload(payload,importImmediately=false){
+    const parsed=annotationFloors(payload);
+    const setup=annotationSetup(payload,parsed.floors[0]);
+    floorProjects.current.clear();setAnnotationData(payload);setWaypointData(null);
+    setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportMode("annotated");setImportError("");
+    if(importImmediately)return importFloorPlan(pendingMap,{payload,floor:parsed.floors[0],setup});
+  }
   const annotationFields=<section>
-    <p>Upload GeoJSON and waypoint data (required). Floors are read from the data. A floor plan image is optional.</p>
-    <label>GeoJSON / waypoint data (required)<input type="file" required multiple accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{
+    <ApiAnnotationImport disabled={importing} onLoad={payload=>loadAnnotationPayload(payload,true)} floors={annotationData?annotationFloors(annotationData).floors:[]} floor={annotationFloor} onFloorChange={selectAnnotationFloor}/>
+    <h3>2. Upload JSON instead</h3>
+    <p>Alternatively, upload GeoJSON and waypoint data. Floors are read from the data. A floor plan image is optional.</p>
+    <label>GeoJSON / waypoint data<input type="file" multiple accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{
       const files=Array.from(e.target.files||[]);if(!files.length)return;
       try{
         const payload={type:"FeatureCollection",features:(await Promise.all(files.map(async file=>{
           try{return annotationFeatures(JSON.parse(await file.text()));}
           catch(error){throw new Error(`${file.name}: ${error.message}`);}
         }))).flat()};
-        const parsed=annotationFloors(payload);
-        const setup=annotationSetup(payload,parsed.floors[0]);
-        floorProjects.current.clear();setAnnotationData(payload);setWaypointData(null);
-        setAnnotationFloor(parsed.floors[0]);setUploadSetup(setup);setImportMode("annotated");setImportError("");
+        loadAnnotationPayload(payload);
       }catch(error){setAnnotationData(null);setWaypointData(null);setImportError(error.message);}
     }}/></label>
     {annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>selectAnnotationFloor(e.target.value)}>
@@ -252,8 +260,9 @@ export default function App() {
     addObject(duplicate);
   }
 
-  async function importFloorPlan(file) {
-    if (!file && !annotationData) return;
+  async function importFloorPlan(file,annotation=null) {
+    const data=annotation?.payload??annotationData,floor=annotation?.floor??annotationFloor;
+    if (!file && !data) return;
     const request = ++importRequest.current;
     setImporting(true);
     setImportError("");
@@ -261,13 +270,13 @@ export default function App() {
     setLiveProject(null);
     const base = { objects: [], graph:{nodes:[],edges:[]}, layers: defaultLayers(), gridSize: 20, snapToGrid: false };
     try {
-      const setup=validateFloorPlanSetup(uploadSetup);
-      const annotated=importMode==="annotated";
+      const setup=validateFloorPlanSetup(annotation?.setup??uploadSetup);
+      const annotated=!!annotation||importMode==="annotated";
       const imported = file?await readFloorPlan(file,{annotated}):{};
       if(request!==importRequest.current)return;
       let next;
       if(annotated){
-        next=createManualAnnotationProject(imported,annotationData,annotationFloor,waypointData);
+        next=createManualAnnotationProject(imported,data,floor,annotation?null:waypointData);
       }else{
         imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
         const metersPerPixel=setup.widthMeters/imported.drawingWidthPixels;
@@ -279,7 +288,7 @@ export default function App() {
       setPendingMap(null);setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
       floorProjects.current.clear();
       setTool(next.floorPlanOverlay?"alignMap":"select");
-      setStatus(annotated?`Floor ${annotationFloor} imported`:"Map imported · generate placement when ready");
+      setStatus(annotated?`Floor ${floor} imported`:"Map imported · generate placement when ready");
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
     } finally { if (request === importRequest.current) setImporting(false); }
@@ -293,13 +302,13 @@ export default function App() {
     objects: project.objects.length,
   } : null, [project]);
 
-  const importHint=!annotationData?"Upload GeoJSON / waypoint data to continue.":!uploadReady?setupError:"Ready to import. Floor plan image is optional.";
+  const importHint=!annotationData?"Load API annotations or upload GeoJSON / waypoint data to continue.":!uploadReady?setupError:"Ready to import. Floor plan image is optional.";
   const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name} <button type="button" disabled={importing} onClick={()=>setPendingMap(null)}>Remove</button></p>}<p role="status">{importing?"Importing data…":importHint}</p><button type="button" disabled={importing||!uploadReady||!annotationData} onClick={()=>importFloorPlan(pendingMap||(project?.annotationData===annotationData&&project.annotationFloor===annotationFloor?project.file:null))}>{importing?"Importing…":"Import data"}</button></div>;
 
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
       <p className="eyebrow">INPS · Local planning workspace</p><h1>Import your map. Align it yourself.</h1>
-      <p>Import your floor geometry and waypoints. Optionally add a floor plan image for alignment. Generate beacons when you choose. Everything stays in this browser.</p>
+      <p>Import your floor geometry and waypoints. Optionally add a floor plan image for alignment. Generate beacons when you choose. Planning data stays in this browser; API imports contact the selected iway server.</p>
       {annotationFields}{uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan (optional)"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}<small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
@@ -310,7 +319,7 @@ export default function App() {
     <main className="app-shell">
       <header className="app-header">
         <div><p className="eyebrow">Indoor Navigation Planning Studio</p><h1>{project.name || "Untitled floor"}</h1></div>
-        <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span>{project.beaconPlan&&<span>{project.beaconPlan.beacons.length} IW beacons</span>}</div>
+        <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span>{(project.beaconPlan||project.annotationData)&&<span>{beaconCountSummary(project)}</span>}</div>
         <div className="header-actions"><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
       </header>
 

@@ -1,4 +1,4 @@
-import {BEACON_VIEWS,beaconLabel,nearbyBeacons,compareAnnotatedBeacons} from "../models/beaconRules.js";
+import {BEACON_VIEWS,beaconCountSummary,beaconLabel,nearbyBeacons,compareAnnotatedBeacons} from "../models/beaconRules.js";
 import WaypointCoverageOverlay from "./WaypointCoverageOverlay.jsx";
 import {overlayPoint,overlayTransform,snapFloorPlanOverlay} from "../models/floorPlanOverlay.js";
 import SimulationOverlay from "./SimulationOverlay.jsx";
@@ -357,7 +357,8 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
       {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span><span style={{color:"#0891b2"}}>● Model</span><span style={{color:"#15803d"}}>○ Annotated data</span><span style={{color:"#b45309"}}>◆ Missing match</span><span style={{color:"#dc2626"}}>● Extra model</span></div>}
       <div className="map-controls"><button type="button" onClick={toggleFullscreen}>{fullscreen?"Exit fullscreen":"Fullscreen"}</button>
         <select aria-label="Beacon map view" value={beaconView} onChange={e=>onBeaconViewChange(e.target.value)}>{Object.entries(BEACON_VIEWS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
-        {comparison&&!comparison.error&&<small role="status">{comparison.actual} annotated · {comparison.planned} active model · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra</small>}
+        {["model","data","both"].includes(beaconView)&&<small role="status">{beaconCountSummary(project)}</small>}
+        {!["model","data","both"].includes(beaconView)&&comparison&&!comparison.error&&<small role="status">{comparison.actual} annotated · {comparison.planned} active model · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra</small>}
       </div>
       {comparison?.error&&<p className="map-status" role="alert">{comparison.error}</p>}
       {mapError&&<p className="map-status" role="alert">{mapError}</p>}

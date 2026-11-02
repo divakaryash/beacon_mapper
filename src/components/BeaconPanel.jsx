@@ -1,6 +1,6 @@
 import {beaconAnnotationExport} from "../models/beaconAnnotationExport.js";
 import {downloadFile} from "../models/deploymentExport.js";
-import {BEACON_VIEWS,beaconLabel,compareAnnotatedBeacons,nearbyBeacons} from "../models/beaconRules.js";
+import {BEACON_VIEWS,beaconCountSummary,beaconLabel,compareAnnotatedBeacons,nearbyBeacons} from "../models/beaconRules.js";
 import React,{useEffect,useState} from "react";
 import {DEFAULT_PLANNING_SETTINGS} from "../engines/deploymentPlanner.js";
 export default function BeaconPanel({project,tool,update,setTool,selection,setSelection,planner,error,focus}) {
@@ -17,7 +17,7 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
   const floors=[...new Set(project.graph.nodes.map(n=>n.floorId))];
   const command=(action,data)=>planner.command(action,data,{});
   const setting=(field,value)=>result?command("configure",{[field]:value}):update({...project,planningSettings:{...settings,[field]:value}});
-  return <section className="panel-section graph-panel deployment-panel"><h2>{project.floorPlanOverlay?"Step 3 · Beacon placement":"Deployment planner"}</h2>{result&&<p role="status"><strong>{result.beacons.length} beacons generated</strong>{project.floorAnalysis?.method==="aligned-venue-reference"&&<small>Blue: navigation beacons · red: API access points. Review this initial draft before installation.</small>}</p>}
+  return <section className="panel-section graph-panel deployment-panel"><h2>{project.floorPlanOverlay?"Step 3 · Beacon placement":"Deployment planner"}</h2>{(result||project.annotationData)&&<p role="status"><strong>{beaconCountSummary(project)}</strong>{project.floorAnalysis?.method==="aligned-venue-reference"&&<small>Blue: navigation beacons · red: API access points. Review this initial draft before installation.</small>}</p>}
     {selected&&<section className="panel-section" aria-label="Selected beacon properties" aria-live="polite">
       <h3>Beacon {beaconLabel(selected.id)} · properties</h3>
       <p>ID: {selected.id}<br/>Floor: {selected.floorId}<br/>Position: ({selected.worldX.toFixed(2)}, {selected.worldY.toFixed(2)}) m<br/>Coverage radius: {selected.coverageRadius} m<br/>Status: {selected.enabled===false?"Disabled":"Enabled"}{selected.locked?" · locked":""}</p>

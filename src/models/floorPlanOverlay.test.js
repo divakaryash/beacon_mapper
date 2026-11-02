@@ -69,3 +69,22 @@ test('combined floor data imports without an image and selects only the requeste
   assert.ok(upper.objects.some(o=>o.metadata?.sourceId==='upper-room'));
   assert.equal(ground.annotationData,combined);
 });
+
+test('null API destinations do not block import and leave a visible warning',()=>{
+  const key='building,0,0,0,77,28';
+  const apiPayload={mappingElements:payload.features,masterGraph:{[key]:[null,null]}};
+  const result=createManualAnnotationProject({},apiPayload,0);
+  assert.ok(result.objects.length>0);
+  assert.ok(result.floorAnalysis.warnings.some(message=>message.includes('2 empty destination links')));
+  assert.equal(result.annotationData,apiPayload);
+});
+
+test('Apollo thin and retracing wall polygons import without disabling geometry validation',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const walls=JSON.parse(await readFile(new URL('./fixtures/apollo-wall-polygons.json',import.meta.url),'utf8'));
+  for(const floor of [-1,0]){
+    const result=createManualAnnotationProject({},walls,floor);
+    assert.ok(result.objects.some(object=>['Wall','Beam'].includes(object.category)));
+    assert.equal(result.beaconPlan,null);
+  }
+});

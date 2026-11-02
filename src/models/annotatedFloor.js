@@ -1,4 +1,5 @@
 import polygonClipping from 'polygon-clipping';
+import {polygonArea} from '../engines/geometry.js';
 import {validateFloorPlanSetup} from './floorPlanSetup.js';
 
 export function annotationFeatures(payload){
@@ -7,17 +8,21 @@ export function annotationFeatures(payload){
   if(!payload?.mappingElements||!payload.masterGraph)return features;
   const graph=payload.masterGraph;
   if(typeof graph!=='object'||Array.isArray(graph)||Object.keys(graph).length>10000)throw new Error('Invalid masterGraph node collection.');
-  const nodes=new Map(Object.keys(graph).map(key=>{
+  const parseNode=key=>{
+    if(typeof key!=='string')throw new Error('masterGraph destinations must be coordinate keys.');
     const fields=key.split(','),floor=Number(fields[3]),coordinates=fields.slice(4).map(Number);
     if(fields.length!==6||fields.slice(1).some(v=>v.trim()===''||!Number.isFinite(Number(v)))||Math.abs(coordinates[0])>180||Math.abs(coordinates[1])>=89.9)throw new Error('masterGraph nodes require local x/y, floor and valid longitude/latitude.');
-    return [key,{floor,coordinates}];
-  }));
+    return {floor,coordinates};
+  };
+  const nodes=new Map(Object.keys(graph).map(key=>[key,parseNode(key)]));
   const routes=[],seen=new Set();
   for(const [key,a] of nodes){
     if(!Array.isArray(graph[key]))throw new Error('masterGraph neighbors must be arrays.');
     for(const target of graph[key]){
-      const b=nodes.get(target);
-      if(!b)throw new Error('masterGraph contains a missing destination node.');
+      // Some API exports include null placeholders for unavailable floor connections.
+      if(target===null)continue;
+      // Destination-only nodes still encode their floor and coordinates in the link key.
+      const b=nodes.get(target)??parseNode(target);
       const pair=JSON.stringify([key,target].sort());
       // Cross-floor transport is represented by its landmarks, never by a same-floor walking line.
       if(a.floor!==b.floor||seen.has(pair)||a.coordinates.every((n,i)=>n===b.coordinates[i]))continue;
@@ -90,12 +95,17 @@ export function annotatedReference(payload,floor,values,routePayload=null){
   const boundary=explicit?explicit.geometry.coordinates[0].map(project):[...chain(sorted).slice(0,-1),...chain([...sorted].reverse()).slice(0,-1)];
   if(boundary.length<3)throw new Error('Floor boundary is degenerate.');
   const ids=new Set();
+  const warnings=[];
   const repaired=selected.flatMap(feature=>{
     if(feature.geometry?.type!=="Polygon"||feature.properties?.type==="Boundary")return [feature];
     if(!feature.geometry.coordinates?.[0]?.length)throw new Error(`Empty annotation polygon: ${feature.id}`);
-    const polygons=polygonClipping.union(feature.geometry.coordinates);
+    // Repair on a 0.1 mm local grid to remove numerical wall slivers and retracing edges.
+    const metric=feature.geometry.coordinates.map(ring=>ring.map(coordinate=>{const [x,y]=project(coordinate);return [Math.round(x*setup.widthMeters*1e4)/1e4,Math.round(y*setup.heightMeters*1e4)/1e4];}));
+    const union=polygonClipping.union(metric);
+    const polygons=union.filter(rings=>polygonArea(rings[0].map(([x,y])=>({x,y})))>1e-8);
+    if(polygons.length<union.length)warnings.push(`Removed a sub-microscopic polygon repair fragment from ${feature.id}.`);
     if(!polygons.length)throw new Error(`Annotation polygon has no area: ${feature.id}`);
-    return polygons.map((coordinates,index)=>({...feature,id:index?`${feature.id}-part-${index}`:feature.id,geometry:{...feature.geometry,coordinates}}));
+    return polygons.map((rings,index)=>{const coordinates=rings.map(ring=>ring.map(([x,y])=>[setup.longitude+x/setup.widthMeters/sx,setup.latitude+y/setup.heightMeters/sy]));return ({...feature,id:index?`${feature.id}-part-${index}`:feature.id,geometry:{...feature.geometry,coordinates}});});
   });
   const normalized=repaired.map((feature,index)=>{
     const sourceId=String(feature.id??feature._id??`annotation-${index}`);
@@ -104,5 +114,5 @@ export function annotatedReference(payload,floor,values,routePayload=null){
     ids.add(id);
     return {...feature,id,properties:{...feature.properties,originalFeatureId:sourceId,floor:Number(floor)}};
   });
-  return {uploaded:true,name:`Annotated floor ${floor}`,floor:Number(floor),features:normalized,alignment:{origin:[setup.longitude,setup.latitude],widthMeters:setup.widthMeters,geoToNormalizedPdf:[[sx,0],[0,sy],[0,0]],boundary,boundarySource:explicit?'Uploaded building boundary.':'Inferred convex outer boundary: review exterior gaps and courtyards before installing beacons.'}};
+  return {uploaded:true,warnings,name:`Annotated floor ${floor}`,floor:Number(floor),features:normalized,alignment:{origin:[setup.longitude,setup.latitude],widthMeters:setup.widthMeters,geoToNormalizedPdf:[[sx,0],[0,sy],[0,0]],boundary,boundarySource:explicit?'Uploaded building boundary.':'Inferred convex outer boundary: review exterior gaps and courtyards before installing beacons.'}};
 }

@@ -6,6 +6,18 @@ import {analyzeVenueReference} from '../engines/venueReference.js';
 const setup={latitude:28,longitude:77,widthMeters:20,heightMeters:20};
 const coordinate=(x,y)=>localToGeographic({x,y:-y},setup);
 const payload={data:[{id:'area',type:'Feature',properties:{floor:1,type:'Walkable Area',isWalkable:true},geometry:{type:'Polygon',coordinates:[[[0,0],[20,0],[20,20],[0,20],[0,0]].map(([x,y])=>coordinate(x,y))]}},{id:'entry',type:'Feature',properties:{floor:1,type:'Main Entry'},geometry:{type:'Point',coordinates:coordinate(10,10)}},{id:'centroid',properties:{floor:1,type:'Centroid'},geometry:{type:'Point',coordinates:coordinate(10,10)}}]};
+test('section polygons do not clip supplied waypoints or block placement',async()=>{
+  const {compileFloorGeometry,geometryConflict}=await import('../engines/floorGeometry.js');
+  const section={id:'section',properties:{floor:1,type:'Section',isWalkable:false},geometry:{type:'Polygon',coordinates:[[[5,5],[15,5],[15,15],[5,15],[5,5]].map(([x,y])=>coordinate(x,y))]}};
+  const route={id:'route',properties:{floor:1,type:'Section',lineCategory:'waypoint'},geometry:{type:'LineString',coordinates:[[2,10],[18,10]].map(([x,y])=>coordinate(x,y))}};
+  const result=analyzeVenueReference(annotatedReference({data:[...payload.data,section,route]},1,setup),{drawingWidth:200,drawingHeight:200});
+  assert.ok(!result.objects.some(o=>o.metadata?.sourceId==='section'));
+  assert.equal(result.graph.edges.length,1);
+  assert.equal(result.analysis.rejectedEdges,0);
+  assert.ok(Math.abs(result.graph.edges[0].distance-16)<1e-6);
+  const floor=compileFloorGeometry({objects:result.objects,metersPerPixel:.1}).get('floor-1');
+  assert.equal(geometryConflict({x:10,y:10},floor),null);
+});
 test('polygon-only API annotations preserve overlays without inventing routes',()=>{
   assert.deepEqual(annotationFloors(payload).floors,['1']);
   const reference=annotatedReference(payload,'1',setup);
@@ -153,6 +165,13 @@ test('building exports unwrap mappingElements and convert explicit masterGraph l
   assert.deepEqual(routes[0].geometry.coordinates,[[77,28],[77.0001,28]]);
   assert.deepEqual(annotationFloors(exported).floors,['1']);
   assert.deepEqual(annotationFeatures({mappingElements:payload.data}),payload.data);
-  assert.throws(()=>annotationFeatures({...exported,masterGraph:{[a]:['missing']}}),/missing destination/);
+  assert.throws(()=>annotationFeatures({...exported,masterGraph:{[a]:['missing']}}),/valid longitude/);
+  const destinationOnly=waypointRoutes({...exported,masterGraph:{[a]:[b,b,upper]}});
+  assert.equal(destinationOnly.length,1);
+  assert.deepEqual(destinationOnly[0].geometry.coordinates,[[77,28],[77.0001,28]]);
+  assert.throws(()=>annotationFeatures({...exported,masterGraph:{[a]:['building,10,0,1,999,28']}}),/valid longitude/);
+  assert.deepEqual(waypointRoutes({...exported,masterGraph:{[a]:[null,b,null],[b]:[a,null]}}),routes);
+  assert.deepEqual(annotationFeatures({...exported,masterGraph:{[a]:[null]}}),payload.data);
+  assert.throws(()=>annotationFeatures({...exported,masterGraph:{[a]:[{}]}}),/coordinate keys/);
   assert.throws(()=>annotationFeatures({...exported,masterGraph:{'building,0,0,1,999,28':[]}}),/valid longitude/);
 });

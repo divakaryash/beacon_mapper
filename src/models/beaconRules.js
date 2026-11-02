@@ -3,6 +3,12 @@ import {annotationFloors} from './annotatedFloor.js';
 import {geometryForProject} from './deployments.js';
 export const BEACON_VIEWS={model:'Model beacons',data:'Annotated data beacons',both:'Both layouts',differences:'Differences: missing + extra',missing:'Missing annotated beacons',extra:'Extra model beacons'};
 export const beaconLabel=id=>/^IW\d+$/.test(id)?String(Number(id.slice(2))):id;
+export function beaconCountSummary(project){
+  const model=project.beaconPlan?.beacons.length||0,view=project.beaconView||'model';
+  if(!['data','both'].includes(view))return `${model} model beacons`;
+  const annotated=project.annotationData?annotationFloors(project.annotationData).features.filter(f=>f.properties?.type==='Beacon'&&f.geometry?.type==='Point'&&String(f.properties.floor??f.properties.level??'0')===String(project.annotationFloor)).length:0;
+  return view==='data'?`${annotated} annotated beacons`:`${annotated} annotated beacons · ${model} model beacons`;
+}
 const distance=(a,b)=>Math.hypot(a.worldX-b.worldX,a.worldY-b.worldY);
 export function nearbyBeacons(beacon,beacons){
   const nearest=new Map();

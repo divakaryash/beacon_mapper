@@ -143,6 +143,7 @@ export function normalizeProject(project) {
 
 
 export function visibleAnnotation(object){
+  if(object.metadata?.sourceType==='Section'&&object.points?.length&&object.type!=='walkablePath')return false;
   if(!['automatic','reference'].includes(object.origin))return true;
   if(object.type==='walkableArea')return !!object.metadata?.uploadedAnnotation;
   return !(object.origin==='automatic'&&(object.type==='buildingBoundary'||object.category==='Wall'));

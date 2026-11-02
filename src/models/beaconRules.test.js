@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {beaconLabel,nearbyBeacons,compareAnnotatedBeacons,beaconRuleSummary} from './beaconRules.js';
+import {beaconLabel,beaconCountSummary,nearbyBeacons,compareAnnotatedBeacons,beaconRuleSummary} from './beaconRules.js';
 const b=(id,x,y=0,floorId='G')=>({id,floorId,x,y,worldX:x,worldY:y,reliableRadius:6});
 test('numeric labels preserve stable IDs; hover selects nearest in each map direction on this floor',()=>{
   assert.equal(beaconLabel('IW003'),'3');assert.equal(beaconLabel('custom'),'custom');
@@ -8,6 +8,15 @@ test('numeric labels preserve stable IDs; hover selects nearest in each map dire
   assert.deepEqual(near.map(n=>n.id),['IW002','IW004','IW005']);assert.equal(near[0].meters,3);
 });
 const reference=()=>({annotationAlignment:{origin:[0,0],widthMeters:100,heightMeters:100,geoToNormalizedPdf:[[1,0],[0,1],[0,0]]},widthMeters:100,heightMeters:100,annotationFloor:'0',annotationData:{features:[{geometry:{type:'Polygon',coordinates:[]},properties:{floor:0,type:'Room'}},...[0,.1].map(x=>({geometry:{type:'Point',coordinates:[x,0]},properties:{floor:0,type:'Beacon'}}))]},graph:{nodes:[{floorId:'G'}]},beaconPlan:{beacons:[b('a',0),b('b',10),b('extra',50)]}});
+test('beacon counts follow the view and count annotated points only on the selected floor',()=>{
+  const p=reference();
+  p.annotationData.features.push({properties:{floor:1,type:'Beacon'},geometry:{type:'Point',coordinates:[0,0]}});
+  assert.equal(beaconCountSummary(p),'3 model beacons');
+  p.beaconView='data';assert.equal(beaconCountSummary(p),'2 annotated beacons');
+  p.beaconView='both';assert.equal(beaconCountSummary(p),'2 annotated beacons · 3 model beacons');
+  p.beaconPlan=null;assert.equal(beaconCountSummary(p),'2 annotated beacons · 0 model beacons');
+  p.annotationFloor='1';assert.equal(beaconCountSummary(p),'1 annotated beacons · 0 model beacons');
+});
 test('comparison penalizes extra and missing beacons and never reuses a reference match',()=>{
   const p=reference();assert.equal(compareAnnotatedBeacons(p).accuracy,80);
   p.beaconPlan.beacons=[b('a',0),b('b',1)];const result=compareAnnotatedBeacons(p);assert.equal(result.matched,1);assert.equal(result.accuracy,50);
