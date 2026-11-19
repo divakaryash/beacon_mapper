@@ -1,10 +1,6 @@
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
-import GraphPanel from "./components/GraphPanel.jsx";
-import BeaconPanel from "./components/BeaconPanel.jsx";
-import SimulationPanel from "./components/SimulationPanel.jsx";
-import CoveragePanel from "./components/CoveragePanel.jsx";
 import { BEACON_PROFILES } from "./engines/beaconPlacement.js";
 import { NavigationGraph } from "./engines/navigationGraph.js";
 import { calculateScale, formatScale } from "./domain/scale.js";
@@ -16,6 +12,9 @@ import {sampleMall,sampleFloorSvg} from "./samples/sampleMall.js";
 import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference } from "./models/floorPlanImport.js";
 import {useDeploymentPlanner} from "./hooks/useDeploymentPlanner.js";
 
+const annotationLayers=LAYERS.filter(layer=>["floorPlan","walls","rooms","walkableAreas","restrictedAreas","pois"].includes(layer.id));
+const annotationTools=TOOLS.filter(([id])=>id!=="walkablePath");
+
 const acceptedTypes = ".png,.jpg,.jpeg,.svg,.pdf";
 
 function LayersPanel({ project, update }) {
@@ -24,9 +23,15 @@ function LayersPanel({ project, update }) {
   }
   return (
     <section className="panel-section">
-      <div className="section-title"><h2>Layers</h2><span>{LAYERS.length}</span></div>
+      <div className="section-title"><h2>Layers</h2><span>{annotationLayers.length}</span></div>
+      {[["baseMapOpacity", "Base map"], ["annotatedMapOpacity", "Annotated map"]].map(([field, label]) => (
+        <label key={field}>
+          {label} opacity · {Math.round(project[field] * 100)}%
+          <input type="range" min="0" max="1" step="0.01" aria-label={`${label} opacity`} aria-valuetext={`${Math.round(project[field] * 100)}%`} value={project[field]} onChange={event => update({ ...project, [field]: Number(event.target.value) })} />
+        </label>
+      ))}
       <div className="layer-list">
-        {LAYERS.map((layer) => (
+        {annotationLayers.map((layer) => (
           <div className="layer-row" key={layer.id}>
             <span className="layer-color" style={{ background: layer.color }} />
             <span>{layer.label}</span>
@@ -103,12 +108,6 @@ export default function App() {
     setPlanningError("");if(preview)setLiveProject(next);else {setLiveProject(null);history.commit(next);}
   },error=>{setPlanningError(error);setLiveProject(null);if(committedRef.current)history.commit({...committedRef.current,autoPlanPending:false,deploymentError:error});});
   useEffect(()=>setLiveProject(null),[committedProject]);
-  const autoPlanning=useRef(null);
-  useEffect(()=>{
-    if(!committedProject?.autoPlanPending||autoPlanning.current===committedProject.graph)return;
-    autoPlanning.current=committedProject.graph;
-    planner.command("generate");
-  },[committedProject]);
   useEffect(()=>{if(beaconSelection&&committedProject?.beaconPlan)planner.command("inspect",{}, {selection:beaconSelection});},[beaconSelection,committedProject?.beaconPlan]);
 
   useEffect(() => {
@@ -130,7 +129,7 @@ export default function App() {
             const detected=await analyzeImportedFloor(saved,Number(saved.widthMeters)/saved.drawingWidthPixels);
             if(committedRef.current?.objects!==restored.objects)return;
             // Keep the previous drawing in undo history when replacing a bad inferred map.
-            history.commit(normalizeProject({...restored,referencePresentationInitialized:false,objects:detected.objects,graph:detected.graph,widthMeters:detected.widthMeters,heightMeters:detected.heightMeters,floorAnalysis:detected.analysis,beaconPlan:null,coverageAnalysis:null,activeDeploymentId:null,placementNeedsReview:false,planningSettings:{...restored.planningSettings,nextBeaconNumber:1,cellSize:1,additionalBeaconBudget:100},autoPlanPending:true,layers:{...restored.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
+            history.commit(normalizeProject({...restored,referencePresentationInitialized:false,objects:detected.objects,graph:detected.graph,widthMeters:detected.widthMeters,heightMeters:detected.heightMeters,floorAnalysis:detected.analysis,beaconPlan:null,coverageAnalysis:null,activeDeploymentId:null,placementNeedsReview:false,planningSettings:{...restored.planningSettings,nextBeaconNumber:1,cellSize:1,additionalBeaconBudget:100},autoPlanPending:false,layers:{...restored.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
           }
         }catch(error){setImportError(`Reference correction could not be applied: ${error.message}`);}
       }
@@ -155,7 +154,7 @@ export default function App() {
       if (typing) return;
       if ((event.key === "Delete" || event.key === "Backspace") && selectedId) { event.preventDefault(); deleteObject(selectedId); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && selected) { event.preventDefault(); duplicateObject(selected); }
-      const match = TOOLS.find(([, , shortcut]) => shortcut.toLowerCase() === event.key.toLowerCase());
+      const match = annotationTools.find(([, , shortcut]) => shortcut.toLowerCase() === event.key.toLowerCase());
       if (match && !event.metaKey && !event.ctrlKey) setTool(match[0]);
     }
     window.addEventListener("keydown", shortcuts);
@@ -166,7 +165,7 @@ export default function App() {
     const changed=project&&(next.graph!==project.graph||next.objects!==project.objects||next.widthMeters!==project.widthMeters||next.heightMeters!==project.heightMeters||next.drawingWidthPixels!==project.drawingWidthPixels||next.drawingHeightPixels!==project.drawingHeightPixels);
     if(project?.floorAnalysis&&next.widthMeters!==project.widthMeters&&Number(next.widthMeters)>0){
       const scale=Number(next.widthMeters)/next.drawingWidthPixels;
-      next={...next,heightMeters:next.drawingHeightPixels*scale,graph:{...next.graph,nodes:next.graph.nodes.map(n=>({...n,worldX:n.x*scale,worldY:n.y*scale})),edges:next.graph.edges.map(e=>{const a=next.graph.nodes.find(n=>n.id===e.source),b=next.graph.nodes.find(n=>n.id===e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*scale};})},beaconPlan:null,coverageAnalysis:null,planningSettings:{...next.planningSettings,nextBeaconNumber:1},autoPlanPending:next.graph.edges.length>0,floorAnalysis:{...next.floorAnalysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters:Number(next.widthMeters),heightMeters:next.drawingHeightPixels*scale}}};
+      next={...next,heightMeters:next.drawingHeightPixels*scale,graph:{...next.graph,nodes:next.graph.nodes.map(n=>({...n,worldX:n.x*scale,worldY:n.y*scale})),edges:next.graph.edges.map(e=>{const a=next.graph.nodes.find(n=>n.id===e.source),b=next.graph.nodes.find(n=>n.id===e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*scale};})},beaconPlan:null,coverageAnalysis:null,planningSettings:{...next.planningSettings,nextBeaconNumber:1},autoPlanPending:false,floorAnalysis:{...next.floorAnalysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters:Number(next.widthMeters),heightMeters:next.drawingHeightPixels*scale}}};
     }
     history.commit(changed?{...next,placementNeedsReview:!!next.beaconPlan,coverageAnalysis:null}:next);
   }
@@ -219,8 +218,8 @@ export default function App() {
       imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
       imported.floorPlanLabels=imported.floorPlanLabels?.map(label=>({...label,y:label.y*imported.drawingHeightPixels/originalHeight,height:label.height*imported.drawingHeightPixels/originalHeight}));
       if (request !== importRequest.current) return;
-      setStatus("Analyzing geometry and navigation paths…");
-      // User dimensions establish scale before geometry and placement are generated.
+      setStatus("Analyzing annotation boundaries…");
+      // User dimensions establish scale before annotations are generated.
       const widthMeters=setup.widthMeters,metersPerPixel=widthMeters/imported.drawingWidthPixels;
       let detected;
       try {detected=await analyzeImportedFloor(imported,metersPerPixel);}
@@ -228,11 +227,26 @@ export default function App() {
       if(request!==importRequest.current)return;
       const detectedNodes=new Map(detected.graph.nodes.map(n=>[n.id,n]));
       detected.graph={...detected.graph,nodes:detected.graph.nodes.map(n=>({...n,worldX:n.x*metersPerPixel,worldY:n.y*metersPerPixel})),edges:detected.graph.edges.map(e=>{const a=detectedNodes.get(e.source),b=detectedNodes.get(e.target);return {...e,distance:Math.hypot(a.x-b.x,a.y-b.y)*metersPerPixel};})};
-      history.reset(normalizeProject({...base,...imported,name:file.name,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},widthMeters,heightMeters:setup.heightMeters,planningSettings:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters,heightMeters:setup.heightMeters}},autoPlanPending:detected.graph.edges.length>0,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
+      history.reset(normalizeProject({...base,...imported,name:file.name,geographicOrigin:{latitude:setup.latitude,longitude:setup.longitude},widthMeters,heightMeters:setup.heightMeters,planningSettings:detected.analysis.method==="aligned-venue-reference"?{cellSize:1,additionalBeaconBudget:100}:undefined,objects:detected.objects,graph:detected.graph,floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:{kind:'user-dimensions',widthMeters,heightMeters:setup.heightMeters}},autoPlanPending:false,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:true,locked:false}}}));
       setSelectedId(null); setGraphSelection(null); setBeaconSelection(null); setRoute(null);
     } catch (error) {
       if (request === importRequest.current) setImportError(`Could not import floor plan: ${error.message}`);
     } finally { if (request === importRequest.current) setImporting(false); }
+  }
+
+  async function redetectAnnotations(){
+    const current=committedRef.current;if(!current?.file||importing)return;
+    const request=++importRequest.current;setImporting(true);setImportError("");
+    try{
+      const rendered=await readFloorPlan(current.file);
+      const imported={...current,...rendered,drawingWidthPixels:current.drawingWidthPixels,drawingHeightPixels:current.drawingHeightPixels,floorPlanLabels:rendered.floorPlanLabels.map(label=>({...label,x:label.x*current.drawingWidthPixels/rendered.drawingWidthPixels,y:label.y*current.drawingHeightPixels/rendered.drawingHeightPixels,width:(label.width||0)*current.drawingWidthPixels/rendered.drawingWidthPixels,height:(label.height||0)*current.drawingHeightPixels/rendered.drawingHeightPixels}))};
+      const detected=await analyzeImportedFloor(imported,Number(current.widthMeters)/current.drawingWidthPixels);
+      if(request!==importRequest.current)return;
+      if(committedRef.current!==current)throw new Error("The project changed during analysis. Retry to apply annotations to the current project.");
+      update(normalizeProject({...imported,objects:[...current.objects.filter(object=>!["automatic","reference"].includes(object.origin)),...detected.objects],floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:current.floorAnalysis?.scaleSource}}));
+      setSelectedId(null);
+    }catch(error){if(request===importRequest.current)setImportError(`Could not re-detect annotations: ${error.message}`);}
+    finally{if(request===importRequest.current)setImporting(false);}
   }
 
   async function reset() { ++importRequest.current;setImporting(false);await clearProject(); history.reset(null); setSelectedId(null); setStatus("No project loaded"); }
@@ -245,8 +259,8 @@ export default function App() {
 
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
-      <p className="eyebrow">INPS · Local planning workspace</p><h1>Upload a floor plan. Review an initial deployment.</h1>
-      <p>Automatically infer geometry and navigation paths, then place IW Beacons. Everything stays in this browser.</p>
+      <p className="eyebrow">INPS · Local planning workspace</p><h1>Upload a floor plan. Review its annotations.</h1>
+      <p>Detect and edit shop boundaries and service areas. Everything stays in this browser.</p>
       {uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label><small>PNG, JPG, SVG, or PDF (first page)</small>
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
@@ -262,14 +276,15 @@ export default function App() {
       </header>
 
       <nav className="tool-rail" aria-label="Drawing tools">
-        {TOOLS.map(([id, label, shortcut]) => <button key={id} className={tool === id ? "active" : ""} type="button" title={`${label} (${shortcut})`} onClick={() => setTool(id)}><span>{label.slice(0, 2)}</span><small>{label}</small></button>)}
+        {annotationTools.map(([id, label, shortcut]) => <button key={id} className={tool === id ? "active" : ""} type="button" title={`${label} (${shortcut})`} onClick={() => setTool(id)}><span>{label.slice(0, 2)}</span><small>{label}</small></button>)}
       </nav>
 
       <aside className="left-panel">
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
           {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
-          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
+          {project.file&&<button className="secondary" type="button" disabled={importing} title="Replaces detected annotations; use Undo to restore the previous result. Manually drawn objects are preserved." onClick={redetectAnnotations}>{importing?"Analyzing annotations…":"Re-detect annotations"}</button>}
+          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to measure annotations at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
           <div className="field-grid">
@@ -287,7 +302,7 @@ export default function App() {
       </aside>
 
       <section className="canvas-area"><StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><BeaconPanel project={project} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/><CoveragePanel project={project} update={update} planner={planner}/><GraphPanel project={project} scale={scale} update={update} setTool={setTool} selection={graphSelection} setSelection={setGraphSelection} setRoute={setRoute} /><SimulationPanel project={committedProject} onVisualization={setSimulation}/><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <aside className="right-panel"><p><strong>Annotation only</strong><br/><small>Review polygon boundaries and names before planning navigation.</small></p><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );
 }

@@ -113,12 +113,13 @@ export function normalizeProject(project) {
   }
   return {
     objects: [], graph: { nodes: [], edges: [] }, deployments:[], beaconProfiles:[], coverageSettings:{circles:true,heatmap:true,deadZones:true,overlap:true,gaps:true,cellSize:.5,floorId:""}, layers: defaultLayers(), gridSize: 20, snapToGrid: true,
+    baseMapOpacity: project.floorAnalysis?.method === "aligned-venue-reference" ? 1 : .64, annotatedMapOpacity: 1,
     drawingHeightPixels: project.drawingHeightPixels || 800, ...project,
-    objects,floorAnalysis,
-    autoPlanPending:updatedContours||removedBlockedAutomatic||!!project.autoPlanPending,
+    objects:objects.filter(object=>object.type!=="walkablePath"),floorAnalysis,
+    annotationOnly:true,graph:{nodes:[],edges:[]},beaconPlan:null,coverageAnalysis:null,
+    autoPlanPending:false,
     placementNeedsReview:updatedContours||removedBlockedAutomatic||!!project.placementNeedsReview||!!(project.beaconPlan&&!project.beaconPlan.geometryValidation),
-    coverageAnalysis:updatedContours||removedBlockedAutomatic||(project.beaconPlan&&!project.beaconPlan.geometryValidation)?null:project.coverageAnalysis,
-    beaconPlan,
+
     deployments: (project.deployments||[]).map(d=>({...d,plan:normalizeBeaconPlan(d.plan)})),
     layers,
     referencePresentationInitialized: reference || !!project.referencePresentationInitialized,

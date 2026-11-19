@@ -3,7 +3,7 @@ export const isPdf = file => file?.type === "application/pdf" || /\.pdf$/i.test(
 
 export function analysisRasterSize(width,height) {
   if (![width,height].every(value=>Number.isFinite(value)&&value>0)) throw new Error('Invalid floor-plan dimensions');
-  const ratio=Math.min(1,800/Math.max(width,height),Math.sqrt(400000/(width*height)));
+  const ratio=Math.min(1,1200/Math.max(width,height),Math.sqrt(1000000/(width*height)));
   return {width:Math.max(3,Math.floor(width*ratio)),height:Math.max(3,Math.floor(height*ratio))};
 }
 
@@ -31,13 +31,15 @@ export async function readFloorPlan(file) {
       canvas.width = size.width;
       canvas.height = size.height;
       const geometryCanvas = document.createElement("canvas");
-      const geometryScale = Math.min(size.scale,512/Math.max(original.width,original.height));
-      geometryCanvas.width=Math.ceil(original.width*geometryScale);
-      geometryCanvas.height=Math.ceil(original.height*geometryScale);
+      const geometrySize=analysisRasterSize(size.width,size.height);
+      const geometryScale=Math.min(geometrySize.width/original.width,geometrySize.height/original.height);
+      geometryCanvas.width=geometrySize.width;
+      geometryCanvas.height=geometrySize.height;
       const geometryContext=geometryCanvas.getContext("2d");
       const geometryFilter=geometryOperationsFilter(OPS,geometryContext,{width:geometryCanvas.width,height:geometryCanvas.height});
       await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
-      if(geometryFilter.excludePrintedWords())await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
+      const crossMarksChanged=geometryFilter.excludeCrossMarks();
+      if(geometryFilter.excludePrintedWords()||crossMarksChanged)await page.render({canvasContext:geometryContext,viewport:page.getViewport({scale:geometryScale}),background:"white",operationsFilter:geometryFilter}).promise;
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: page.getViewport({ scale: size.scale }), background: "white" }).promise;
       const preview = await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not render PDF page")), "image/png"));
       const text = await page.getTextContent();
@@ -67,7 +69,7 @@ export async function readFloorPlan(file) {
 
 export async function analyzeImportedFloor(imported,metersPerPixel) {
   const reference=await matchingFloorReference(imported);
-  if(reference)return runFloorAnalysis({reference,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels});
+  if(reference)return runFloorAnalysis({annotationOnly:true,reference,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels});
   const geometryPreview=imported.floorPlanGeometryPreview||(isPdf(imported.file)?(await readFloorPlan(imported.file)).floorPlanGeometryPreview:null);
   const source=URL.createObjectURL(geometryPreview||imported.floorPlanPreview||imported.file);
   try {
@@ -88,7 +90,7 @@ export async function analyzeImportedFloor(imported,metersPerPixel) {
     // Text is annotation, not a wall. Only remove positioned, unrotated label boxes.
     for(const label of labels)if(label.source!=="ocr"&&!geometryPreview&&!/\.svg$/i.test(imported.file.name)&&imported.file.type!=='image/svg+xml'&&label.width>0&&label.height>0)context.fillRect(label.x*width/imported.drawingWidthPixels,(label.y-label.height)*height/imported.drawingHeightPixels,label.width*width/imported.drawingWidthPixels,label.height*height/imported.drawingHeightPixels);
     const raster=context.getImageData(0,0,width,height);
-    return await runFloorAnalysis({data:raster.data,width,height,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,metersPerPixel,labels,excludeDrawingFrame:true},[raster.data.buffer]);
+    return await runFloorAnalysis({annotationOnly:true,data:raster.data,width,height,drawingWidth:imported.drawingWidthPixels,drawingHeight:imported.drawingHeightPixels,metersPerPixel,labels,excludeDrawingFrame:true},[raster.data.buffer]);
   } finally {URL.revokeObjectURL(source);}
 }
 
@@ -119,7 +121,7 @@ export async function matchingFloorReference(imported) {
 // CAD exports often convert text to tiny stroked paths, so text operators alone are insufficient.
 export function geometryOperationsFilter(ops,context,pageSize) {
   const textOperations=new Set([ops.showText,ops.showSpacedText,ops.nextLineShowText,ops.nextLineSetSpacingShowText]);
-  const candidates=new Map(),excluded=new Set();
+  const candidates=new Map(),straightLines=new Map(),excluded=new Set();
   const filter=(index,list)=>{
     if(excluded.has(index))return false;
     const operation=list.fnArray[index];if(textOperations.has(operation))return false;
@@ -131,9 +133,25 @@ export function geometryOperationsFilter(ops,context,pageSize) {
     const minX=Math.min(...corners.map(p=>p.x)),minY=Math.min(...corners.map(p=>p.y));
     // Exclude long page-edge dimension/frame strokes; interior building walls remain structural.
     if(pageSize&&[ops.stroke,ops.closeStroke].includes(paint)&&((width<.5&&height>pageSize.height*.9&&(minX<pageSize.width*.15||minX>pageSize.width*.85))||(height<.5&&width>pageSize.width*.85&&(minY<pageSize.height*.03||minY>pageSize.height*.97))))return false;
+    const line=paths?.[0];
+    if(paint===ops.stroke&&line?.length===6&&line[0]===0&&line[3]===1){
+      const point=(x,y)=>({x:m.a*x+m.c*y+m.e,y:m.b*x+m.d*y+m.f}),a=point(line[1],line[2]),b=point(line[4],line[5]);
+      if(Math.abs(a.x-b.x)>3&&Math.abs(a.y-b.y)>3&&Math.hypot(a.x-b.x,a.y-b.y)>=Math.max(20,Math.max(pageSize?.width||0,pageSize?.height||0)/40))straightLines.set(index,{index,a,b});
+    }
     const path=paths?.[0],solidColumn=![ops.stroke,ops.closeStroke].includes(paint)&&path?.length===13&&path[12]===4&&width>0&&height>0&&width/height>.5&&width/height<2;
     if(pageSize&&!solidColumn&&!(path?.length===13&&path[12]===4)&&path?.length>=10&&height>=.5&&height<=Math.max(pageSize.width,pageSize.height)/24&&width>=height*.15&&width<=height*1.5)candidates.set(index,{index,minX,minY,maxX:minX+width,maxY:minY+height,height});
     return solidColumn||Math.max(width,height)>=3;
+  };
+  // shortcut: interior crossings of long diagonal PDF strokes denote X marks; review unusual diagonal wall crossings.
+  filter.excludeCrossMarks=()=>{
+    const lines=[...straightLines.values()],before=excluded.size;
+    for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){
+      const a=lines[i],b=lines[j],ax=a.b.x-a.a.x,ay=a.b.y-a.a.y,bx=b.b.x-b.a.x,by=b.b.y-b.a.y,cross=ax*by-ay*bx;
+      if(Math.abs(cross)<Math.hypot(ax,ay)*Math.hypot(bx,by)*.25)continue;
+      const dx=b.a.x-a.a.x,dy=b.a.y-a.a.y,t=(dx*by-dy*bx)/cross,u=(dx*ay-dy*ax)/cross;
+      if(t>.1&&t<.9&&u>.1&&u<.9){excluded.add(a.index);excluded.add(b.index);}
+    }
+    return excluded.size>before;
   };
   filter.excludePrintedWords=(labels=[])=>{
     for(const glyph of candidates.values())if(labels.some(label=>glyph.minX>=label.x-.5&&glyph.maxX<=label.x+label.width+.5&&glyph.minY>=label.y-label.height-.5&&glyph.maxY<=label.y+.5))excluded.add(glyph.index);

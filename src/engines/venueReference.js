@@ -2,7 +2,7 @@ import { graphFromWalkableMask } from './floorPlanAnalysis.js';
 import { compileFloorGeometry, geometryConflict, validGraphIntervals, segmentProjection } from './floorGeometry.js';
 
 const CATEGORIES={'Main Entry':'Entrance','Exit Only':'Exit','Store':'Store','Outlet':'Outlet','Lift':'Lift','Escalator':'Escalator','Escalator-up':'Escalator','Escalator-down':'Escalator','Stairs':'Stairs','Steps':'Stairs','Male Washroom':'Washroom','Female Washroom':'Washroom','Reception':'Reception'};
-export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cellSize=.6}={}) {
+export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cellSize=.6,annotationOnly=false}={}) {
   const {alignment}=reference;
   if(!alignment||!Array.isArray(reference.features)||reference.features.length>10000||![drawingWidth,drawingHeight,cellSize,alignment.widthMeters].every(n=>Number.isFinite(n)&&n>0))throw new Error('Invalid venue reference or drawing dimensions.');
   const matrix=alignment.geoToNormalizedPdf,origin=alignment.origin;
@@ -35,6 +35,7 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
       pois.push(poi);objects.push(poi);
     }
   }
+  if(annotationOnly)return {objects,graph:{nodes:[],edges:[]},widthMeters:alignment.widthMeters,heightMeters:drawingHeight*scale,analysis:{method:'aligned-venue-reference',status:'needs-review',scaleAssumed:false,referenceName:reference.name,referenceFloor:reference.floor,counts,detected:{boundaries:1,walkableRegions:1,walls:counts.Wall||0,roomCandidates:(counts.Store||0)+(counts.Outlet||0),labeledLandmarks:pois.length},warnings:[alignment.boundarySource,'Review polygon boundaries and names against the source drawing.']}};
   const floors=compileFloorGeometry({objects,metersPerPixel:scale}),floor=floors.get(floorId);
   // ponytail: bounded 0.6-metre mask extracts route topology; exact API polygons validate routes and all placements.
   const width=Math.ceil(alignment.widthMeters/cellSize),height=Math.ceil(drawingHeight*scale/cellSize),free=new Uint8Array(width*height);

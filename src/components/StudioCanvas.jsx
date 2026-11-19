@@ -14,7 +14,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   const bounds = boundsOf(object);
   const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
   const size = measurements(object, metersPerPixel);
-  const hasArea = size.area > 0 && Number.isFinite(size.area) && (!["Wall","Void"].includes(object.category) || selected);
+  const hasArea = selected && size.area > 0 && Number.isFinite(size.area) && (!["Wall","Void"].includes(object.category) || selected);
   const labelFont = Math.max(2, Math.min(10, bounds.width / 16, bounds.height / 5));
   const extent = `${(bounds.width * metersPerPixel).toFixed(1)} × ${(bounds.height * metersPerPixel).toFixed(1)} m`;
   const common = { onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object" };
@@ -32,7 +32,7 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
         <circle cx={object.x} cy={object.y} r="12" className={object.origin === "reference" ? "reference-hit-target" : undefined} />
         <circle className="poi-core" cx={object.x} cy={object.y} r={object.origin === "reference" ? 3 : 4} />
         <title>{object.name || object.category} · {object.category}</title>
-        {(object.origin !== "reference" || selected) && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
+        {selected && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
       </g>
     );
   } else if (object.type === "text") {
@@ -77,7 +77,7 @@ function FloorPlan({ project, source }) {
   if (!source || project.layers.floorPlan?.visible === false) return null;
   const width = Number(project.drawingWidthPixels) || 1200;
   const height = Number(project.drawingHeightPixels) || 800;
-  return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
+  return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} style={{opacity: project.baseMapOpacity}} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
 export default function StudioCanvas({ project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation }) {
@@ -321,6 +321,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         <rect x="-50000" y="-50000" width="100000" height="100000" className="canvas-paper" />
         {!project.floorAnalysis && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
         <FloorPlan project={project} source={source} />
+        <g opacity={project.annotatedMapOpacity} data-layer="annotations">
         <CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
@@ -338,6 +339,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
           ? <polygon className="drawing-preview" points={pointString(draftPath)} />
           : <polyline className="drawing-preview" points={pointString(draftPath)} />)}
         <SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons||[]}/>
+        </g>
         <SelectionHandles object={previewObject || selected} onHandleDown={handleHandleDown} />
       </svg>
       <div className="canvas-hint">Wheel to zoom · Space-drag to pan · Line / Polygon: click corners, click starting point to close · Select: drag vertex dots</div>

@@ -7,3 +7,7 @@ screenshots/
 reports/professional/*-source.json
 
 __pycache__/
+
+.venv-training/
+training/generated/
+training/models/

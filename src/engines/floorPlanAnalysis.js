@@ -7,8 +7,8 @@ const rectangle=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
 const category=text=>[/\bescalator/i,'Escalator',/\b(lift|elevator)\b/i,'Lift',/\bstair/i,'Stairs',/\bexit\b/i,'Exit',/\bentrance\b/i,'Entrance',/\batrium\b/i,'Atrium',/\b(shop|store|outlet)\b/i,'Store'].reduce((found,value,i,list)=>found||(i%2===0&&value.test(text)?list[i+1]:null),null);
 
 // shortcut: raster segmentation cannot distinguish every CAD annotation from a wall; review the draft before deployment.
-export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHeight=height,metersPerPixel,labels=[],excludeDrawingFrame=false,crossMarksRemoved=false}) {
-  if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<3||width*height>400000||![drawingWidth,drawingHeight].every(v=>Number.isFinite(v)&&v>0)||!Array.isArray(labels)||data.length!==width*height*4||!(metersPerPixel>0)||!Number.isFinite(metersPerPixel))throw new Error('Invalid analysis raster or scale.');
+export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHeight=height,metersPerPixel,labels=[],excludeDrawingFrame=false,crossMarksRemoved=false,annotationOnly=false}) {
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<3||width*height>(annotationOnly?1000000:400000)||![drawingWidth,drawingHeight].every(v=>Number.isFinite(v)&&v>0)||!Array.isArray(labels)||data.length!==width*height*4||!(metersPerPixel>0)||!Number.isFinite(metersPerPixel))throw new Error('Invalid analysis raster or scale.');
   const size=width*height,ink=new Uint8Array(size),closed=new Uint8Array(size),outside=new Uint8Array(size),free=new Uint8Array(size),sx=drawingWidth/width,sy=drawingHeight/height;
   const neighbors=i=>[i-width,i+1,i+width,i-1].filter(j=>j>=0&&j<size&&(Math.floor(i/width)===Math.floor(j/width)||i%width===j%width));
   // Pale CAD walls can be bright in luminance while retaining contrast in one colour channel.
@@ -47,30 +47,51 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   }
   const facilities=facilityBlocks(ink,width,height,labels,sx,sy);
   for(const block of facilities)for(let y=block.y;y<block.y+block.h;y++)for(let x=block.x;x<block.x+block.w;x++)ink[y*width+x]=1;
-  // Close one-cell gaps for exterior classification only; real door openings remain walkable.
-  const dilated=ink.map((v,i)=>v||neighbors(i).some(j=>ink[j])?1:0);
-  for(let i=0;i<size;i++)closed[i]=dilated[i]&&neighbors(i).every(j=>dilated[j])?1:0;
+  // Square closing seals tiny annotation gaps; navigation keeps its original exterior-only closing.
+  const closingNeighbors=i=>annotationOnly?[...neighbors(i),...[-width-1,-width+1,width-1,width+1].map(d=>i+d).filter(j=>j>=0&&j<size&&Math.abs(i%width-j%width)===1)]:neighbors(i);
+  const dilated=ink.map((v,i)=>v||closingNeighbors(i).some(j=>ink[j])?1:0);
+  for(let i=0;i<size;i++)closed[i]=dilated[i]&&closingNeighbors(i).every(j=>dilated[j])?1:0;
+  if(annotationOnly)closeDoorGaps(closed,width,height,Math.min(Math.ceil(2.4/(metersPerPixel*Math.sqrt(sx*sy))),Math.ceil(Math.max(width,height)*.01)));
   const queue=[];
   for(let i=0;i<size;i++)if((i<width||i>=size-width||i%width===0||i%width===width-1)&&!closed[i]){outside[i]=1;queue.push(i);}
   for(let k=0;k<queue.length;k++)for(const j of neighbors(queue[k]))if(!closed[j]&&!outside[j]){outside[j]=1;queue.push(j);}
-  for(let i=0;i<size;i++)free[i]=!outside[i]&&!ink[i]?1:0;
+  // Seal one-cell drawing gaps for annotation contours; navigation retains real openings.
+  for(let i=0;i<size;i++)free[i]=!outside[i]&&!(annotationOnly?closed[i]:ink[i])?1:0;
   // Discard text-sized pockets, retaining disconnected rooms for review rather than routing through walls.
   const seen=new Uint8Array(size),regions=[];
   for(let i=0;i<size;i++)if(free[i]&&!seen[i]){const cells=[i];seen[i]=1;for(let k=0;k<cells.length;k++)for(const j of neighbors(cells[k]))if(free[j]&&!seen[j]){seen[j]=1;cells.push(j);}if(cells.length<Math.max(9,size*.00035))cells.forEach(j=>free[j]=0);else regions.push(cells);}
-  if(!regions.length&&excludeDrawingFrame)return analyzeFloorPlan({data,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,excludeDrawingFrame:false});
+  if(!regions.length&&excludeDrawingFrame)return analyzeFloorPlan({data,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,annotationOnly,excludeDrawingFrame:false});
   if(!regions.length)throw new Error('No enclosed walkable regions detected. Use a clearer wall drawing or correct the building boundary manually.');
   if(!crossMarksRemoved){
     const crosses=crossedEnclosures(regions,width,height);
     if(crosses.length){
       const cleaned=new Uint8ClampedArray(data);
-      for(const {center,corners} of crosses)for(let i=0;i<size;i++)if(ink[i]){
-        const p={x:i%width+.5,y:Math.floor(i/width)+.5};
-        if(!pointInPolygon(p,corners)||corners.some((a,j)=>segmentProjection(p,a,corners[(j+1)%corners.length]).distance<2))continue;
-        if(corners.some(corner=>segmentProjection(p,center,corner).distance<=2)){
-          const offset=i*4;cleaned[offset]=cleaned[offset+1]=cleaned[offset+2]=255;
+      for(const cross of crosses){
+        if(cross.regions){
+          const sectors=new Int32Array(size).fill(-1);
+          cross.regions.forEach((cells,index)=>cells.forEach(i=>{sectors[i]=index;}));
+          for(let i=0;i<size;i++)if(ink[i]){
+            const x=i%width,y=Math.floor(i/width);let first=-1,divider=false,exterior=false;
+            for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){
+              if(x+dx<0||x+dx>=width||y+dy<0||y+dy>=height)continue;
+              const j=(y+dy)*width+x+dx,sector=sectors[j];
+              if(sector<0){if(free[j])exterior=true;continue;}
+              if(first>=0&&sector!==first)divider=true;first=sector;
+            }
+            if(divider&&!exterior){const offset=i*4;cleaned[offset]=cleaned[offset+1]=cleaned[offset+2]=255;}
+          }
+          continue;
+        }
+        const {center,corners}=cross;
+        for(let i=0;i<size;i++)if(ink[i]){
+          const p={x:i%width+.5,y:Math.floor(i/width)+.5};
+          if(!pointInPolygon(p,corners)||corners.some((a,j)=>segmentProjection(p,a,corners[(j+1)%corners.length]).distance<2))continue;
+          if(corners.some(corner=>segmentProjection(p,center,corner).distance<=4)){
+            const offset=i*4;cleaned[offset]=cleaned[offset+1]=cleaned[offset+2]=255;
+          }
         }
       }
-      return analyzeFloorPlan({data:cleaned,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,excludeDrawingFrame,crossMarksRemoved:true});
+      return analyzeFloorPlan({data:cleaned,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,annotationOnly,excludeDrawingFrame,crossMarksRemoved:true});
     }
   }
   const objects=[],add=(type,points,extra={})=>{if(type==='room'){const straight=straightenPillarNotches(points,1.5/metersPerPixel);if(!selfIntersects(straight))points=straight;}objects.push({id:`auto-${type}-${objects.length+1}`,type,points,layerId:type==='walkableArea'?'walkableAreas':type==='room'?'rooms':'walls',floorId:'floor-1',rotation:0,origin:'automatic',...extra});};
@@ -88,7 +109,9 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
     for(const i of cells){const x=i%width,y=Math.floor(i/width);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
     const boxArea=(maxX-minX+1)*(maxY-minY+1);
     const enclosedStore=cells.length/interior.length<.55&&cells.length/boxArea>.65;
-    const room=(cells.length<largest*.6||enclosedStore)&&cells.length>=Math.max(16,size*.0001);
+    // Door closure can split circulation below the largest shop; size alone must not turn it into a room.
+    const circulation=annotationOnly&&cells.length/boxArea<.5&&(maxX-minX>width*.4||maxY-minY>height*.4);
+    const room=!circulation&&(cells.length<largest*.6||enclosedStore)&&cells.length>=Math.max(16,size*.0001);
     for(const contour of maskContours(mask,width,height,sx,sy,1.25)){
       if(!contour.hole)add(room?'room':'walkableArea',contour.points,room?{name:`Detected room ${++roomCount}`,category:'Room',geometryRole:'nonWalkableArea'}:{});
       else if(!room&&!facilities.some(block=>contour.points.every(p=>p.x>=(block.x-1)*sx&&p.x<=(block.x+block.w+1)*sx&&p.y>=(block.y-1)*sy&&p.y<=(block.y+block.h+1)*sy)))add('nonWalkableArea',contour.points,{category:'Void',layerId:'restrictedAreas'});
@@ -112,7 +135,8 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   for(const wall of wallPolygons)add('nonWalkableArea',wall.points,{category:'Wall',holes:wall.holes});
   for(const object of objects)if(object.type==='nonWalkableArea'&&!object.category)object.category='Wall';
   for(const block of facilities)add('nonWalkableArea',rectangle(block.x*sx,block.y*sy,block.w*sx,block.h*sy),{category:block.type,name:block.name,metadata:{sourceType:block.type,groupedAssembly:true,needsReview:!!block.needsReview}});
-  const graph=graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel});
+  const graph=annotationOnly?new NavigationGraph():graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel});
+  if(!annotationOnly){
   // Smoothed outlines can shift across a raster route; keep routes inside the final editable geometry.
   const floor=compileFloorGeometry({objects,metersPerPixel}).get('floor-1');
   for(const node of [...graph.nodes.values()])if(geometryConflict({x:node.worldX,y:node.worldY},floor))graph.removeNode(node.id);
@@ -146,6 +170,7 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
     objects.push({id:`auto-poi-${objects.length}`,type:'poi',layerId:'pois',floorId:'floor-1',x:node.x,y:node.y,name:label.text,category:type,origin:'automatic',rotation:0});
   }
   if(!graph.edges.size)throw new Error('Detected regions are too small to generate navigation paths. Use a higher-resolution source.');
+  }
   return {objects,graph:graph.serialize(),analysis:{method:'bounded-raster-topology',contourVersion:3,resolution:{width,height},status:'needs-review',warnings:['Boundaries and regions are traced from structural lines. Closed rooms and voids block beacon placement. Review ambiguous room outlines and door connections.','Lift, escalator, stair, entrance and exit recognition uses PDF/SVG text labels only; unlabeled symbols and raster text require manual confirmation.','Placement is a bounded geometry-based heuristic, not a guaranteed global optimum or RF coverage prediction.'],regions:regions.length,detected:{boundaries:objects.filter(o=>o.type==='buildingBoundary').length,walkableRegions:objects.filter(o=>o.type==='walkableArea').length,walls:objects.filter(o=>o.category==='Wall').length,roomCandidates:objects.filter(o=>o.type==='room').length,labeledLandmarks:objects.filter(o=>o.type==='poi').length}}};
 }
 
@@ -214,31 +239,70 @@ export function maskContours(mask,width,height,sx=1,sy=1,tolerance=.8) {
 function contourArea(points){return points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.y-q.x*p.y;},0)/2;}
 
 
-// shortcut: four triangular pockets identify an X symbol; ambiguous partitions remain for review.
+// shortcut: nearby pointed pockets identify X symbols; ambiguous partitions still require review.
 function crossedEnclosures(regions,width,height){
   const turn=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
   const chain=points=>{const result=[];for(const p of points){while(result.length>1&&turn(result.at(-2),result.at(-1),p)<=0)result.pop();result.push(p);}return result;};
   const hull=points=>{const sorted=[...points].sort((a,b)=>a.x-b.x||a.y-b.y);return [...chain(sorted).slice(0,-1),...chain([...sorted].reverse()).slice(0,-1)];};
-  const triangles=[];
+  // Remove raster bevels even at the contour's starting vertex.
+  const outline=(points,tolerance=4)=>{
+    const result=hull(points);
+    for(let i=0;i<result.length&&result.length>3;i++)if(segmentProjection(result[i],result[(i+result.length-1)%result.length],result[(i+1)%result.length]).distance<=tolerance){result.splice(i,1);i=-1;}
+    return result;
+  };
+  const candidates=[],triangles=[];
   for(const cells of regions){
     const mask=new Uint8Array(width*height);for(const i of cells)mask[i]=1;
     for(const contour of maskContours(mask,width,height))if(!contour.hole){
-      const points=simplifyContour(hull(contour.points),1.6);
-      if(points.length===3&&cells.length>=Math.abs(contourArea(points))*.3)triangles.push({points,cells});
+      const points=outline(contour.points);
+      if(points.length<=8&&cells.length>=Math.abs(contourArea(points))*.3){
+        const candidate={points,cells};candidates.push(candidate);
+        if(points.length===3)triangles.push(candidate);
+      }
     }
   }
   const crosses=[],used=new Set();
   for(const triangle of triangles)if(!used.has(triangle))for(const vertex of triangle.points){
-    const group=triangles.filter(t=>!used.has(t)&&t.points.some(p=>Math.hypot(p.x-vertex.x,p.y-vertex.y)<=5));
+    const group=triangles.filter(t=>!used.has(t)&&t.points.some(p=>Math.hypot(p.x-vertex.x,p.y-vertex.y)<=16));
     if(group.length!==4)continue;
     const centers=group.map(t=>t.points.reduce((a,b)=>Math.hypot(a.x-vertex.x,a.y-vertex.y)<Math.hypot(b.x-vertex.x,b.y-vertex.y)?a:b));
     const center={x:centers.reduce((n,p)=>n+p.x,0)/4,y:centers.reduce((n,p)=>n+p.y,0)/4};
-    const outer=group.flatMap(t=>t.points.filter(p=>Math.hypot(p.x-center.x,p.y-center.y)>5)).sort((a,b)=>a.x-b.x||a.y-b.y);
-    const corners=simplifyContour(hull(outer),2);
+    const outer=group.flatMap(t=>t.points.filter(p=>Math.hypot(p.x-center.x,p.y-center.y)>16)).sort((a,b)=>a.x-b.x||a.y-b.y);
+    const corners=outline(outer,8);
     if(corners.length!==4||!pointInPolygon(center,corners))continue;
+    if(segmentProjection(center,corners[0],corners[2]).distance>4||segmentProjection(center,corners[1],corners[3]).distance>4)continue;
     const area=Math.abs(contourArea(corners)),total=group.reduce((sum,t)=>sum+t.cells.length,0);
     if(total<area*.65||total>area*1.05)continue;
     crosses.push({center,corners});group.forEach(t=>used.add(t));break;
   }
+  // A bent footprint can share sectors between several X marks; keep its concave perimeter.
+  const joined=new Set();
+  for(const triangle of triangles)for(const vertex of triangle.points)for(const radius of [8,12,16,24]){
+    const group=candidates.filter(t=>t.points.some(p=>Math.hypot(p.x-vertex.x,p.y-vertex.y)<=radius));
+    if(group.length!==4||group.filter(t=>t.points.length===3).length<2||group.every(t=>used.has(t)))continue;
+    const key=group.map(t=>candidates.indexOf(t)).sort((a,b)=>a-b).join(',');
+    if(joined.has(key))continue;
+    joined.add(key);crosses.push({regions:group.map(t=>t.cells)});
+  }
   return crosses;
+}
+
+// shortcut: collinear wall ends identify door gaps; angled doors need vector-aware detection.
+export function closeDoorGaps(mask,width,height,maxGap){
+  const source=mask.slice();
+  for(const vertical of [false,true]){
+    const lines=vertical?width:height,span=vertical?height:width;
+    for(let line=0;line<lines;line++){
+      const index=position=>vertical?position*width+line:line*width+position;
+      let previousRun=0;
+      for(let position=0;position<span;){
+        if(source[index(position)]){const start=position;while(position<span&&source[index(position)])position++;previousRun=position-start;continue;}
+        const start=position;while(position<span&&!source[index(position)])position++;
+        const gap=position-start,support=Math.max(6,Math.ceil(gap*1.2));
+        if(gap>maxGap||previousRun<support||position===span)continue;
+        let end=position;while(end<span&&source[index(end)])end++;
+        if(end-position>=support)for(let p=start;p<position;p++)mask[index(p)]=1;
+      }
+    }
+  }
 }

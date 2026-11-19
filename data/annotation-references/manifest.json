@@ -1,0 +1,284 @@
+{
+  "retrievedDate": "2026-11-07",
+  "source": "https://dev.iwayplus.in/secured/get-global-annotation/",
+  "purpose": "Human annotation reference snapshots; no training or source-image alignment has been performed.",
+  "buildings": [
+    {
+      "name": "apollo",
+      "buildingName": "Apollo Medicity",
+      "buildingId": "6a9be9ab924ca68adef78282",
+      "file": "apollo.geojson",
+      "features": 2361,
+      "geometryTypes": {
+        "Polygon": 1175,
+        "Point": 1186
+      },
+      "featuresByFloor": {
+        "0": 1075,
+        "-1": 1285,
+        "-2": 1
+      },
+      "annotationTypes": {
+        "unknown": 4,
+        "Beacon": 198,
+        "Section": 43,
+        "ATM": 2,
+        "Accessible Washroom": 10,
+        "Reception": 49,
+        "Boundary": 5,
+        "Room": 199,
+        "Room Door": 199,
+        "Beam": 188,
+        "Wall": 546,
+        "Cafeteria": 1,
+        "Sitting Area": 610,
+        "Restricted Area": 80,
+        "Drinking Water": 3,
+        "Entrance Only": 1,
+        "Escalator-down": 2,
+        "Escalator-up": 2,
+        "Exit Only": 1,
+        "Female Washroom": 22,
+        "Fire Extinguisher": 2,
+        "Lift": 54,
+        "Main Entry": 1,
+        "Male Washroom": 25,
+        "Nurse Station": 6,
+        "Counter": 4,
+        "Pantry": 2,
+        "Washroom": 9,
+        "Pharmacy": 1,
+        "Pharmacy / Dispensary": 1,
+        "Piller": 21,
+        "Door Only": 3,
+        "Registration Area": 1,
+        "Stairs-up": 8,
+        "Stairs-down": 7,
+        "Steps": 3,
+        "Table": 38,
+        "Unisex Washroom": 10
+      },
+      "featuresWithLocalCoordinates": 2361,
+      "floorConfigs": [
+        {
+          "floorNumber": 0,
+          "floorName": "Ground"
+        },
+        {
+          "floorNumber": -1,
+          "floorName": "Lower Ground"
+        },
+        {
+          "floorNumber": -2,
+          "floorName": "Base 2"
+        }
+      ],
+      "sourcePlans": [
+        {
+          "path": "/Users/yashdivakar/Downloads/B1 (1).pdf",
+          "page": 1,
+          "pageCount": 1,
+          "sha256": "5e6381c863a8723a82688e7d4ff25a4b9b2f02034c14dc5baf5f989c3de0bf05",
+          "pdfWidthPoints": 595.22,
+          "pdfHeightPoints": 842,
+          "candidateAnnotationFloor": -1,
+          "pairingStatus": "B1 suggests floor -1; image-to-annotation alignment not yet verified"
+        }
+      ]
+    },
+    {
+      "name": "dlf",
+      "buildingName": "DLF Mall of India",
+      "buildingId": "6a4b97a1f02e0d2d7f5c43cb",
+      "file": "dlf.geojson",
+      "features": 4080,
+      "geometryTypes": {
+        "Polygon": 2222,
+        "Point": 1858
+      },
+      "featuresByFloor": {
+        "4": 1142,
+        "-1": 632,
+        "5": 47,
+        "0": 628,
+        "1": 642,
+        "2": 558,
+        "3": 431
+      },
+      "annotationTypes": {
+        "unknown": 1,
+        "Beacon": 226,
+        "Stairs": 57,
+        "Store": 877,
+        "Wall": 934,
+        "Beam": 357,
+        "Accessible Washroom": 9,
+        "Reception": 2,
+        "Restricted Area": 190,
+        "Counter": 4,
+        "Sitting Area": 834,
+        "Room": 7,
+        "Room Door": 5,
+        "Boundary": 8,
+        "Escalator-down": 57,
+        "Escalator-up": 59,
+        "Female Washroom": 29,
+        "Lift": 210,
+        "Green Area": 25,
+        "ATM": 2,
+        "Main Entry": 2,
+        "Exit Only": 2,
+        "Male Washroom": 28,
+        "Non Walkable": 10,
+        "Door Only": 2,
+        "Piller": 90,
+        "Terrace": 1,
+        "Security Check": 2,
+        "Steps": 10,
+        "Table": 40
+      },
+      "featuresWithLocalCoordinates": 4080,
+      "floorConfigs": [
+        {
+          "floorNumber": 0,
+          "floorName": "Ground"
+        },
+        {
+          "floorNumber": -1,
+          "floorName": "Base 1"
+        },
+        {
+          "floorNumber": 1,
+          "floorName": "First"
+        },
+        {
+          "floorNumber": 2,
+          "floorName": "Second"
+        },
+        {
+          "floorNumber": 3,
+          "floorName": "Third"
+        },
+        {
+          "floorNumber": 4,
+          "floorName": "Fourth"
+        },
+        {
+          "floorNumber": 5,
+          "floorName": "Fifth"
+        }
+      ]
+    },
+    {
+      "name": "agi-hospital",
+      "buildingName": "AIGHospital",
+      "buildingId": "69e88519412aec622fc75536",
+      "file": "agi-hospital.geojson",
+      "features": 2284,
+      "geometryTypes": {
+        "Polygon": 1431,
+        "Point": 853
+      },
+      "featuresByFloor": {
+        "0": 433,
+        "1": 1609,
+        "7": 242
+      },
+      "annotationTypes": {
+        "Wall": 806,
+        "Female Washroom": 20,
+        "Male Washroom": 20,
+        "Accessible Washroom": 6,
+        "Restricted Area": 16,
+        "Non Walkable": 14,
+        "Pharmacy": 2,
+        "Room": 175,
+        "Escalator-down": 2,
+        "Escalator-up": 2,
+        "Piller": 41,
+        "Cafeteria": 6,
+        "Lift": 72,
+        "Pharmacy / Dispensary": 5,
+        "Counter": 26,
+        "Room Door": 175,
+        "Door Only": 11,
+        "Unisex Washroom": 5,
+        "unknown": 5,
+        "Stairs": 8,
+        "Main Entry": 1,
+        "Boundary": 6,
+        "Sitting Area": 374,
+        "Reception": 40,
+        "Beacon": 160,
+        "Beam": 172,
+        "Emergency Exit": 4,
+        "Help Desk": 4,
+        "Exit Only": 1,
+        "Point of Interest": 2,
+        "Section": 35,
+        "Steps": 59,
+        "Corridor": 9
+      },
+      "featuresWithLocalCoordinates": 2284,
+      "floorConfigs": [
+        {
+          "floorNumber": 0,
+          "floorName": "Ground"
+        },
+        {
+          "floorNumber": 1,
+          "floorName": "First"
+        },
+        {
+          "floorNumber": 7,
+          "floorName": "Seventh"
+        }
+      ],
+      "sourcePlanStatus": "Unavailable; user has no source floor plan."
+    },
+    {
+      "name": "pune",
+      "buildingName": "PIECC",
+      "buildingId": "6966047a2eef1f3e1a99a5a9",
+      "file": "pune.geojson",
+      "features": 921,
+      "geometryTypes": {
+        "Point": 528,
+        "Polygon": 393
+      },
+      "featuresByFloor": {
+        "0": 921
+      },
+      "annotationTypes": {
+        "Main Entry": 1,
+        "Restricted Area": 3,
+        "Room": 4,
+        "Hall": 18,
+        "Cafeteria": 9,
+        "Assembly Area": 9,
+        "Smoking Zone": 9,
+        "BP": 137,
+        "Wall": 58,
+        "Door Only": 19,
+        "Booth": 574,
+        "unknown": 2,
+        "Unisex Washroom": 16,
+        "Sitting Area": 4,
+        "Room Door": 3,
+        "Fire Extinguisher": 8,
+        "Section": 14,
+        "First Aid": 3,
+        "Emergency Exit": 12,
+        "Entrance Only": 2,
+        "Campus Entry": 2,
+        "Stairs": 1,
+        "Pick up / Drop Off Point": 1,
+        "Counter": 11,
+        "Stage": 1
+      },
+      "featuresWithLocalCoordinates": 921,
+      "floorConfigs": [],
+      "sourcePlanStatus": "Unavailable; user has no source floor plan."
+    }
+  ]
+}
