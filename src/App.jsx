@@ -291,7 +291,6 @@ export default function App() {
       <p>Load your floor geometry and waypoints from the iway API. Generate beacons when you choose. Planning data stays in this browser; API imports contact the selected iway server.</p>
       {annotationFields}
       {importError && <p role="alert">{importError}</p>}
-      <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
     </section></main>
   );
 

@@ -1,6 +1,6 @@
 import { beaconAnnotationExport } from "../models/beaconAnnotationExport.js";
 import { downloadFile } from "../models/deploymentExport.js";
-import { BEACON_VIEWS, beaconCountSummary, beaconLabel, compareAnnotatedBeacons, nearbyBeacons, annotatedBeaconPositions } from "../models/beaconRules.js";
+import { beaconLabel, nearbyBeacons, annotatedBeaconPositions } from "../models/beaconRules.js";
 import React, { useEffect, useMemo, useState } from "react";
 import { DEFAULT_PLANNING_SETTINGS } from "../engines/deploymentPlanner.js";
 import { analyzeCoverage } from "../engines/coverage.js";
@@ -8,11 +8,10 @@ import { geometryForProject } from "../models/deployments.js";
 import { BEACON_PROFILES } from "../engines/beaconPlacement.js";
 export default function BeaconPanel({ project, tool, update, setTool, selection, setSelection, planner, error, focus }) {
   const result = project.beaconPlan, settings = { ...DEFAULT_PLANNING_SETTINGS, ...project.planningSettings };
-  const [comparison, setComparison] = useState(null), [exportError, setExportError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [minimum, setMinimum] = useState(String(settings.minimumSpacing)), [maximum, setMaximum] = useState(String(settings.maximumSpacing));
   useEffect(() => { setMinimum(String(settings.minimumSpacing)); setMaximum(String(settings.maximumSpacing)); }, [settings.minimumSpacing, settings.maximumSpacing]);
   const min = Number(minimum), max = Number(maximum), validRange = Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min;
-  useEffect(() => setComparison(null), [project.beaconPlan, project.annotationData, project.annotationFloor]);
   const coverage = project.coverageAnalysis;
   const annotatedCoverage = useMemo(() => {
     if (!project.annotationData || !project.annotationAlignment)
@@ -54,21 +53,6 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
     </h2>
 
-    {(result || project.annotationData) && <p role="status">
-
-      <strong>
-
-        {beaconCountSummary(project)}
-
-
-      </strong>
-
-      {project.floorAnalysis?.method === "aligned-venue-reference" && <small>Blue: navigation beacons · red: API access points. Review this initial draft before installation.</small>}
-
-
-    </p>}
-
-
     {selected && <section className="panel-section" aria-label="Selected beacon properties" aria-live="polite">
 
 
@@ -91,62 +75,6 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
 
       {inspector?.nearestPoi && <p>Nearest POI: {inspector.nearestPoi.name || inspector.nearestPoi.id} · {inspector.nearestPoi.distance.toFixed(2)} m</p>}
-
-
-
-
-    </section>}
-
-
-    <section className="panel-section" aria-label="Beacon map comparison">
-
-
-      <label>Beacons shown on map<select value={project.beaconView || "model"} onChange={e => update({ ...project, beaconView: e.target.value })}>
-
-
-        {Object.entries(BEACON_VIEWS).map(([value, label]) => <option key={value} value={value}>
-
-          {label}
-
-
-        </option>)}
-
-
-
-
-      </select></label>
-
-
-      <small>Blue dots: model · green dots: annotated data. Overlapping annotated dots are smaller so both positions remain visible. Differences use the same one-to-one 3 m matching as the comparison.</small>
-
-
-      <small>Annotated positions are read only. The summaries below compare each layout separately; map coverage follows the selected view.</small>
-
-
-
-
-    </section>
-
-
-    {result && !project.placementNeedsReview && <section className="panel-section" aria-label="Compare annotated beacons">
-
-
-      <button disabled={planner.busy} onClick={() => {
-        try {
-          setComparison(compareAnnotatedBeacons(project));
-        }
-        catch (error) {
-          setComparison({ error: error.message });
-        }
-      }}>Compare annotated beacons</button>
-
-
-      {comparison && (comparison.error ? <p role="alert">
-
-        {comparison.error}
-
-
-      </p> : <p role="status">Placement agreement: <strong>{comparison.accuracy.toFixed(1)}%</strong> · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra model beacons · {comparison.matched}/{comparison.actual} reference beacons matched within {comparison.tolerance} m. Precision {comparison.precision.toFixed(1)}%, recall {comparison.recall.toFixed(1)}%. {comparison.meanError !== null ? `Mean matched distance ${comparison.meanError.toFixed(2)} m.` : ""} Maximum one-to-one matches within tolerance; percentage is F1, including extra and missing beacons.</p>)}
 
 
 
@@ -239,7 +167,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
     {result?.poiSummary && <p>{result.poiSummary.served} / {result.poiSummary.total} POIs assigned · {result.poiSummary.sharedBeacons} shared beacons</p>}
 
 
-    <label className="check-label"><input type="checkbox" checked={settings.allowVoidBeacons} onChange={e => setting("allowVoidBeacons", e.target.checked)} />Allow beacons in void areas</label>
+    {/* <label className="check-label"><input type="checkbox" checked={settings.allowVoidBeacons} onChange={e => setting("allowVoidBeacons", e.target.checked)} />Allow beacons in void areas</label> */}
 
     <small>Void areas and restricted areas are separate. Restricted areas always block placement; voids remain excluded from walking routes.</small>
 
@@ -281,7 +209,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
     </small>
 
 
-    <section className="panel-section" aria-label="Edit beacon placement">
+    { <section className="panel-section" aria-label="Edit beacon placement">
 
 
       <h3>Move a beacon</h3>
@@ -358,7 +286,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
 
 
-    </section>
+    </section>}
 
 
     <label className="check-label"><input type="checkbox" checked={project.beaconLabelsVisible === true} onChange={e => update({ ...project, beaconLabelsVisible: e.target.checked })} />Show beacon IDs</label>

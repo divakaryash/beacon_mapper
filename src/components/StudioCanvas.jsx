@@ -468,7 +468,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
           </option>)}
         </select>
 
-        {beaconView !== 'model' && <small>Coverage uses the visible beacon sets and current profile radii (geometric estimate).{beaconView === 'both' ? ' Both view combines annotated and model beacons.' : ''}</small>}
+        {/* {beaconView !== 'model' && <small>Coverage uses the visible beacon sets and current profile radii (geometric estimate).{beaconView === 'both' ? ' Both view combines annotated and model beacons.' : ''}</small>} */}
 
         {displayedCoverage.error && <small role="alert">Coverage unavailable: {displayedCoverage.error}</small>}
 
@@ -490,7 +490,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
         {mapError}
       </p>}
 
-      <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
+      {/* <button className="fit-button" type="button" onClick={fit}>Fit to screen</button> */}
 
       <svg
         ref={svgRef}

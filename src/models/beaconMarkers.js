@@ -1,4 +1,4 @@
-export const MODEL_BEACON_COLOR = '#2563eb';
+export const MODEL_BEACON_COLOR = '#0891b2';
 export const ANNOTATED_BEACON_COLOR = '#16a34a';
 export const BEACON_DOT_RADIUS = 7;
 export const OVERLAPPING_ANNOTATION_RADIUS = 3.5;
