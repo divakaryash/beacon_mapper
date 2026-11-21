@@ -143,7 +143,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
             <small>{annotatedCoverage.result.graphCoveredLength.toFixed(1)} m covered of {annotatedCoverage.result.totalGraphLength.toFixed(1)} m waypoint paths · {annotatedCoverage.count} annotated beacons · imported floor {project.annotationFloor}.</small>
 
 
-            <button type="button" onClick={() => update({ ...project, beaconView: "data", layers: { ...project.layers, beacons: { ...project.layers.beacons, visible: true }, coverage: { ...project.layers.coverage, visible: true } } })}>Show annotated coverage on map</button>
+            {/* <button type="button" onClick={() => update({ ...project, beaconView: "data", layers: { ...project.layers, beacons: { ...project.layers.beacons, visible: true }, coverage: { ...project.layers.coverage, visible: true } } })}>Show annotated coverage on map</button> */}
 
 
 
@@ -156,7 +156,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
           </p>}
 
 
-      <small>Geometric coverage using the current planning radii and floor geometry. Model beacons are excluded from this summary.</small>
+      {/* <small>Geometric coverage using the current planning radii and floor geometry. Model beacons are excluded from this summary.</small> */}
 
 
 
@@ -169,7 +169,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
     {/* <label className="check-label"><input type="checkbox" checked={settings.allowVoidBeacons} onChange={e => setting("allowVoidBeacons", e.target.checked)} />Allow beacons in void areas</label> */}
 
-    <small>Void areas and restricted areas are separate. Restricted areas always block placement; voids remain excluded from walking routes.</small>
+    {/* <small>Void areas and restricted areas are separate. Restricted areas always block placement; voids remain excluded from walking routes.</small> */}
 
 
     <label>Minimum spacing (m)<input type="number" min="0" step="any" value={minimum} onChange={e => setMinimum(e.target.value)} /></label>
@@ -201,23 +201,23 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
     </div>
 
-    <small>
+    {/* <small>
 
       {project.floorAnalysis?.routeSource === "geojson" ? "JSON paths only. Lift, stair and escalator points may share one beacon when each is visible within 5 m. Connecting paths use the configured spacing range." : project.floorAnalysis?.routeSource === "missing" ? "Automatic POI placement. Lifts, stairs and escalators need a visible beacon within 5 m; nearby points may share one." : "Topology-aware mounting: graph references guide spacing, not final coordinates."}
 
 
-    </small>
+    </small> */}
 
 
     { <section className="panel-section" aria-label="Edit beacon placement">
 
 
-      <h3>Move a beacon</h3>
+      {/* <h3>Move a beacon</h3>
 
-      <small>Click a beacon to select it, then drag it to a new waypoint position. You can also select it below.</small>
+      <small>Click a beacon to select it, then drag it to a new waypoint position. You can also select it below.</small> */}
 
 
-      <label>Beacon<select disabled={planner.busy} value={selection || ""} onChange={e => {
+      {/* <label>Beacon<select disabled={planner.busy} value={selection || ""} onChange={e => {
         setSelection(e.target.value || null);
         const b = result?.beacons.find(b => b.id === e.target.value);
         if (b)
@@ -236,10 +236,10 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
         </option>)}
 
 
-      </select></label>
+      </select></label> */}
 
 
-      <button disabled={planner.busy || !selected || selected.locked} onClick={() => setTool("beaconMove")}>Move selected beacon</button>
+      {/* <button disabled={planner.busy || !selected || selected.locked} onClick={() => setTool("beaconMove")}>Move selected beacon</button> */}
 
 
       <button className="danger" disabled={planner.busy || !selected || selected.locked} onClick={async () => {
@@ -281,7 +281,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
       </>}
 
 
-      <small>Placement, movement and deletion update waypoint coverage. New positions snap along the nearest valid waypoint line, including between endpoints. The map returns to pan mode.</small>
+      {/* <small>Placement, movement and deletion update waypoint coverage. New positions snap along the nearest valid waypoint line, including between endpoints. The map returns to pan mode.</small> */}
 
 
 
