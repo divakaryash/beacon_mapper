@@ -7,6 +7,7 @@ import path from 'node:path';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
+    base: '/beacon-mapper/',
     server: {
     host: '0.0.0.0',
     allowedHosts: ['annotation.iwayplus.in'],
