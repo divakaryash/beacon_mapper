@@ -297,3 +297,41 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 }
 
 .coverage-summary-dialog h3 { font-size: 14px; line-height: 1.45; }
+
+.beacon-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px;
+  background: white;
+  border: 1px solid #c8d0d6;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.beacon-layout-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.beacon-layout-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 12px;
+  background: #64748b;
+  position: relative;
+}
+.beacon-layout-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+}
+.beacon-layout-toggle input:checked + .beacon-layout-switch { background: #0891b2; }
+.beacon-layout-toggle input:checked + .beacon-layout-switch::after { transform: translateX(14px); }
+.beacon-layout-toggle input:focus-visible + .beacon-layout-switch { outline: 2px solid #0891b2; outline-offset: 3px; }

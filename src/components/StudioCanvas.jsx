@@ -4,7 +4,7 @@ import {
   OVERLAPPING_ANNOTATION_RADIUS, overlappingAnnotatedBeaconIds,
 } from "../models/beaconMarkers.js";
 import { sourceWaypointGraph } from "../models/sourceWaypoints.js";
-import { BEACON_VIEWS, beaconCountSummary, beaconLabel, nearbyBeacons, compareAnnotatedBeacons } from "../models/beaconRules.js";
+import { beaconCountSummary, beaconLabel, nearbyBeacons, compareAnnotatedBeacons } from "../models/beaconRules.js";
 import WaypointCoverageOverlay from "./WaypointCoverageOverlay.jsx";
 import { overlayPoint, overlayTransform, snapFloorPlanOverlay } from "../models/floorPlanOverlay.js";
 import SimulationOverlay from "./SimulationOverlay.jsx";
@@ -404,7 +404,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
 
   </g>, [project.graph, project.layers.navigationGraph?.visible, graphNodes, graphSelection, route, project.floorAnalysis?.method, sourceWaypoints]);
 
-  const beaconView = project.beaconView || 'model';
+  const beaconView = project.beaconView === 'both' ? 'both' : 'model';
   const comparison = useMemo(() => {
     if (beaconView === 'model') return null;
     try { return compareAnnotatedBeacons(project); } catch (error) { return { error: error.message }; }
@@ -465,13 +465,16 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
         </button>
 
-        <select aria-label="Beacon map view" value={beaconView} onChange={e => onBeaconViewChange(e.target.value)}>
-          {Object.entries(BEACON_VIEWS).map(([value, label]) => <option key={value} value={value}>
-            {label}
-          </option>)}
-        </select>
-
-        {/* {beaconView !== 'model' && <small>Coverage uses the visible beacon sets and current profile radii (geometric estimate).{beaconView === 'both' ? ' Both view combines annotated and model beacons.' : ''}</small>} */}
+        <label className="beacon-layout-toggle">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={beaconView === "both"}
+            onChange={event => onBeaconViewChange(event.target.checked ? "both" : "model")}
+          />
+          <span className="beacon-layout-switch" aria-hidden="true" />
+          Both layouts
+        </label>
 
         {displayedCoverage.error && <small role="alert">Coverage unavailable: {displayedCoverage.error}</small>}
 
