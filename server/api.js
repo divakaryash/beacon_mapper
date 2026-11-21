@@ -3,7 +3,16 @@ import { Worker } from 'node:worker_threads';
 import { timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from 'vite';
-export function createGenerationServer({ apiKey = '', allowedOrigins = [], timeoutMs = 120000, maxBodyBytes = 15000000, maxConcurrent = 2 } = {}) {
+import { fetchBuildingAnnotations } from './building-generation.js';
+export function createGenerationServer({
+  apiKey = '',
+  allowedOrigins = [],
+  timeoutMs = 120000,
+  maxBodyBytes = 15000000,
+  maxConcurrent = 2,
+  iwayApiKeys = {},
+  fetchRequest = fetch,
+} = {}) {
   let active = 0;
   return createServer(async (req, res) => {
     const send = (status, payload) => {
@@ -13,7 +22,7 @@ export function createGenerationServer({ apiKey = '', allowedOrigins = [], timeo
       }
     };
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    if (!['/api/v1/health', '/api/v1/generate'].includes(pathname))
+    if (!['/api/v1/health', '/api/v1/generate', '/api/v1/generate-building'].includes(pathname))
       return send(404, { error: 'Not found.' });
     if (req.headers.origin) {
       if (!allowedOrigins.includes(req.headers.origin))
@@ -68,8 +77,15 @@ export function createGenerationServer({ apiKey = '', allowedOrigins = [], timeo
       catch {
         return send(400, { error: 'Invalid JSON.' });
       }
+      const buildingRequest = pathname === '/api/v1/generate-building'
+        ? await fetchBuildingAnnotations(body, iwayApiKeys, fetchRequest)
+        : null;
       const message = await new Promise((resolve, reject) => {
-        worker = new Worker(new URL('./generation-worker.js', import.meta.url), { workerData: body });
+        worker = new Worker(new URL('./generation-worker.js', import.meta.url), {
+          workerData: buildingRequest
+            ? { action: 'generateBuilding', request: buildingRequest }
+            : { action: 'generate', request: body },
+        });
         timer = setTimeout(() => reject(Object.assign(new Error('Generation timed out.'), { status: 504 })), timeoutMs);
         worker.once('message', resolve);
         worker.once('error', () => reject(new Error('Generation worker failed.')));
@@ -98,6 +114,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     throw new Error('Invalid PLANNER_API_PORT.');
   if (!['127.0.0.1', 'localhost', '::1'].includes(host) && !env.PLANNER_API_KEY)
     throw new Error('Set PLANNER_API_KEY before exposing the API on a network interface.');
-  const server = createGenerationServer({ apiKey: env.PLANNER_API_KEY, allowedOrigins: (env.PLANNER_API_CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean) });
+  const server = createGenerationServer({
+    iwayApiKeys: {
+      dev: env.Dev_Api_Key || env.VITE_IWAY_DEV_API_KEY || '',
+      maps: env.Maps_Api_Key || env.VITE_IWAY_MAPS_API_KEY || '',
+    },
+    apiKey: env.PLANNER_API_KEY, allowedOrigins: (env.PLANNER_API_CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean) });
   server.listen(port, host, () => console.log(`Planner API listening on http://${host}:${port}`));
 }

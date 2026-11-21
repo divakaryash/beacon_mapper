@@ -1,6 +1,6 @@
 # Beacon generation API
 
-The standalone API runs the same `DeploymentPlanner` and annotation importer as the app. The UI and its existing API imports are unchanged. Requests are independent: no server-side project storage, no changes to your saved browser project, and no calls to iway servers. Send the annotation data your other tool has already fetched.
+The standalone API runs the same `DeploymentPlanner` and annotation importer as the app. The UI and its existing API imports are unchanged. Requests are independent: no server-side project storage, no changes to your saved browser project, and no changes to upstream annotations. `/api/v1/generate` uses the data you send; `/api/v1/generate-building` fetches annotations from the selected iway environment.
 
 ## Start
 
@@ -30,6 +30,7 @@ PLANNER_API_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 | --- | --- | --- |
 | GET | `/api/v1/health` | `{ "status": "ok", "apiVersion": "1" }` |
 | POST | `/api/v1/generate` | Beacon plan, coverage, effective settings and work metrics |
+| POST | `/api/v1/generate-building` | Fetch global annotations by building ID, then generate beacon data |
 
 Generation requires `Content-Type: application/json` and, when configured, `Authorization: Bearer YOUR_TOKEN`. Health and OPTIONS preflight do not require authentication.
 
@@ -142,3 +143,41 @@ The origin is the geographic position of local `(worldX: 0, worldY: 0)`. This fa
 ```
 
 The snippet illustrates the added fields on a beacon; all existing beacon fields remain in the response. Read `georeferencing.source` to see whether an annotation alignment or geographic origin was used.
+
+## Generate directly from a building ID
+
+`POST /api/v1/generate-building` fetches `/secured/get-global-annotation/{buildingId}` from the fixed `dev` or `maps` iway origin, then passes `mappingElements` and any `masterGraph` to the existing annotation importer and generation engine. It does not modify upstream data.
+
+```json
+{
+  "buildingId": "69d8c6a185d80d552c022653",
+  "environment": "dev",
+  "floor": "0"
+}
+```
+
+| Body field | Behavior |
+| --- | --- |
+| `buildingId` | Required 24-character hexadecimal building ID; `buildingID` is also accepted |
+| `environment` | `dev` or `maps`; defaults to `dev` |
+| `floor` | Optional numeric floor; omit to generate all floors with annotated polygons |
+| `settings` | Optional planning overrides, same schema as `/api/v1/generate` |
+
+The server reads `Dev_Api_Key` / `Maps_Api_Key` from `.env` (with the existing `VITE_IWAY_*_API_KEY` names as fallbacks). The selected upstream key is never returned, and callers do not pass it in the body. Service authentication still follows `PLANNER_API_KEY`, independently of upstream credentials.
+
+```sh
+curl http://127.0.0.1:3001/api/v1/generate-building \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer YOUR_SERVICE_TOKEN' \
+  --data '{"buildingId":"69d8c6a185d80d552c022653","environment":"dev","floor":"0"}'
+```
+
+When `PLANNER_API_KEY` is empty, omit the Authorization header. For the existing deployed proxy prefix, the public route is `/beacon-generator/api/v1/generate-building`; Nginx must forward it to `/api/v1/generate-building` on the Node service.
+
+The response contains:
+
+- `buildingId` and `environment`: the requested source.
+- `floors`: one entry per requested floor, containing `floor` and the usual `plan`, `coverage`, `settings`, `scale`, `work` and `georeferencing` fields.
+- `beacons`: a flattened list of generated beacons, with `latitude`, `longitude` and an explicit `floor`. IDs can repeat across floors; identify a beacon by `(buildingId, floor, id)`.
+
+Invalid building IDs/environments/body fields return 400. Missing server upstream credentials return 503. Upstream HTTP errors, invalid JSON, missing mapping elements or downloads over 15 MB return 502; upstream timeout after 30 seconds returns 504. Invalid annotation geometry, an unknown floor or invalid generation settings return 422. All floors must succeed for a response to be returned; floor coverage is calculated separately. Existing auth, concurrency and generation-timeout limits also apply.
