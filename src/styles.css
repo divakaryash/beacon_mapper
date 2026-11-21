@@ -18,7 +18,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .welcome-card p:not(.eyebrow) { color: #657283; }
 .welcome-card small { display: block; margin-top: 0.75rem; color: #82909d; }
 
-.app-shell { height: 100vh; height: 100dvh; overflow-x: auto; overflow-y: hidden; display: grid; grid-template: 66px minmax(0, 1fr) / 280px minmax(500px, 1fr) 280px; }
+.app-shell { height: 100vh; height: 100dvh; overflow-x: auto; overflow-y: hidden; display: grid; grid-template: 66px minmax(0, 1fr) / 280px minmax(500px, 1fr); }
 .app-header { grid-column: 1 / -1; display: flex; align-items: center; gap: 2rem; padding: 0 1.25rem; color: #f8fbfc; background: #10253f; border-bottom: 3px solid #2ca58d; }
 .app-header h1 { margin: 0.1rem 0 0; max-width: 360px; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
 .eyebrow { margin: 0; color: #8fd0c2; font-size: 0.67rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -150,7 +150,7 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .reference-canvas .navigation-graph circle:not(.selected-node) { fill: transparent; stroke: transparent; }
 
 @media (max-width: 1100px) {
-  .app-shell { grid-template-columns: 190px minmax(240px, 1fr) 230px; }
+  .app-shell { grid-template-columns: 220px minmax(280px, 1fr); }
   .app-header { gap: .75rem; padding: 0 .75rem; }
   .app-header h1 { max-width: 270px; font-size: .9rem; }
   .project-stats span:not(:last-child) { display: none; }
@@ -200,3 +200,100 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .map-controls select { width: auto; max-width: 100%; margin: 0; padding: 8px; background: white; border: 1px solid #c8d0d6; border-radius: 5px; }
 .map-controls small { padding: 6px 8px; background: rgb(255 255 255 / 94%); border-radius: 5px; }
 .reference-canvas .polygon-legend { top: auto; bottom: 46px; max-width: calc(100% - 24px); }
+
+.beacon-panel-heading,
+.coverage-summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.beacon-panel-heading { margin-bottom: 16px; }
+.beacon-panel-heading h2,
+.coverage-summary-heading h2 { margin: 0; }
+.coverage-summary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+}
+.coverage-summary-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  border: 1px solid #dfe4e8;
+  border-radius: 14px;
+  padding: 24px;
+  color: #172033;
+  background: white;
+  box-shadow: 0 20px 60px #17203333;
+}
+.coverage-summary-dialog::backdrop { background: #17203366; }
+.coverage-summary-heading { margin-bottom: 24px; }
+.coverage-summary-heading button { font-size: 24px; padding: 2px 10px; }
+.coverage-summary-dialog .panel-section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.coverage-summary-dialog progress {
+  display: block;
+  height: 12px;
+  margin: 12px 0;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e8edf1;
+}
+.coverage-summary-dialog progress::-webkit-progress-bar { background: #e8edf1; }
+.coverage-summary-dialog .coverage-model { accent-color: #0891b2; }
+.coverage-summary-dialog .coverage-annotated { accent-color: #16a34a; }
+.coverage-model::-webkit-progress-value { background: #0891b2; }
+.coverage-annotated::-webkit-progress-value { background: #16a34a; }
+.coverage-model::-moz-progress-bar { background: #0891b2; }
+.coverage-annotated::-moz-progress-bar { background: #16a34a; }
+
+/* Keep the totals and coverage popup within the map's fullscreen element. */
+.beacon-top-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+}
+.generate-placement-button {
+  min-height: 44px;
+  white-space: nowrap;
+  box-shadow: 0 3px 12px rgb(30 50 70 / 10%);
+}
+.beacon-summary-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 4px 12px;
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid #c8d0d6;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgb(30 50 70 / 10%);
+  font-size: 12px;
+}
+.model-beacon-total { color: #0891b2; }
+.annotated-beacon-total { color: #16a34a; }
+.beacon-summary-toolbar .coverage-summary-button {
+  background: #edf5f8;
+  color: #24556b;
+  border-radius: 5px;
+}
+.studio-canvas .fit-button { top: 66px; }
+.studio-canvas .map-controls { max-width: calc(100% - 490px); }
+.left-panel .deployment-panel h2 { margin-bottom: 14px; }
+@media (max-width: 800px) {
+  .beacon-top-actions { top: 64px; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .studio-canvas .map-controls { max-width: calc(100% - 24px); }
+  .studio-canvas .fit-button { top: 118px; }
+}
+
+.coverage-summary-dialog h3 { font-size: 14px; line-height: 1.45; }

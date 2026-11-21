@@ -1,3 +1,4 @@
+import CoverageSummary from "./CoverageSummary.jsx";
 import {
   MODEL_BEACON_COLOR, ANNOTATED_BEACON_COLOR, BEACON_DOT_RADIUS,
   OVERLAPPING_ANNOTATION_RADIUS, overlappingAnnotatedBeaconIds,
@@ -457,6 +458,8 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
         <span style={{ color: ANNOTATED_BEACON_COLOR }}>● Annotated data</span>
       </div>}
 
+      <CoverageSummary project={project} busy={beaconEditingDisabled} />
+
       <div className="map-controls">
         <button type="button" onClick={toggleFullscreen}>
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -471,10 +474,6 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
         {/* {beaconView !== 'model' && <small>Coverage uses the visible beacon sets and current profile radii (geometric estimate).{beaconView === 'both' ? ' Both view combines annotated and model beacons.' : ''}</small>} */}
 
         {displayedCoverage.error && <small role="alert">Coverage unavailable: {displayedCoverage.error}</small>}
-
-        {["model", "data", "both"].includes(beaconView) && <small role="status">
-          {beaconCountSummary(project)}
-        </small>}
 
         {!["model", "data", "both"].includes(beaconView) && comparison && !comparison.error && <small role="status">{comparison.actual} annotated · {comparison.planned} active model · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra</small>}
 

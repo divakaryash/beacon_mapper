@@ -310,12 +310,13 @@ export default function App() {
           {importError && <p role="alert">{importError}</p>}
           {tool === "poi" && <label>POI type<select value={poiCategory} onChange={(event) => setPoiCategory(event.target.value)}>{POI_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>}
         </section>
+        <BeaconPanel project={project} tool={tool} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/>
         <LayersPanel project={project} update={update} />
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
       <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas beaconEditingDisabled={planner.busy} project={project} onBeaconViewChange={beaconView=>update({...project,beaconView})} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><BeaconPanel project={project} tool={tool} update={update} setTool={setTool} selection={beaconSelection} setSelection={setBeaconSelection} planner={planner} error={planningError} focus={location=>setFocusLocation({...location,request:Date.now()})}/></aside>
+
     </main>
   );
 }
