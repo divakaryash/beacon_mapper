@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "check": "tsc --noEmit && node --test src/engines/*.test.ts && vite build",
-    "benchmark": "node scripts/graph-demo.mjs"
+    "benchmark": "node scripts/graph-demo.mjs",
+    "api": "node server/api.js"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",

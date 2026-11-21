@@ -2,7 +2,7 @@ import React,{memo} from "react";
 
 export default memo(function CoverageOverlay({project,scale}) {
   const result=project.coverageAnalysis,settings={circles:true,heatmap:true,deadZones:true,overlap:true,gaps:true,...project.coverageSettings};
-  const floorId=settings.floorId||project.graph.nodes[0]?.floorId;
+  const floorId=settings.floorId||project.graph.nodes[0]?.floorId||project.beaconPlan?.beacons[0]?.floorId;
   if(!scale||!project.layers.coverage?.visible||project.placementNeedsReview)return null;
   return <g className="coverage-overlay" pointerEvents="none">
     {result?.graphEdges.filter(e=>!e.floorId||e.floorId===floorId).flatMap(e=>(e.segments||[]).filter(s=>s.count===0?settings.deadZones:s.count>1?settings.overlap||settings.heatmap:settings.heatmap).map((s,i)=><line key={`${e.edgeId}-${i}`} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={!s.count?"#ef4444":s.count>1?"#8b5cf6":"#10b981"} strokeWidth="6" vectorEffect="non-scaling-stroke"/>))}

@@ -123,3 +123,7 @@ Run `npm run check` (TypeScript check, unit tests, production build; Node 22.18+
 
 New planner beacons use sequential IDs (`IW001`, `IW002`, …). Configure **Beacon ID prefix** in the deployment panel; changes apply only to future IDs. The project saves its next number, deletion never renumbers survivors, and version reload retains the numbering high-water mark. Existing saved IDs are preserved. **Show beacon IDs** toggles map text independently of beacon icons; map tooltips contain IDs, while beacon types remain in the inspector and reports.
 # beacon_mapper
+
+## Reuse generation from another project
+
+Run `npm run api` to start the standalone beacon generation API at `http://127.0.0.1:3001`. `POST /api/v1/generate` accepts annotation JSON, a project, or engine inputs and returns the existing planner's generated beacon data and coverage. See [API.md](API.md) for setup, authentication, CORS and integration examples; [examples/generation-request.json](examples/generation-request.json) is a ready-to-send sample. The existing web app continues to run independently.

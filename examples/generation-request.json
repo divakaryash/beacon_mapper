@@ -1,0 +1,298 @@
+{
+  "project": {
+    "name": "Sample mall · geometry coverage demo",
+    "drawingWidthPixels": 1200,
+    "drawingHeightPixels": 760,
+    "widthMeters": 120,
+    "heightMeters": 76,
+    "gridSize": 20,
+    "snapToGrid": false,
+    "objects": [
+      {
+        "id": "boundary",
+        "type": "buildingBoundary",
+        "layerId": "walls",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 70,
+            "y": 65
+          },
+          {
+            "x": 1130,
+            "y": 65
+          },
+          {
+            "x": 1130,
+            "y": 695
+          },
+          {
+            "x": 70,
+            "y": 695
+          }
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "concourse",
+        "type": "walkableArea",
+        "layerId": "walkableAreas",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 410,
+            "y": 75
+          },
+          {
+            "x": 710,
+            "y": 75
+          },
+          {
+            "x": 710,
+            "y": 685
+          },
+          {
+            "x": 410,
+            "y": 685
+          }
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "west-retail",
+        "type": "walkableArea",
+        "layerId": "walkableAreas",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 80,
+            "y": 310
+          },
+          {
+            "x": 390,
+            "y": 310
+          },
+          {
+            "x": 390,
+            "y": 510
+          },
+          {
+            "x": 80,
+            "y": 510
+          }
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "restricted-services",
+        "type": "restrictedArea",
+        "layerId": "restrictedAreas",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 630,
+            "y": 400
+          },
+          {
+            "x": 700,
+            "y": 400
+          },
+          {
+            "x": 700,
+            "y": 450
+          },
+          {
+            "x": 630,
+            "y": 450
+          }
+        ],
+        "rotation": 0
+      },
+      {
+        "id": "wall-west",
+        "type": "wall",
+        "layerId": "walls",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 400,
+            "y": 65
+          },
+          {
+            "x": 400,
+            "y": 695
+          }
+        ],
+        "thicknessMeters": 0.8
+      },
+      {
+        "id": "wall-east",
+        "type": "wall",
+        "layerId": "walls",
+        "floorId": "floor-1",
+        "points": [
+          {
+            "x": 720,
+            "y": 65
+          },
+          {
+            "x": 720,
+            "y": 695
+          }
+        ],
+        "thicknessMeters": 0.8
+      },
+      {
+        "id": "poi-main",
+        "type": "poi",
+        "layerId": "pois",
+        "x": 560,
+        "y": 90,
+        "name": "Main entrance",
+        "category": "Entrance",
+        "floorId": "floor-1",
+        "metadata": {
+          "nodeId": "entrance"
+        }
+      },
+      {
+        "id": "poi-lift",
+        "type": "poi",
+        "layerId": "pois",
+        "x": 560,
+        "y": 660,
+        "name": "Lift lobby",
+        "category": "Lift",
+        "floorId": "floor-1",
+        "metadata": {
+          "nodeId": "lift"
+        }
+      }
+    ],
+    "graph": {
+      "nodes": [
+        {
+          "id": "entrance",
+          "x": 560,
+          "y": 90,
+          "worldX": 56,
+          "worldY": 9,
+          "floorId": "floor-1",
+          "type": "Entrance",
+          "metadata": {
+            "label": "entrance"
+          }
+        },
+        {
+          "id": "food",
+          "x": 560,
+          "y": 180,
+          "worldX": 56,
+          "worldY": 18,
+          "floorId": "floor-1",
+          "type": "Room Entrance",
+          "metadata": {
+            "label": "food",
+            "category": "Food Court"
+          }
+        },
+        {
+          "id": "atrium",
+          "x": 560,
+          "y": 310,
+          "worldX": 56,
+          "worldY": 31,
+          "floorId": "floor-1",
+          "type": "Junction",
+          "metadata": {
+            "label": "atrium",
+            "category": "Atrium"
+          }
+        },
+        {
+          "id": "lift",
+          "x": 560,
+          "y": 660,
+          "worldX": 56,
+          "worldY": 66,
+          "floorId": "floor-1",
+          "type": "Lift",
+          "metadata": {
+            "label": "lift"
+          }
+        },
+        {
+          "id": "west",
+          "x": 420,
+          "y": 310,
+          "worldX": 42,
+          "worldY": 31,
+          "floorId": "floor-1",
+          "type": "Room Entrance",
+          "metadata": {
+            "label": "west"
+          }
+        },
+        {
+          "id": "exit",
+          "x": 700,
+          "y": 310,
+          "worldX": 70,
+          "worldY": 31,
+          "floorId": "floor-1",
+          "type": "Exit",
+          "metadata": {
+            "label": "exit"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "entry-food",
+          "source": "entrance",
+          "target": "food",
+          "distance": 9,
+          "accessibility": true,
+          "direction": "both",
+          "edgeType": "Walkway"
+        },
+        {
+          "id": "food-atrium",
+          "source": "food",
+          "target": "atrium",
+          "distance": 13,
+          "accessibility": true,
+          "direction": "both",
+          "edgeType": "Walkway"
+        },
+        {
+          "id": "atrium-lift",
+          "source": "atrium",
+          "target": "lift",
+          "distance": 35,
+          "accessibility": true,
+          "direction": "both",
+          "edgeType": "Walkway"
+        },
+        {
+          "id": "atrium-west",
+          "source": "atrium",
+          "target": "west",
+          "distance": 14,
+          "accessibility": true,
+          "direction": "both",
+          "edgeType": "Walkway"
+        },
+        {
+          "id": "atrium-exit",
+          "source": "atrium",
+          "target": "exit",
+          "distance": 14,
+          "accessibility": true,
+          "direction": "both",
+          "edgeType": "Walkway"
+        }
+      ]
+    }
+  }
+}

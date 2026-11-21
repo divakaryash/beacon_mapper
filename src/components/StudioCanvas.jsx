@@ -7,6 +7,9 @@ import { boundsOf, moveObject, resizeObject, moveVertex, rotatedPoint, rotationF
 import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordinates.js";
 import { LAYERS, makeObject, visibleAnnotation } from "../models/drawing.js";
 import CoverageOverlay from "./CoverageOverlay.jsx";
+import {analyzeCoverage} from "../engines/coverage.js";
+import {BEACON_PROFILES} from "../engines/beaconPlacement.js";
+import {geometryForProject} from "../models/deployments.js";
 
 const pointString = (points = []) => points.map(({ x, y }) => `${x},${y}`).join(" ");
 const polygonTools = new Set(["room", "polygon", "walkableArea", "restrictedArea","voidArea","buildingBoundary","nonWalkableArea"]);
@@ -349,6 +352,16 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
   if(popupBeacon&&popupLines.length===1)popupLines.push('No nearby beacons on this floor');
   const popupHeight=popupLines.length*16+12;
   const referenceBeacons=['data','both'].includes(beaconView)?comparison?.referenceBeacons||[]:['differences','missing'].includes(beaconView)?comparison?.missingBeacons||[]:[];
+  const displayedCoverage=useMemo(()=>{
+    if(beaconView==='model')return {project};
+    const profile=project.beaconProfile||BEACON_PROFILES[0];
+    const beacons=[...modelBeacons,...referenceBeacons.map(b=>({...b,coverageRadius:profile.coverageRadius,reliableRadius:profile.reliableRadius??profile.coverageRadius,marginalRadius:profile.marginalRadius??profile.coverageRadius}))];
+    const coverageProject={...project,beaconPlan:{beacons},coverageAnalysis:null};
+    try {
+      coverageProject.coverageAnalysis=analyzeCoverage({graph:project.graph,floorGeometry:geometryForProject(project),beacons,profile,configuration:{...project.planningSettings,graphOnly:true}});
+      return {project:coverageProject};
+    } catch(error) {return {project:coverageProject,error:error.message};}
+  },[project,beaconView,comparison]);
   const missingIds=new Set((comparison?.missingBeacons||[]).map(b=>b.id)),extraIds=new Set((comparison?.extraBeacons||[]).map(b=>b.id));
   const warnedBeaconIds=new Set((project.beaconPlan?.warnings||[]).flatMap(w=>[w.beaconId,...(w.beaconIds||[])]).filter(Boolean));
   const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{modelBeacons.filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button!==0||!["pan","beaconMove","select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(beaconSelection!==b.id||beaconEditingDisabled)return;if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}>{project.layers.warnings?.visible&&warnedBeaconIds.has(b.id)&&<circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke"/>}<circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":extraIds.has(b.id)?"#dc2626":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{beaconLabel(b.id)}</text>}<title>{`Beacon ${beaconLabel(b.id)}\n${nearbyBeacons(b,project.beaconPlan.beacons).map(n=>`${n.direction}: ${beaconLabel(n.id)} · ${n.meters.toFixed(2)} m`).join("\n")}`}</title></g>)}</g>),[beaconEditingDisabled,beaconView,comparison,modelBeacons,project.beaconPlan,project.layers,project.beaconLabelsVisible,project.layers.warnings?.visible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection,warnedBeaconIds]);
@@ -357,6 +370,8 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
       {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Void areas</span><span><i className="legend-restricted" />Restricted areas</span><span><i className="legend-boundary" />Boundary</span><span style={{color:"#0891b2"}}>● Model</span><span style={{color:"#15803d"}}>○ Annotated data</span><span style={{color:"#b45309"}}>◆ Missing match</span><span style={{color:"#dc2626"}}>● Extra model</span></div>}
       <div className="map-controls"><button type="button" onClick={toggleFullscreen}>{fullscreen?"Exit fullscreen":"Fullscreen"}</button>
         <select aria-label="Beacon map view" value={beaconView} onChange={e=>onBeaconViewChange(e.target.value)}>{Object.entries(BEACON_VIEWS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+        {beaconView!=='model'&&<small>Coverage uses the visible beacon sets and current profile radii (geometric estimate).{beaconView==='both'?' Both view combines annotated and model beacons.':''}</small>}
+        {displayedCoverage.error&&<small role="alert">Coverage unavailable: {displayedCoverage.error}</small>}
         {["model","data","both"].includes(beaconView)&&<small role="status">{beaconCountSummary(project)}</small>}
         {!["model","data","both"].includes(beaconView)&&comparison&&!comparison.error&&<small role="status">{comparison.actual} annotated · {comparison.planned} active model · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra</small>}
       </div>
@@ -386,7 +401,7 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
         <rect x="-50000" y="-50000" width="100000" height="100000" className="canvas-paper" />
         {!project.floorAnalysis && <rect x="-50000" y="-50000" width="100000" height="100000" fill="url(#major-grid)" />}
         {!overlay&&<FloorPlan project={project} source={source} />}
-        {["model","both"].includes(beaconView)&&<CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>}
+        {<CoverageOverlay project={displayedCoverage.project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>}
         <g visibility={overlay?.geojsonVisible===false?"hidden":"visible"}>
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
@@ -415,7 +430,7 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
             <title>{`Annotated beacon ${b.label} · ${missing?'No model match within 3 m':'Imported position (read only)'}\n${nearbyBeacons(b,comparison.referenceBeacons).map(n=>`${n.direction}: ${comparison.referenceBeacons.find(p=>p.id===n.id)?.label} · ${n.meters.toFixed(2)} m`).join('\n')}\nSource ID: ${b.sourceId}`}</title>
           </g>;
         })}</g>}
-        {["model","both"].includes(beaconView)&&<WaypointCoverageOverlay project={project}/>}
+        {<WaypointCoverageOverlay project={displayedCoverage.project}/>}
         {["model","both"].includes(beaconView)&&project.layers.warnings?.visible&&<g pointerEvents="none">{(project.beaconPlan?.warnings||[]).filter(w=>Number.isFinite(w.x)).slice(0,100).map((w,i)=><circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2"><title>{w.message}</title></circle>)}</g>}
         {draftPoints.length>=3&&(polygonTools.has(tool)||tool==="polyline")&&<circle className="drawing-preview" cx={draftPoints[0].x} cy={draftPoints[0].y} r={8*viewRef.current.width/(svgRef.current?.getBoundingClientRect().width||1)}><title>Click to close polygon</title></circle>}
         {draftPath.length > 1 && (polygonTools.has(tool)
