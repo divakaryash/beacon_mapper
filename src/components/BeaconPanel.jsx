@@ -1,8 +1,11 @@
 import {beaconAnnotationExport} from "../models/beaconAnnotationExport.js";
 import {downloadFile} from "../models/deploymentExport.js";
-import {BEACON_VIEWS,beaconCountSummary,beaconLabel,compareAnnotatedBeacons,nearbyBeacons} from "../models/beaconRules.js";
-import React,{useEffect,useState} from "react";
+import {BEACON_VIEWS,beaconCountSummary,beaconLabel,compareAnnotatedBeacons,nearbyBeacons,annotatedBeaconPositions} from "../models/beaconRules.js";
+import React,{useEffect,useMemo,useState} from "react";
 import {DEFAULT_PLANNING_SETTINGS} from "../engines/deploymentPlanner.js";
+import {analyzeCoverage} from "../engines/coverage.js";
+import {geometryForProject} from "../models/deployments.js";
+import {BEACON_PROFILES} from "../engines/beaconPlacement.js";
 export default function BeaconPanel({project,tool,update,setTool,selection,setSelection,planner,error,focus}) {
   const result=project.beaconPlan,settings={...DEFAULT_PLANNING_SETTINGS,...project.planningSettings};
   const [comparison,setComparison]=useState(null),[exportError,setExportError]=useState("");
@@ -11,6 +14,21 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
   const min=Number(minimum),max=Number(maximum),validRange=Number.isFinite(min)&&Number.isFinite(max)&&min>0&&max>=min;
   useEffect(()=>setComparison(null),[project.beaconPlan,project.annotationData,project.annotationFloor]);
   const coverage=project.coverageAnalysis;
+  const annotatedCoverage=useMemo(()=>{
+    if(!project.annotationData||!project.annotationAlignment)return null;
+    try {
+      const profile=project.beaconProfile||BEACON_PROFILES[0];
+      const beacons=annotatedBeaconPositions(project).map(b=>({...b,
+        coverageRadius:profile.coverageRadius,
+        reliableRadius:project.planningSettings?.reliableRadius??DEFAULT_PLANNING_SETTINGS.reliableRadius,
+        marginalRadius:project.planningSettings?.marginalRadius??DEFAULT_PLANNING_SETTINGS.marginalRadius}));
+      return {count:beacons.length,result:analyzeCoverage({graph:project.graph,
+        floorGeometry:geometryForProject(project),beacons,profile,
+        configuration:{...DEFAULT_PLANNING_SETTINGS,...project.planningSettings,graphOnly:true}})};
+    }catch(error){return {error:error.message};}
+  },[project.annotationData,project.annotationAlignment,project.annotationFloor,project.graph,
+    project.objects,project.widthMeters,project.heightMeters,project.drawingWidthPixels,
+    project.drawingHeightPixels,project.planningSettings,project.beaconProfile]);
   const selected=result?.beacons.find(b=>b.id===selection);
   const inspector=planner.inspector?.id===selected?.id?planner.inspector:null;
   const neighbors=selected?nearbyBeacons(selected,result.beacons):[];
@@ -32,20 +50,32 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
         {Object.entries(BEACON_VIEWS).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select></label>
       <small>Blue: model · green ring: annotated data · orange diamond: missing annotation match · red: extra model beacon. Differences use the same one-to-one 3 m matching as the comparison.</small>
-      <small>Annotated positions are read only. Coverage calculations always describe the model layout.</small>
+      <small>Annotated positions are read only. The summaries below compare each layout separately; map coverage follows the selected view.</small>
     </section>
     {result&&!project.placementNeedsReview&&<section className="panel-section" aria-label="Compare annotated beacons">
       <button disabled={planner.busy} onClick={()=>{try{setComparison(compareAnnotatedBeacons(project));}catch(error){setComparison({error:error.message});}}}>Compare annotated beacons</button>
       {comparison&&(comparison.error?<p role="alert">{comparison.error}</p>:<p role="status">Placement agreement: <strong>{comparison.accuracy.toFixed(1)}%</strong> · {comparison.missingBeacons.length} missing matches · {comparison.extraBeacons.length} extra model beacons · {comparison.matched}/{comparison.actual} reference beacons matched within {comparison.tolerance} m. Precision {comparison.precision.toFixed(1)}%, recall {comparison.recall.toFixed(1)}%. {comparison.meanError!==null?`Mean matched distance ${comparison.meanError.toFixed(2)} m.`:""} Maximum one-to-one matches within tolerance; percentage is F1, including extra and missing beacons.</p>)}
     </section>}
     <section className="panel-section" aria-label="Waypoint path coverage">
-      <h3>Waypoint paths covered by beacons</h3>
+      <h3>Waypoint paths covered by model beacons</h3>
       {planner.busy?<p role="status">Updating coverage…</p>:project.placementNeedsReview?<p role="status">Recalculate placement to update coverage.</p>:coverage?.totalGraphLength>0?<>
         <p><strong>{coverage.graphCoveragePercentage.toFixed(1)}%</strong> covered</p>
         <progress aria-label="Waypoint paths covered by beacons" max="100" value={coverage.graphCoveragePercentage} style={{width:"100%"}} />
         <small>{coverage.graphCoveredLength.toFixed(1)} m covered of {coverage.totalGraphLength.toFixed(1)} m waypoint paths · all modelled floors.</small>
         {/* <small>Geometric coverage estimate · no RF simulation.</small> */}
       </>:<p>{result?"No measurable waypoint paths available.":"Generate placement to calculate coverage."}</p>}
+    </section>
+    <section className="panel-section" aria-label="Annotated beacon waypoint path coverage">
+      <h3>Waypoint paths covered by annotated beacons</h3>
+      {project.placementNeedsReview?<p role="status">Review the drawing scale before calculating annotated coverage.</p>
+        :annotatedCoverage?.error?<p role="status">{annotatedCoverage.error}</p>
+        :annotatedCoverage?.result.totalGraphLength>0?<>
+          <p><strong>{annotatedCoverage.result.graphCoveragePercentage.toFixed(1)}%</strong> covered</p>
+          <progress aria-label="Waypoint paths covered by annotated beacons" max="100" value={annotatedCoverage.result.graphCoveragePercentage} style={{width:"100%"}} />
+          <small>{annotatedCoverage.result.graphCoveredLength.toFixed(1)} m covered of {annotatedCoverage.result.totalGraphLength.toFixed(1)} m waypoint paths · {annotatedCoverage.count} annotated beacons · imported floor {project.annotationFloor}.</small>
+          <button type="button" onClick={()=>update({...project,beaconView:"data",layers:{...project.layers,beacons:{...project.layers.beacons,visible:true},coverage:{...project.layers.coverage,visible:true}}})}>Show annotated coverage on map</button>
+        </>:<p>{annotatedCoverage?"No measurable waypoint paths available.":"Import annotated beacon data to calculate coverage."}</p>}
+      <small>Geometric coverage using the current planning radii and floor geometry. Model beacons are excluded from this summary.</small>
     </section>
     {result?.poiSummary&&<p>{result.poiSummary.served} / {result.poiSummary.total} POIs assigned · {result.poiSummary.sharedBeacons} shared beacons</p>}
     <label className="check-label"><input type="checkbox" checked={settings.allowVoidBeacons} onChange={e=>setting("allowVoidBeacons",e.target.checked)}/>Allow beacons in void areas</label><small>Void areas and restricted areas are separate. Restricted areas always block placement; voids remain excluded from walking routes.</small>

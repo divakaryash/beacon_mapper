@@ -8,6 +8,7 @@ import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordina
 import { LAYERS, makeObject, visibleAnnotation } from "../models/drawing.js";
 import CoverageOverlay from "./CoverageOverlay.jsx";
 import {analyzeCoverage} from "../engines/coverage.js";
+import {DEFAULT_PLANNING_SETTINGS} from "../engines/deploymentPlanner.js";
 import {BEACON_PROFILES} from "../engines/beaconPlacement.js";
 import {geometryForProject} from "../models/deployments.js";
 
@@ -355,10 +356,10 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
   const displayedCoverage=useMemo(()=>{
     if(beaconView==='model')return {project};
     const profile=project.beaconProfile||BEACON_PROFILES[0];
-    const beacons=[...modelBeacons,...referenceBeacons.map(b=>({...b,coverageRadius:profile.coverageRadius,reliableRadius:profile.reliableRadius??profile.coverageRadius,marginalRadius:profile.marginalRadius??profile.coverageRadius}))];
+    const beacons=[...modelBeacons,...referenceBeacons.map(b=>({...b,coverageRadius:profile.coverageRadius,reliableRadius:project.planningSettings?.reliableRadius??DEFAULT_PLANNING_SETTINGS.reliableRadius,marginalRadius:project.planningSettings?.marginalRadius??DEFAULT_PLANNING_SETTINGS.marginalRadius}))];
     const coverageProject={...project,beaconPlan:{beacons},coverageAnalysis:null};
     try {
-      coverageProject.coverageAnalysis=analyzeCoverage({graph:project.graph,floorGeometry:geometryForProject(project),beacons,profile,configuration:{...project.planningSettings,graphOnly:true}});
+      coverageProject.coverageAnalysis=analyzeCoverage({graph:project.graph,floorGeometry:geometryForProject(project),beacons,profile,configuration:{...DEFAULT_PLANNING_SETTINGS,...project.planningSettings,graphOnly:true}});
       return {project:coverageProject};
     } catch(error) {return {project:coverageProject,error:error.message};}
   },[project,beaconView,comparison]);
