@@ -2,7 +2,7 @@ import {beaconCountSummary} from "./models/beaconRules.js";
 import ApiAnnotationImport from "./components/ApiAnnotationImport.jsx";
 import {createManualAnnotationProject} from "./models/floorPlanOverlay.js";
 import FloorPlanAlignment from "./components/FloorPlanAlignment.jsx";
-import {annotationFeatures,annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
+import {annotationFloors,annotationSetup} from "./models/annotatedFloor.js";
 import {validateFloorPlanSetup} from "./models/floorPlanSetup.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
@@ -21,17 +21,16 @@ import {sampleMall,sampleFloorSvg} from "./samples/sampleMall.js";
 import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference } from "./models/floorPlanImport.js";
 import {useDeploymentPlanner} from "./hooks/useDeploymentPlanner.js";
 
-const acceptedTypes = ".png,.jpg,.jpeg,.svg,.pdf";
-
 function LayersPanel({ project, update }) {
+  const panelLayers = LAYERS.filter(layer => ['pois', 'beacons', 'coverage', 'warnings'].includes(layer.id));
   function setLayer(id, field, value) {
     update({ ...project, layers: { ...project.layers, [id]: { ...project.layers[id], [field]: value } } });
   }
   return (
     <section className="panel-section">
-      <div className="section-title"><h2>Layers</h2><span>{LAYERS.length}</span></div>
+      <div className="section-title"><h2>Layers</h2><span>{panelLayers.length}</span></div>
       <div className="layer-list">
-        {LAYERS.map((layer) => (
+        {panelLayers.map((layer) => (
           <div className="layer-row" key={layer.id}>
             <span className="layer-color" style={{ background: layer.color }} />
             <span>{layer.label}</span>
@@ -127,33 +126,17 @@ export default function App() {
   }
   const annotationFields=<section>
     <ApiAnnotationImport disabled={importing} onLoad={payload=>loadAnnotationPayload(payload,true)} floors={annotationData?annotationFloors(annotationData).floors:[]} floor={annotationFloor} onFloorChange={selectAnnotationFloor}/>
-    <h3>2. Upload JSON instead</h3>
-    <p>Alternatively, upload GeoJSON and waypoint data. Floors are read from the data. A floor plan image is optional.</p>
-    <label>GeoJSON / waypoint data<input type="file" multiple accept=".json,.geojson,.txt" disabled={importing} onChange={async e=>{
-      const files=Array.from(e.target.files||[]);if(!files.length)return;
-      try{
-        const payload={type:"FeatureCollection",features:(await Promise.all(files.map(async file=>{
-          try{return annotationFeatures(JSON.parse(await file.text()));}
-          catch(error){throw new Error(`${file.name}: ${error.message}`);}
-        }))).flat()};
-        loadAnnotationPayload(payload);
-      }catch(error){setAnnotationData(null);setWaypointData(null);setImportError(error.message);}
-    }}/></label>
-    {annotationData&&<label>Floor / level<select value={annotationFloor} disabled={importing} onChange={e=>selectAnnotationFloor(e.target.value)}>
-      {annotationFloors(annotationData).floors.map(f=><option key={f} value={f}>Floor {f}</option>)}
-    </select></label>}
   </section>;
   const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
-  let uploadReady=false,setupError="";
-  try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch(error) {setupError=error.message;}
-  const uploadFields=<div><p><small>{importMode==="annotated"?"GeoJSON defines the fixed workspace and physical scale. Move, rotate, resize or flip the floor plan overlay in Step 2.":"Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins."}</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing||importMode==="annotated"} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
+  let uploadReady = false;
+  try { validateFloorPlanSetup(uploadSetup); uploadReady = true; } catch {}
   const [focusLocation,setFocusLocation]=useState(null);
   const [planningError,setPlanningError]=useState("");
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
   const planner=useDeploymentPlanner(committedProject,(output,preview,action)=>{
     const current=committedRef.current;if(!current)return;
     const profile=[...BEACON_PROFILES,...(current.beaconProfiles||[])].find(p=>p.id===output.settings.defaultProfileId);
-    const next={...current,beaconPlan:output.plan,coverageAnalysis:output.coverage,planningSettings:output.settings,coverageSettings:{...current.coverageSettings,cellSize:output.settings.cellSize},beaconProfile:profile,autoPlanPending:false,deploymentError:null,placementNeedsReview:!!current.floorAnalysis?.scaleAssumed,layers:action==="generate"?{...current.layers,beacons:{visible:true,locked:false},coverage:{...current.layers.coverage,visible:!current.floorAnalysis}}:current.layers};
+    const next={...current,...output.sourceUpdate,beaconPlan:output.plan,coverageAnalysis:output.coverage,planningSettings:output.settings,coverageSettings:{...current.coverageSettings,cellSize:output.settings.cellSize},beaconProfile:profile,autoPlanPending:false,deploymentError:null,placementNeedsReview:!!current.floorAnalysis?.scaleAssumed,layers:action==="generate"?{...current.layers,beacons:{visible:true,locked:false},coverage:{...current.layers.coverage,visible:!current.floorAnalysis}}:current.layers};
     setPlanningError("");if(preview)setLiveProject(next);else {setLiveProject(null);history.commit(next);}
   },error=>{setPlanningError(error);setLiveProject(null);if(committedRef.current)history.commit({...committedRef.current,autoPlanPending:false,deploymentError:error});});
   useEffect(()=>setLiveProject(null),[committedProject]);
@@ -302,14 +285,11 @@ export default function App() {
     objects: project.objects.length,
   } : null, [project]);
 
-  const importHint=!annotationData?"Load API annotations or upload GeoJSON / waypoint data to continue.":!uploadReady?setupError:"Ready to import. Floor plan image is optional.";
-  const importActions=<div className="import-actions">{pendingMap&&<p>Selected map: {pendingMap.name} <button type="button" disabled={importing} onClick={()=>setPendingMap(null)}>Remove</button></p>}<p role="status">{importing?"Importing data…":importHint}</p><button type="button" disabled={importing||!uploadReady||!annotationData} onClick={()=>importFloorPlan(pendingMap||(project?.annotationData===annotationData&&project.annotationFloor===annotationFloor?project.file:null))}>{importing?"Importing…":"Import data"}</button></div>;
-
   if (!project) return (
     <main className="welcome"><section className="welcome-card">
-      <p className="eyebrow">INPS · Local planning workspace</p><h1>Import your map. Align it yourself.</h1>
-      <p>Import your floor geometry and waypoints. Optionally add a floor plan image for alignment. Generate beacons when you choose. Planning data stays in this browser; API imports contact the selected iway server.</p>
-      {annotationFields}{uploadFields}<label className="upload"><span>{importing ? "Analyzing floor plan…" : "Choose floor plan (optional)"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}<small>PNG, JPG, SVG, or PDF (first page)</small>
+      <p className="eyebrow">INPS · Local planning workspace</p><h1>Load your building. Plan beacon placement.</h1>
+      <p>Load your floor geometry and waypoints from the iway API. Generate beacons when you choose. Planning data stays in this browser; API imports contact the selected iway server.</p>
+      {annotationFields}
       {importError && <p role="alert">{importError}</p>}
       <button className="secondary" onClick={()=>history.reset(normalizeProject({...structuredClone(sampleMall),file:new File([sampleFloorSvg],"sample-mall.svg",{type:"image/svg+xml"}),layers:defaultLayers()}))}>Open sample mall</button><small>Hand-modelled demonstration, not a surveyed deployment.</small>
     </section></main>
@@ -327,18 +307,8 @@ export default function App() {
         {importing&&<p role="status">Importing floor plan…</p>}
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
-          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{annotationFields}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Add / replace floor plan (optional)"}</span><input disabled={importing} type="file" accept={acceptedTypes} onChange={e=>{setPendingMap(e.target.files?.[0]||null);e.target.value="";}} /></label>{importActions}
-          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorPlanOverlay?"Manual alignment · no automatic placement":project.floorAnalysis.status==="missing-paths"?"POI placement · no route lines needed":project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.autoPlanPending?"Generating initial deployment…":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":project.floorPlanOverlay?"Manual alignment · GeoJSON fixed":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to regenerate beacon count and coverage at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.routeSource==="geojson"&&<p><strong>{project.floorAnalysis.sourcePathCount} JSON paths · {project.floorAnalysis.junctions} junctions</strong></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
-          {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
+          {annotationFields}
           {importError && <p role="alert">{importError}</p>}
-          <div className="field-grid">
-            <label>Width (m)<input type="number" min="0" step="0.1" value={project.widthMeters ?? ""} onChange={(event) => update({ ...project, widthMeters: event.target.value })} /></label>
-            <label>Height (m)<input readOnly={!!project.floorAnalysis} type="number" min="0" step="0.1" value={project.heightMeters ?? ""} onChange={(event) => update({ ...project, heightMeters: event.target.value })} /></label>
-          </div>
-          <div className="field-grid">
-            <label>Grid (px)<input type="number" min="2" value={project.gridSize} onChange={(event) => update({ ...project, gridSize: Math.max(2, Number(event.target.value)) })} /></label>
-            <label className="check-label"><input type="checkbox" checked={project.snapToGrid} onChange={(event) => update({ ...project, snapToGrid: event.target.checked })} /> Snap to grid</label>
-          </div>
           {tool === "poi" && <label>POI type<select value={poiCategory} onChange={(event) => setPoiCategory(event.target.value)}>{POI_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>}
         </section>
         <LayersPanel project={project} update={update} />

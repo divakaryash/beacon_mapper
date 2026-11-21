@@ -154,5 +154,5 @@ export function annotatedReference(payload, floor, values, routePayload = null) 
     ids.add(id);
     return { ...feature, id, properties: { ...feature.properties, originalFeatureId: sourceId, floor: Number(floor) } };
   });
-  return { uploaded: true, warnings, name: `Annotated floor ${floor}`, floor: Number(floor), features: normalized, alignment: { origin: [setup.longitude, setup.latitude], widthMeters: setup.widthMeters, geoToNormalizedPdf: [[sx, 0], [0, sy], [0, 0]], boundary, boundarySource: explicit ? 'Uploaded building boundary.' : 'Inferred convex outer boundary: review exterior gaps and courtyards before installing beacons.' } };
+  return { uploaded: true, trustWaypointPaths: true, warnings, name: `Annotated floor ${floor}`, floor: Number(floor), features: normalized, alignment: { origin: [setup.longitude, setup.latitude], widthMeters: setup.widthMeters, geoToNormalizedPdf: [[sx, 0], [0, sy], [0, 0]], boundary, boundarySource: explicit ? 'Uploaded building boundary.' : 'Inferred convex outer boundary: review exterior gaps and courtyards before installing beacons.' } };
 }

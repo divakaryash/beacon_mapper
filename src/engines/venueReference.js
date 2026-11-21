@@ -64,7 +64,7 @@ export function analyzeVenueReference(reference, { drawingWidth, drawingHeight, 
   if (reference.uploaded) {
     const graph = generateGraphFromWalkablePaths(paths, { metersPerPixel: scale, insertIntermediate: false, snapDistanceMeters: .001 });
     let rejectedEdges = 0, clippedEdges = 0;
-    for (const edge of [...graph.edges.values()]) {
+    for (const edge of reference.trustWaypointPaths ? [] : [...graph.edges.values()]) {
       const a = graph.nodes.get(edge.source), b = graph.nodes.get(edge.target);
       const intervals = validGraphIntervals({ x: a.worldX, y: a.worldY }, { x: b.worldX, y: b.worldY }, floor);
       if (intervals.length === 1 && intervals[0][0] < 1e-7 && intervals[0][1] > 1 - 1e-7)

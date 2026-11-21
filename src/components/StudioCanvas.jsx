@@ -1,3 +1,8 @@
+import {
+  MODEL_BEACON_COLOR, ANNOTATED_BEACON_COLOR, BEACON_DOT_RADIUS,
+  OVERLAPPING_ANNOTATION_RADIUS, overlappingAnnotatedBeaconIds,
+} from "../models/beaconMarkers.js";
+import { sourceWaypointGraph } from "../models/sourceWaypoints.js";
 import { BEACON_VIEWS, beaconCountSummary, beaconLabel, nearbyBeacons, compareAnnotatedBeacons } from "../models/beaconRules.js";
 import WaypointCoverageOverlay from "./WaypointCoverageOverlay.jsx";
 import { overlayPoint, overlayTransform, snapFloorPlanOverlay } from "../models/floorPlanOverlay.js";
@@ -363,7 +368,25 @@ handleObjectDown, beaconAction: onBeaconAction, nodeDown: (e, node) => {
       if (!project.layers.navigationGraph?.locked && ["select", "move"].includes(tool)) { svgRef.current.setPointerCapture(e.pointerId); interaction.current = { mode: "graphMove", node, start: worldPoint(e) }; }
     }, edgeDown: (e, edge) => { if (spacePressed || e.button === 1 || !["select", "move"].includes(tool)) return; e.stopPropagation(); setGraphSelection({ id: edge.id, kind: "edge" }); }
 };
-  const graphDrawing = useMemo(() => project.layers.navigationGraph?.visible && <g className="navigation-graph">
+  const sourceWaypoints = useMemo(() => {
+    try { return { graph: sourceWaypointGraph(project) }; }
+    catch (error) { return { error: error.message }; }
+  }, [project.annotationData, project.waypointData, project.annotationAlignment,
+    project.annotationFloor, project.widthMeters, project.drawingWidthPixels, project.drawingHeightPixels]);
+  const sourceNodes = useMemo(() => new Map((sourceWaypoints.graph?.nodes || []).map(node => [node.id, node])), [sourceWaypoints.graph]);
+  const sourceWaypointDrawing = project.layers.navigationGraph?.visible && sourceWaypoints.graph && (
+    <g className="navigation-graph" aria-label="Original waypoint paths" pointerEvents="none">
+      {sourceWaypoints.graph.edges.map(edge => {
+        const a = sourceNodes.get(edge.source);
+        const b = sourceNodes.get(edge.target);
+        return <line key={edge.id} data-source-waypoint-id={edge.sourceId} x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
+          <title>Original waypoint {edge.sourceId} · {edge.distance.toFixed(2)} m · shown without clipping</title>
+        </line>;
+      })}
+      {sourceWaypoints.graph.nodes.map(node => <circle key={node.id} cx={node.x} cy={node.y} r="5" />)}
+    </g>
+  );
+  const graphDrawing = useMemo(() => !sourceWaypoints.graph && !sourceWaypoints.error && project.layers.navigationGraph?.visible && <g className="navigation-graph">
 
     {project.graph.edges.map(edge => {
 const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a || !b) return null; return <line key={edge.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={`${a.floorId !== b.floorId ? "floor-connector" : ""} ${route?.edgeIds.includes(edge.id) ? "route-edge" : ""}`} onPointerDown={e => handlers.current.edgeDown(e, edge)}>
@@ -378,7 +401,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
     </g>)}
 
 
-  </g>, [project.graph, project.layers.navigationGraph?.visible, graphNodes, graphSelection, route, project.floorAnalysis?.method]);
+  </g>, [project.graph, project.layers.navigationGraph?.visible, graphNodes, graphSelection, route, project.floorAnalysis?.method, sourceWaypoints]);
 
   const beaconView = project.beaconView || 'model';
   const comparison = useMemo(() => {
@@ -401,14 +424,18 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
       return { project: coverageProject };
     } catch (error) { return { project: coverageProject, error: error.message }; }
   }, [project, beaconView, comparison]);
-  const missingIds = new Set((comparison?.missingBeacons || []).map(b => b.id)), extraIds = new Set((comparison?.extraBeacons || []).map(b => b.id));
+  const missingIds = new Set((comparison?.missingBeacons || []).map(b => b.id));
+  const overlappingAnnotations = useMemo(() => overlappingAnnotatedBeaconIds(
+    modelBeacons.filter(beacon => project.layers[beacon.enabled === false ? 'disabledBeacons' : 'navigationBeacons']?.visible !== false),
+    referenceBeacons,
+  ), [modelBeacons, referenceBeacons, project.layers]);
   const warnedBeaconIds = new Set((project.beaconPlan?.warnings || []).flatMap(w => [w.beaconId, ...(w.beaconIds || [])]).filter(Boolean));
   const beaconDrawing = useMemo(() => (project.layers.beacons?.visible && <g className="beacon-layer">
     {modelBeacons.filter(b => project.layers[b.enabled === false ? "disabledBeacons" : "navigationBeacons"]?.visible !== false).map(b => <g key={b.id} data-beacon-id={b.id} opacity={b.enabled === false ? .4 : 1} onPointerDown={e => { if (spacePressed || e.button !== 0 || !["pan", "beaconMove", "select", "move", "delete"].includes(tool)) return; e.stopPropagation(); setBeaconSelection(b.id); onSelect(null); if (beaconSelection !== b.id || beaconEditingDisabled) return; if (b.locked || project.layers.beacons.locked || project.layers[b.enabled === false ? "disabledBeacons" : "navigationBeacons"]?.locked) return; if (tool === "delete") { handlers.current.beaconAction("delete", b); return; } svgRef.current.setPointerCapture(e.pointerId); interaction.current = { mode: "beaconMove", beacon: b, start: worldPoint(e) }; }}>
-      {project.layers.warnings?.visible && warnedBeaconIds.has(b.id) && <circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />}
-      <circle cx={b.x} cy={b.y} r={7} fill={b.enabled === false ? "#94a3b8" : extraIds.has(b.id) ? "#dc2626" : "#0891b2"} stroke={beaconSelection === b.id ? "#172033" : "white"} strokeWidth={beaconSelection === b.id ? 4 : 2} />
-      {b.locked && <text x={b.x + 10} y={b.y - 10} fontSize="12">L</text>}
-      {project.beaconLabelsVisible !== false && <text className="beacon-id-label" x={b.x + 14} y={b.y - 12} pointerEvents="none">
+      {beaconView !== "both" && project.layers.warnings?.visible && warnedBeaconIds.has(b.id) && <circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />}
+      <circle cx={b.x} cy={b.y} r={BEACON_DOT_RADIUS} fill={MODEL_BEACON_COLOR} stroke={beaconSelection === b.id ? "#172033" : "white"} strokeWidth={beaconSelection === b.id ? 4 : 2} />
+      {beaconView !== "both" && b.locked && <text x={b.x + 10} y={b.y - 10} fontSize="12">L</text>}
+      {project.beaconLabelsVisible === true && <text className="beacon-id-label" x={b.x + 14} y={b.y - 12} pointerEvents="none">
         {beaconLabel(b.id)}
       </text>}
       <title>
@@ -426,10 +453,8 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
         <span><i className="legend-void" />Void areas</span>
         <span><i className="legend-restricted" />Restricted areas</span>
         <span><i className="legend-boundary" />Boundary</span>
-        <span style={{ color: "#0891b2" }}>● Model</span>
-        <span style={{ color: "#15803d" }}>○ Annotated data</span>
-        <span style={{ color: "#b45309" }}>◆ Missing match</span>
-        <span style={{ color: "#dc2626" }}>● Extra model</span>
+        <span style={{ color: MODEL_BEACON_COLOR }}>● Model</span>
+        <span style={{ color: ANNOTATED_BEACON_COLOR }}>● Annotated data</span>
       </div>}
 
       <div className="map-controls">
@@ -456,6 +481,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
 
       </div>
 
+      {sourceWaypoints.error && <p className="map-status" role="alert">{sourceWaypoints.error}</p>}
       {comparison?.error && <p className="map-status" role="alert">
         {comparison.error}
       </p>}
@@ -549,6 +575,7 @@ const top = overlayPoint(overlay, { x: overlay.width / 2, y: 0 }), angle = overl
         {rectDraft && <rect className="drawing-preview" {...rectDraft} />}
 
         <g visibility={overlay?.geojsonVisible === false ? "hidden" : "visible"}>
+          {sourceWaypointDrawing}
           {graphDrawing}
         </g>
 
@@ -556,12 +583,14 @@ const top = overlayPoint(overlay, { x: overlay.width / 2, y: 0 }), angle = overl
 
         {project.layers.beacons?.visible && <g className="annotated-beacons" aria-label="Annotated beacon comparison">
           {referenceBeacons.map(b => {
-            const missing = beaconView !== 'data' && missingIds.has(b.id), color = missing ? '#d97706' : '#15803d';
+            const missing = beaconView !== 'data' && missingIds.has(b.id);
+            const color = ANNOTATED_BEACON_COLOR;
+            const radius = overlappingAnnotations.has(b.id) ? OVERLAPPING_ANNOTATION_RADIUS : BEACON_DOT_RADIUS;
             return <g key={b.id} data-reference-beacon-id={b.sourceId} onPointerDown={e => e.stopPropagation()}>
 
-              {missing ? <polygon points={`${b.x},${b.y - 11} ${b.x + 11},${b.y} ${b.x},${b.y + 11} ${b.x - 11},${b.y}`} fill="#fef3c7" stroke={color} strokeWidth="3" vectorEffect="non-scaling-stroke" /> : <circle cx={b.x} cy={b.y} r="11" fill="none" stroke={color} strokeWidth="3" strokeDasharray="4 2" vectorEffect="non-scaling-stroke" />}
+              <circle cx={b.x} cy={b.y} r={radius} fill={color} stroke="white" strokeWidth={overlappingAnnotations.has(b.id) ? 1 : 2} />
 
-              {project.beaconLabelsVisible !== false && <text x={b.x + 14} y={b.y + 20} fill={color} fontSize="13" pointerEvents="none">
+              {project.beaconLabelsVisible === true && <text x={b.x + 14} y={b.y + 20} fill={color} fontSize="13" pointerEvents="none">
                 {b.label}
               </text>}
 
@@ -576,7 +605,7 @@ const top = overlayPoint(overlay, { x: overlay.width / 2, y: 0 }), angle = overl
 
         {<WaypointCoverageOverlay project={displayedCoverage.project} />}
 
-        {["model", "both"].includes(beaconView) && project.layers.warnings?.visible && <g pointerEvents="none">
+        {beaconView === "model" && project.layers.warnings?.visible && <g pointerEvents="none">
           {(project.beaconPlan?.warnings || []).filter(w => Number.isFinite(w.x)).slice(0, 100).map((w, i) => <circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2">
             <title>
               {w.message}

@@ -6,10 +6,19 @@ export function geometryForProject(project) {
     throw new Error("Width and height imply different drawing scales. Correct the dimensions before deployment.");
   if (project.graph.nodes.some(n => Math.abs(n.x * scale - n.worldX) > .001 || Math.abs(n.y * scale - n.worldY) > .001))
     throw new Error("Drawing scale and graph coordinates disagree. Regenerate/review the graph before deployment.");
-  return { allowVoidBeacons: project.planningSettings?.allowVoidBeacons === true, objects: project.objects, metersPerPixel: scale, defaultFloorId: project.graph.nodes[0]?.floorId || "floor-1" };
+  // Explicit annotation routes take precedence over exclusion polygons along the line.
+  const trustWaypointPaths = project.planningSettings?.trustWaypointPaths === true || (project.floorAnalysis?.routeSource === 'geojson' && project.planningSettings?.trustWaypointPaths !== false);
+  const nodes = new Map(project.graph.nodes.map(node => [node.id, node]));
+  const trustedWaypointPaths = trustWaypointPaths ? project.graph.edges.flatMap(edge => {
+    const a = nodes.get(edge.source);
+    const b = nodes.get(edge.target);
+    if (!a || !b || a.floorId !== b.floorId) return [];
+    return [{floorId: a.floorId, points: [{x: a.worldX, y: a.worldY}, {x: b.worldX, y: b.worldY}]}];
+  }) : [];
+  return { trustedWaypointPaths, allowVoidBeacons: project.planningSettings?.allowVoidBeacons === true, objects: project.objects, metersPerPixel: scale, defaultFloorId: project.graph.nodes[0]?.floorId || "floor-1" };
 }
 export function deploymentInputSignature(project) {
-  const text = JSON.stringify([project.graph, project.objects, project.widthMeters, project.heightMeters, project.drawingWidthPixels, project.drawingHeightPixels, project.planningSettings?.allowVoidBeacons === true]);
+  const text = JSON.stringify([project.graph, project.objects, project.widthMeters, project.heightMeters, project.drawingWidthPixels, project.drawingHeightPixels, project.planningSettings?.allowVoidBeacons === true, project.planningSettings?.trustWaypointPaths]);
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++)
     hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);

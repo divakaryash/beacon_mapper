@@ -117,7 +117,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
       </select></label>
 
 
-      <small>Blue: model · green ring: annotated data · orange diamond: missing annotation match · red: extra model beacon. Differences use the same one-to-one 3 m matching as the comparison.</small>
+      <small>Blue dots: model · green dots: annotated data. Overlapping annotated dots are smaller so both positions remain visible. Differences use the same one-to-one 3 m matching as the comparison.</small>
 
 
       <small>Annotated positions are read only. The summaries below compare each layout separately; map coverage follows the selected view.</small>
@@ -361,7 +361,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
     </section>
 
 
-    <label className="check-label"><input type="checkbox" checked={project.beaconLabelsVisible !== false} onChange={e => update({ ...project, beaconLabelsVisible: e.target.checked })} />Show beacon IDs</label>
+    <label className="check-label"><input type="checkbox" checked={project.beaconLabelsVisible === true} onChange={e => update({ ...project, beaconLabelsVisible: e.target.checked })} />Show beacon IDs</label>
 
 
     {exportError && <p role="alert">

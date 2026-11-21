@@ -6,7 +6,6 @@ import { loadEnv } from 'vite';
 import { fetchBuildingAnnotations } from './building-generation.js';
 export function createGenerationServer({
   apiKey = '',
-  allowedOrigins = [],
   timeoutMs = 120000,
   maxBodyBytes = 15000000,
   maxConcurrent = 2,
@@ -21,17 +20,16 @@ export function createGenerationServer({
         res.end(JSON.stringify(payload));
       }
     };
+    // Permit cross-origin JSON requests from any domain, including error responses.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || 'Content-Type, Authorization');
+    res.setHeader('Vary', 'Access-Control-Request-Headers');
+    res.setHeader('Access-Control-Max-Age', '600');
+
     const pathname = new URL(req.url, 'http://localhost').pathname;
     if (!['/api/v1/health', '/api/v1/generate', '/api/v1/generate-building'].includes(pathname))
       return send(404, { error: 'Not found.' });
-    if (req.headers.origin) {
-      if (!allowedOrigins.includes(req.headers.origin))
-        return send(403, { error: 'Origin not allowed. Configure PLANNER_API_CORS_ORIGINS.' });
-      res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-      res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    }
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       return res.end();
@@ -119,6 +117,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       dev: env.Dev_Api_Key || env.VITE_IWAY_DEV_API_KEY || '',
       maps: env.Maps_Api_Key || env.VITE_IWAY_MAPS_API_KEY || '',
     },
-    apiKey: env.PLANNER_API_KEY, allowedOrigins: (env.PLANNER_API_CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean) });
+    apiKey: env.PLANNER_API_KEY,
+  });
   server.listen(port, host, () => console.log(`Planner API listening on http://${host}:${port}`));
 }

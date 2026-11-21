@@ -27,7 +27,7 @@ export const POI_CATEGORIES = [
   "Store", "Outlet", "Lift", "Stairs", "Escalator", "Entrance", "Exit", "ATM", "Washroom", "Food Court", "Reception", "Custom",
 ];
 export function defaultLayers() {
-  return Object.fromEntries(LAYERS.map((layer) => [layer.id, { visible: true, locked: ["navigationGraph", "beacons", "coverage"].includes(layer.id) }]));
+  return Object.fromEntries(LAYERS.map((layer) => [layer.id, { visible: !["pois", "coverage"].includes(layer.id), locked: ["navigationGraph", "beacons", "coverage"].includes(layer.id) }]));
 }
 export function layerForType(type) {
   if (type === "wall")
@@ -122,6 +122,10 @@ export function normalizeProject(project) {
     }
   }
   const layers = { ...defaultLayers(), ...project.layers };
+  // Apply the new initial POI visibility once; preserve later user toggles.
+  if (!project.poiVisibilityInitialized) {
+    layers.pois = {...layers.pois, visible: false};
+  }
   if (reference && !project.referencePresentationInitialized) {
     for (const id of ["coverage", "warnings"])
       layers[id] = { ...layers[id], visible: false };
@@ -155,10 +159,13 @@ export function normalizeProject(project) {
     deployments: (project.deployments || []).map(d => ({ ...d, plan: normalizeBeaconPlan(d.plan) })),
     layers,
     referencePresentationInitialized: reference || !!project.referencePresentationInitialized,
+    poiVisibilityInitialized: true,
   };
 }
 export function visibleAnnotation(object) {
-  if (object.metadata?.sourceType === 'Section' && object.points?.length && object.type !== 'walkablePath')
+  const annotationType = object.metadata?.sourceType || (object.origin === 'reference' ? object.category : null);
+  // Sections stay hidden; corridor and restricted-area annotations remain visible.
+  if (annotationType === 'Section' && object.points?.length && object.type !== 'walkablePath')
     return false;
   if (!['automatic', 'reference'].includes(object.origin))
     return true;

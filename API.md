@@ -19,10 +19,9 @@ Configure `.env` and restart the API after changes:
 PLANNER_API_HOST=127.0.0.1
 PLANNER_API_PORT=3001
 PLANNER_API_KEY=replace-with-your-own-random-token
-PLANNER_API_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
-`PLANNER_API_KEY` is a separate token for this service. `Dev_Api_Key` and `Maps_Api_Key` keep their existing purpose and are not required by generation. Local use can omit the service token. Binding to a network interface such as `0.0.0.0` requires a token. For remote use, serve through your HTTPS backend or reverse proxy. Keep the service token in your other project's backend when it must remain private. Browser CORS origins must exactly match scheme, hostname and port; native/backend clients do not require CORS.
+`PLANNER_API_KEY` is a separate token for this service. `Dev_Api_Key` and `Maps_Api_Key` keep their existing purpose and are not required by generation. Local use can omit the service token. Binding to a network interface such as `0.0.0.0` requires a token. For remote use, serve through your HTTPS backend or reverse proxy. Keep the service token in your other project's backend when it must remain private. The generation API allows browser requests from every origin (`Access-Control-Allow-Origin: *`), including preflight requests. Bearer authentication still applies when configured. Cookie-based cross-origin credentials are not enabled. `PLANNER_API_CORS_ORIGINS` is no longer used.
 
 ## Endpoints
 
@@ -109,7 +108,6 @@ Error responses are `{ "error": "message" }`.
 | --- | --- |
 | 400 | Malformed JSON |
 | 401 | Missing or incorrect configured token |
-| 403 | Browser origin not allowed |
 | 404 / 405 | Unknown route / incorrect method |
 | 413 / 415 | Input over 15 MB / incorrect content type |
 | 422 | Invalid generation input, settings or geometry |
@@ -181,3 +179,7 @@ The response contains:
 - `beacons`: a flattened list of generated beacons, with `latitude`, `longitude` and an explicit `floor`. IDs can repeat across floors; identify a beacon by `(buildingId, floor, id)`.
 
 Invalid building IDs/environments/body fields return 400. Missing server upstream credentials return 503. Upstream HTTP errors, invalid JSON, missing mapping elements or downloads over 15 MB return 502; upstream timeout after 30 seconds returns 504. Invalid annotation geometry, an unknown floor or invalid generation settings return 422. All floors must succeed for a response to be returned; floor coverage is calculated separately. Existing auth, concurrency and generation-timeout limits also apply.
+
+## Supplied paths inside excluded polygons
+
+For annotated floor imports, the supplied waypoint graph is retained without clipping against restricted or blocked polygons. Beacon generation and graph coverage accept points on those supplied paths (with a 1 cm coordinate tolerance), even where they cross Restricted Area, Wall, Store or other excluded polygons. The building boundary still applies, and off-path positions in excluded polygons remain blocked. New annotated projects record `trustWaypointPaths: true` in their planning settings. Re-import older browser projects once before regenerating to restore previously clipped source segments.

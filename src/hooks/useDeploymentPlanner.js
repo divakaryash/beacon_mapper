@@ -1,3 +1,4 @@
+import { restoreSourcePaths } from "../models/restoreSourcePaths.js";
 import { useEffect, useRef, useState } from "react";
 import { BEACON_PROFILES } from "../engines/beaconPlacement.js";
 import { DEFAULT_PLANNING_SETTINGS } from "../engines/deploymentPlanner.js";
@@ -16,7 +17,7 @@ export function useDeploymentPlanner(project, onResult, onError) {
         const p=current.current.project;
         const stale=!p||(task.preview&&queued.current.some(t=>t.preview||t.action==="move"))||task.base.graph!==p.graph||task.base.objects!==p.objects||task.base.widthMeters!==p.widthMeters||task.base.heightMeters!==p.heightMeters||task.base.beaconProfiles!==p.beaconProfiles||(p.beaconPlan!==task.base.beaconPlan&&p.beaconPlan!==expectedPlan.current);
         if(stale)source.current=null;
-        if(!stale){setInspector(message.inspector);setWork(message.output.work);if(task.action!=="inspect"){if(!task.preview)expectedPlan.current=message.output.plan;current.current.onResult(message.output,task.preview,task.action);}}
+        if(!stale){setInspector(message.inspector);setWork(message.output.work);if(task.action!=="inspect"){if(!task.preview)expectedPlan.current=message.output.plan;current.current.onResult({...message.output, sourceUpdate: task.sourceUpdate},task.preview,task.action);}}
         task.resolve(message.output);
       }
       const next=queued.current.shift();
@@ -28,11 +29,15 @@ export function useDeploymentPlanner(project, onResult, onError) {
   function send(task){
     const p=current.current.project;
     task.base=p;
-    const changed=!source.current||source.current.graph!==p.graph||source.current.objects!==p.objects||source.current.widthMeters!==p.widthMeters||source.current.heightMeters!==p.heightMeters||source.current.beaconProfiles!==p.beaconProfiles||source.current.drawingWidthPixels!==p.drawingWidthPixels||(p.beaconPlan!==observedPlan.current&&p.beaconPlan!==expectedPlan.current);
+    const needsSourceRestore=task.action==="generate"&&p.annotationData&&p.floorAnalysis?.routeSource==="geojson"&&p.floorAnalysis.sourceWaypointVersion!==1;
+    const changed=needsSourceRestore||!source.current||source.current.graph!==p.graph||source.current.objects!==p.objects||source.current.widthMeters!==p.widthMeters||source.current.heightMeters!==p.heightMeters||source.current.beaconProfiles!==p.beaconProfiles||source.current.drawingWidthPixels!==p.drawingWidthPixels||(p.beaconPlan!==observedPlan.current&&p.beaconPlan!==expectedPlan.current);
     observedPlan.current=p.beaconPlan;
     try {
       let inputs;
-      if(changed){const geometry=geometryForProject(p),scale=geometry.metersPerPixel;inputs={graph:p.graph,floorGeometry:geometry,profiles:[...BEACON_PROFILES,...(p.beaconProfiles||[])],settings:{...DEFAULT_PLANNING_SETTINGS,defaultProfileId:p.beaconProfile?.id||BEACON_PROFILES[0].id,spacing:p.beaconPlan?.configuration?.spacing||8,planningMode:p.beaconPlan?.configuration?.mode||"hybrid",cellSize:p.coverageSettings?.cellSize||.5,...p.planningSettings},beacons:p.beaconPlan?.beacons||[],pois:p.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:o.floorId||p.graph.nodes[0]?.floorId||"floor-1",worldX:o.x*scale,worldY:o.y*scale}))};source.current=p;}
+      if(changed){
+        const planningProject=needsSourceRestore?restoreSourcePaths(p):p;
+        if(planningProject!==p)task.sourceUpdate={graph:planningProject.graph,floorAnalysis:planningProject.floorAnalysis};
+        const geometry=geometryForProject(planningProject),scale=geometry.metersPerPixel;inputs={graph:planningProject.graph,floorGeometry:geometry,profiles:[...BEACON_PROFILES,...(p.beaconProfiles||[])],settings:{...DEFAULT_PLANNING_SETTINGS,defaultProfileId:p.beaconProfile?.id||BEACON_PROFILES[0].id,spacing:p.beaconPlan?.configuration?.spacing||8,planningMode:p.beaconPlan?.configuration?.mode||"hybrid",cellSize:p.coverageSettings?.cellSize||.5,...planningProject.planningSettings},beacons:p.beaconPlan?.beacons||[],pois:p.objects.filter(o=>o.type==="poi").map(o=>({...o,floorId:o.floorId||p.graph.nodes[0]?.floorId||"floor-1",worldX:o.x*scale,worldY:o.y*scale}))};source.current=planningProject;}
       active.current=task;worker.current.postMessage({id:task.id,inputs,action:task.action,data:task.data,selection:task.selection});
     }catch(error){current.current.onError(error.message);task.resolve(null);setBusy(false);}
   }

@@ -96,6 +96,38 @@ export function compileFloorGeometry(input = {}) {
       if (path.points.length < 2 || !(path.width > 0) || !Number.isFinite(path.width) || path.points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y)))
         throw new Error("Invalid floor path width or coordinates.");
   }
+  // Supplied waypoint lines are permitted installation/walking locations, even in exclusions.
+  // Index narrow segments rather than opening the surrounding polygon for placement.
+  for (const floor of floors.values()) {
+    floor.trustedWaypointBins = new Map();
+    floor.longTrustedWaypoints = [];
+  }
+  for (const path of input.trustedWaypointPaths || []) {
+    const floor = floors.get(path.floorId);
+    if (!floor) continue;
+    if (!Array.isArray(path.points) || path.points.length < 2 || path.points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) {
+      throw new Error('Trusted waypoints require finite metric coordinates.');
+    }
+    for (let index = 1; index < path.points.length; index++) {
+      const a = path.points[index - 1], b = path.points[index];
+      const segment = {a, b};
+      const minX = Math.floor((Math.min(a.x, b.x) - .01) / 5);
+      const maxX = Math.floor((Math.max(a.x, b.x) + .01) / 5);
+      const minY = Math.floor((Math.min(a.y, b.y) - .01) / 5);
+      const maxY = Math.floor((Math.max(a.y, b.y) + .01) / 5);
+      if ((maxX - minX + 1) * (maxY - minY + 1) > 128) {
+        floor.longTrustedWaypoints.push(segment);
+        continue;
+      }
+      for (let x = minX; x <= maxX; x++) {
+        for (let y = minY; y <= maxY; y++) {
+          const key = `${x}:${y}`;
+          if (!floor.trustedWaypointBins.has(key)) floor.trustedWaypointBins.set(key, []);
+          floor.trustedWaypointBins.get(key).push(segment);
+        }
+      }
+    }
+  }
   // Compiled geometry is a snapshot; reject distant polygons before testing detailed boundaries.
   for (const floor of floors.values())
     floor.polygonBounds = new Map([floor.boundaries, floor.walkableAreas, floor.restrictedAreas, floor.voidAreas || [], floor.nonWalkableAreas].flat().map(p => [p, boundsOf({ points: p })]));
@@ -129,6 +161,10 @@ export function geometryConflict(point, floor, { requireWalkable = true, allowVo
     return "missing-building-boundary";
   if (!inPolygons(point, floor.boundaries, floor.polygonBounds, floor.polygonIndex?.get(floor.boundaries)))
     return "outside-building";
+  const trustedSegments = floor.trustedWaypointBins?.get(`${Math.floor(point.x / 5)}:${Math.floor(point.y / 5)}`) || [];
+  if ([...trustedSegments, ...(floor.longTrustedWaypoints || [])].some(({a, b}) => segmentProjection(point, a, b).distance <= .01 + EPS)) {
+    return null;
+  }
   if (inPaths(point, floor.walls))
     return "inside-wall";
   if (inPolygons(point, floor.restrictedAreas, floor.polygonBounds, floor.polygonIndex?.get(floor.restrictedAreas)))

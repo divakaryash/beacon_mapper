@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c0ec7ac-530f-4dfa-a296-6f881a98c78a" name="Changes" comment="" />
+    <list default="true" id="6c0ec7ac-530f-4dfa-a296-6f881a98c78a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/StudioCanvas.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/StudioCanvas.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/drawing.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/drawing.js" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -28,6 +32,13 @@
     &quot;accountId&quot;: &quot;d69fe1cc-e64b-4977-8c62-269c1e0f9301&quot;
   }
 }</component>
+  <component name="KmpPackageLockUpdaterState"><![CDATA[{
+  "jsModulesKotlinGradlePluginVersion": {},
+  "wasmModulesKotlinGradlePluginVersion": {}
+}]]></component>
+  <component name="NoctuleProjectWorkspaceSettings">
+    <option name="migratedAutodetectionSetting" value="true" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
@@ -38,6 +49,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "CidrDebugProfileConversion": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
@@ -47,7 +59,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "v2__clone",
     "kotlin-language-version-configured": "true",
     "settings.editor.selected.configurable": "preferences.pluginManager",
     "show.migrate.to.gradle.popup": "false"
