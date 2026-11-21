@@ -44,7 +44,7 @@ export default function BeaconPanel({project,tool,update,setTool,selection,setSe
         <p><strong>{coverage.graphCoveragePercentage.toFixed(1)}%</strong> covered</p>
         <progress aria-label="Waypoint paths covered by beacons" max="100" value={coverage.graphCoveragePercentage} style={{width:"100%"}} />
         <small>{coverage.graphCoveredLength.toFixed(1)} m covered of {coverage.totalGraphLength.toFixed(1)} m waypoint paths · all modelled floors.</small>
-        <small>Geometric coverage estimate · no RF simulation.</small>
+        {/* <small>Geometric coverage estimate · no RF simulation.</small> */}
       </>:<p>{result?"No measurable waypoint paths available.":"Generate placement to calculate coverage."}</p>}
     </section>
     {result?.poiSummary&&<p>{result.poiSummary.served} / {result.poiSummary.total} POIs assigned · {result.poiSummary.sharedBeacons} shared beacons</p>}

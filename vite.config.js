@@ -1,11 +1,16 @@
 import {annotationService} from './scripts/annotation-service.mjs';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 import {createReadStream} from 'node:fs';
 import {copyFile,mkdir,readdir} from 'node:fs/promises';
 import path from 'node:path';
 
 // Serve the same bundled OCR assets in development and production, without CDN requests.
-export default defineConfig({plugins:[annotationService(),{
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {define: {
+    'import.meta.env.VITE_IWAY_DEV_API_KEY': JSON.stringify(env.Dev_Api_Key || env.VITE_IWAY_DEV_API_KEY || ''),
+    'import.meta.env.VITE_IWAY_MAPS_API_KEY': JSON.stringify(env.Maps_Api_Key || env.VITE_IWAY_MAPS_API_KEY || ''),
+  }, plugins:[annotationService(),{
   name:'local-ocr-assets',
   async configureServer(server){
     const assets=await ocrAssets();
@@ -19,7 +24,8 @@ export default defineConfig({plugins:[annotationService(),{
     const folder=path.resolve(options.dir||'dist','ocr');await mkdir(folder,{recursive:true});
     for(const [url,file] of await ocrAssets())await copyFile(file,path.join(folder,path.basename(url)));
   }
-}]});
+}]};
+});
 async function ocrAssets(){
   const core=path.resolve('node_modules/tesseract.js-core');
   const assets=new Map([['/ocr/worker.min.js',path.resolve('node_modules/tesseract.js/dist/worker.min.js')],['/ocr/eng.traineddata.gz',path.resolve('node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz')]]);

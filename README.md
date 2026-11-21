@@ -66,13 +66,13 @@ npm install
 npm run dev
 ```
 
-Run the scale checks and production build with `npm run check`.
+Run the TypeScript checks, navigation simulation tests and production build with `npm run check`.
 
 ## Navigation graph — Milestone 3
 
 The independent `NavigationGraph` engine supports calibrated nodes, directed/accessibility-aware edges, snapping and node merging, splitting/merging edges, editable graph generation from walkable paths, Dijkstra/A*, multi-floor connectors, and validation. The graph panel provides creation, connection, node movement, metadata editing, edge editing, route selection between POIs, and warnings. Graph changes use the existing undo history and IndexedDB persistence.
 
-Run `node scripts/graph-demo.mjs` for the manually defined Main Entrance → West Retail route, validation demonstration, and a 10,201-node / 20,200-edge benchmark. Run `npm run benchmark` for the performance regression check. See ARCHITECTURE.md for coordinate conventions and deployment-relevant limitations.
+Run `node scripts/graph-demo.mjs` for the manually defined Main Entrance → West Retail route, validation demonstration, and a 10,201-node / 20,200-edge benchmark. Run `npm run benchmark` for the graph demonstration and engine benchmark. See ARCHITECTURE.md for coordinate conventions and deployment-relevant limitations.
 
 ## Beacon deployments — Milestone 4 (approved) + geometry hardening
 
