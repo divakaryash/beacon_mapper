@@ -38,7 +38,9 @@ export default defineConfig(({ mode }) => {
 });
 async function ocrAssets() {
   const core = path.resolve('node_modules/tesseract.js-core');
-  const assets = new Map([['/ocr/worker.min.js', path.resolve('node_modules/tesseract.js/dist/worker.min.js')], ['/ocr/eng.traineddata.gz', path.resolve('node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz')]]);
+  const assets = new Map([['/ocr/worker.min.js', 
+    path.resolve('node_modules/tesseract.js/dist/worker.min.js')], 
+    ['/ocr/eng.traineddata.gz', path.resolve('node_modules/@tesseract.js-data/eng/4.0.0/eng.traineddata.gz')]]);
   for (const name of await readdir(core))
     if (name.endsWith('.wasm.js') || name.endsWith('.wasm'))
       assets.set('/ocr/' + name, path.join(core, name));

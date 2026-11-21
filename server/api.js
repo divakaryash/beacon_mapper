@@ -40,6 +40,7 @@ export function createGenerationServer({ apiKey = '', allowedOrigins = [], timeo
     }
     if (apiKey) {
       const actual = Buffer.from(req.headers.authorization || ''), expected = Buffer.from(`Bearer ${apiKey}`);
+      console.log(actual, expected);
       if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
         return send(401, { error: 'Invalid API token.' });
     }
