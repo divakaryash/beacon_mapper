@@ -82,11 +82,16 @@ export function normalizeProject(project) {
     project = { ...project, floorAnalysis: { ...project.floorAnalysis, warnings: project.floorAnalysis.warnings.filter(w => !w.includes('navigation paths and beacons') && !w.includes('navigation components remain disconnected') && !w.startsWith('No route lines')) } };
   }
   if (project.floorAnalysis?.routeSource === 'missing' && project.objects?.some(o => o.type === 'poi') && project.planningSettings?.placementStrategy !== 'pois') {
-    project = { ...project, planningSettings: { ...project.planningSettings, placementStrategy: 'pois', spacing: 9, minimumSpacing: 8, maximumSpacing: 10, additionalBeaconBudget: 0 }, autoPlanPending: false };
+    project = { ...project, planningSettings: { ...project.planningSettings, placementStrategy: 'pois', spacing: 8, minimumSpacing: 6, maximumSpacing: 10, additionalBeaconBudget: 0 }, autoPlanPending: false };
   }
   if (project.planningSettings?.hardSpacing) {
     const { hardSpacing, ...settings } = project.planningSettings;
-    project = { ...project, planningSettings: { ...settings, spacing: 7.5, minimumSpacing: 5, maximumSpacing: 10 } };
+    project = { ...project, planningSettings: { ...settings, spacing: 8, minimumSpacing: 6, maximumSpacing: 10 } };
+  }
+  if ((project.planningSettings?.spacingDefaultsVersion || 0) < 2) {
+    const settings = project.planningSettings || {};
+    const oldDefault = settings.minimumSpacing === 5 && settings.maximumSpacing === 10;
+    project = { ...project, planningSettings: { ...settings, ...(oldDefault ? { minimumSpacing: 6, maximumSpacing: 10, spacing: 8 } : {}), spacingDefaultsVersion: 2 } };
   }
   const reference = !!project.floorAnalysis;
   const legacyVoid = object => isVoidArea(object) && object.type !== "restrictedArea" && (object.type !== "voidArea" || object.layerId !== "voidAreas");

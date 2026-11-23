@@ -467,7 +467,7 @@ export function analyzePlacement({ graph, beacons, profile = BEACON_PROFILES[0],
   const { nodes, edges } = inputGraph(graph);
   const warnings = [];
   const active = beacons.filter(b => b.enabled !== false);
-  const minimum = placementRules.minimumSpacing ?? 5, maximum = placementRules.maximumSpacing ?? 6;
+  const minimum = placementRules.minimumSpacing ?? 5, maximum = placementRules.maximumSpacing ?? 10;
   if (!nodes.size)
     warnings.push({ code: "empty-graph", message: "Create a navigation graph before generating beacons." });
   const byEdge = new Map(), byNode = new Map();

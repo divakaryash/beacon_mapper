@@ -79,6 +79,10 @@ export function compileFloorGeometry(input = {}) {
         if (points.length < 3)
           throw new Error("Area geometry requires at least three points.");
         floor[{ buildingBoundary: "boundaries", walkableArea: "walkableAreas", restrictedArea: "restrictedAreas", voidArea: "voidAreas", nonWalkableArea: "nonWalkableAreas" }[role]].push(points);
+        if (/^wall$/i.test(object.metadata?.sourceType || object.category || '')) {
+          floor.physicalWallPolygons ??= [];
+          floor.physicalWallPolygons.push(points);
+        }
         if (role === 'walkableArea') {
           floor.walkableRegionMetadata ??= [];
           floor.walkableRegionMetadata.push({ id: object.id, category: object.category, name: object.name });
@@ -294,4 +298,18 @@ function polygonCandidates(polygons, index, a, b) {
       for (const p of index.bins.get(`${x}:${y}`) || [])
         candidates.add(p);
   return [...candidates];
+}
+
+// Signal visibility against actual walls only. Furniture, escalator outlines,
+// walkability exclusions and trusted route overrides are not signal barriers.
+const physicalWallFloors = new WeakMap();
+export function visibleAcrossPhysicalWalls(a, b, floor) {
+  if (!floor) return false;
+  let wallsOnly = physicalWallFloors.get(floor);
+  if (!wallsOnly) {
+    wallsOnly = { ...floor, restrictedAreas: [], voidAreas: [], nonWalkableAreas: floor.physicalWallPolygons || [],
+      polygonIndex: undefined, trustedWaypointBins: undefined, longTrustedWaypoints: undefined };
+    physicalWallFloors.set(floor, wallsOnly);
+  }
+  return visibleGeometrySegment(a, b, wallsOnly);
 }

@@ -1,3 +1,4 @@
+import { htmlPlacementDemo } from './htmlPlacementDemo.js';
 import { suggestWaypointCoverage } from "./waypointSuggestions.js";
 import { DeploymentPlanner } from "./deploymentPlanner.js";
 let planner;
@@ -8,7 +9,10 @@ self.onmessage = ({ data: { id, inputs, action, data, selection } }) => {
     if (!planner)
       throw new Error("No deployment loaded.");
     let output;
-    if (action === "suggestCoverage") {
+    if (action === "htmlDemo") {
+      output = { ...planner.output, htmlDemo: { ...htmlPlacementDemo({ graph: planner.graph, floorGeometry: planner.floorGeometry, floors: planner.floors, pois: planner.pois, options: data || {} }), modelCount: planner.beacons.length } };
+    }
+    else if (action === "suggestCoverage") {
       output = { ...planner.output, coverage: { ...planner.output.coverage, waypointSuggestions: suggestWaypointCoverage({ graph: planner.graph, floorGeometry: planner.floorGeometry, beacons: planner.beacons, profile: planner.profile(planner.settings.defaultProfileId), configuration: planner.settings, coverage: planner.output.coverage }) } };
     }
     else if (action === "generate") {

@@ -17,7 +17,7 @@ export function useDeploymentPlanner(project, onResult, onError) {
         const p=current.current.project;
         const stale=!p||(task.preview&&queued.current.some(t=>t.preview||t.action==="move"))||task.base.graph!==p.graph||task.base.objects!==p.objects||task.base.widthMeters!==p.widthMeters||task.base.heightMeters!==p.heightMeters||task.base.beaconProfiles!==p.beaconProfiles||(p.beaconPlan!==task.base.beaconPlan&&p.beaconPlan!==expectedPlan.current);
         if(stale)source.current=null;
-        if(!stale){setInspector(message.inspector);setWork(message.output.work);if(task.action!=="inspect"){if(!task.preview)expectedPlan.current=message.output.plan;current.current.onResult({...message.output, sourceUpdate: task.sourceUpdate},task.preview,task.action);}}
+        if(!stale){setInspector(message.inspector);setWork(message.output.work);if(task.action!=="inspect"){if(!task.preview&&task.action!=="htmlDemo")expectedPlan.current=message.output.plan;current.current.onResult({...message.output, sourceUpdate: task.sourceUpdate},task.preview,task.action);}}
         task.resolve(message.output);
       }
       const next=queued.current.shift();

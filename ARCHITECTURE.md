@@ -89,21 +89,3 @@ flowchart LR
 ```
 
 Large-graph benchmarks remain engine benchmarks, not a guarantee of 10,000-node SVG rendering. Nearest valid relocation checks all same-floor graph positions when conflicts occur; coverage uses floor-specific beacon spatial bins and bounded raster/graph sampling. Physical accuracy depends on the supplied geometry and calibration.
-# Milestone 7: simulation boundary
-
-`navigationSimulation.ts` receives graph, compiled-compatible floor geometry, beacon records, POIs in metres and configuration. It owns route resolution, spatial indexing, position interpolation, deterministic coverage/handovers, validation, statistics, playback and comparison. It never imports React or accesses DOM/IndexedDB/project UI state. `simulationWorker.ts` is the native message adapter. React only converts project coordinates, sends commands, visualizes returned state and downloads reports; edits invalidate the disposable simulation session.
-
-```mermaid
-flowchart TD
-  Graph[Navigation Graph] --> Simulation[TypeScript Simulation Engine]
-  Coordinates[Coordinate adapter: pixels to metres] --> Simulation
-  Simulation --> Coverage[Geometry Coverage: clipping + visibility + radius]
-  Geometry[Floor Geometry Engine] --> Coverage
-  Beacons[Deployment beacon records] --> Coverage
-  Coverage --> Handover[Deterministic Beacon Handover]
-  Handover --> Results[State / route quality / timeline / comparison]
-  Results --> React[React playback visualization]
-  React -->|commands only| Simulation
-```
-
-The simulation coverage evaluator reuses the same Floor Geometry visibility/clipping primitives as the area Coverage Engine; it evaluates route length, not area raster cells. No RF attenuation or dBm inference is introduced. TypeScript is development-only; native Node TypeScript stripping runs engine tests/demo. Existing JavaScript engine boundaries are retained rather than migrating the entire planner.

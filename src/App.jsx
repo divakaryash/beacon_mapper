@@ -8,7 +8,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import StudioCanvas from "./components/StudioCanvas.jsx";
 import GraphPanel from "./components/GraphPanel.jsx";
 import BeaconPanel from "./components/BeaconPanel.jsx";
-import SimulationPanel from "./components/SimulationPanel.jsx";
 import CoveragePanel from "./components/CoveragePanel.jsx";
 import { BEACON_PROFILES } from "./engines/beaconPlacement.js";
 import { NavigationGraph } from "./engines/navigationGraph.js";
@@ -81,6 +80,9 @@ export default function App() {
   const history = useHistory();
   const committedProject = history.project;
   const [liveProject,setLiveProject]=useState(null);
+  const [htmlDemo,setHtmlDemo]=useState(null);
+  const [showHtmlDemo,setShowHtmlDemo]=useState(false);
+  useEffect(()=>{setHtmlDemo(null);setShowHtmlDemo(false);},[committedProject?.graph,committedProject?.objects,committedProject?.beaconPlan,committedProject?.widthMeters]);
   const project=liveProject||committedProject;
   const [tool, setTool] = useState("pan");
   const [poiCategory, setPoiCategory] = useState("Store");
@@ -88,7 +90,6 @@ export default function App() {
   const [status, setStatus] = useState("Loading local project…");
   const [graphSelection, setGraphSelection] = useState(null);
   const [route, setRoute] = useState(null);
-  const [simulation,setSimulation]=useState(null);
   const [beaconSelection,setBeaconSelection]=useState(null);
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
@@ -110,7 +111,7 @@ export default function App() {
         });
         ++importRequest.current;
         setLiveProject(null);history.reset(next);
-        setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
+        setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);
         setTool(next.floorPlanOverlay?"alignMap":"select");
         setStatus(`Floor ${floor} loaded`);
       }
@@ -135,6 +136,7 @@ export default function App() {
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
   const planner=useDeploymentPlanner(committedProject,(output,preview,action)=>{
     const current=committedRef.current;if(!current)return;
+    if(action === "htmlDemo") { setHtmlDemo(output.htmlDemo); setShowHtmlDemo(true); setBeaconSelection(null); setPlanningError(""); return; }
     const profile=[...BEACON_PROFILES,...(current.beaconProfiles||[])].find(p=>p.id===output.settings.defaultProfileId);
     const next={...current,...output.sourceUpdate,beaconPlan:output.plan,coverageAnalysis:output.coverage,planningSettings:output.settings,coverageSettings:{...current.coverageSettings,cellSize:output.settings.cellSize},beaconProfile:profile,autoPlanPending:false,deploymentError:null,placementNeedsReview:!!current.floorAnalysis?.scaleAssumed,layers:action==="generate"?{...current.layers,beacons:{visible:true,locked:false},coverage:{...current.layers.coverage,visible:!current.floorAnalysis}}:current.layers};
     setPlanningError("");if(preview)setLiveProject(next);else {setLiveProject(null);history.commit(next);}
@@ -268,7 +270,7 @@ export default function App() {
       }
       if(request!==importRequest.current)return;
       history.reset(normalizeProject({...base,...next,layers:{...base.layers,navigationGraph:{visible:true,locked:false},beacons:{visible:true,locked:false},coverage:{visible:false,locked:false}}}));
-      setPendingMap(null);setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);setSimulation(null);
+      setPendingMap(null);setSelectedId(null);setGraphSelection(null);setBeaconSelection(null);setRoute(null);
       floorProjects.current.clear();
       setTool(next.floorPlanOverlay?"alignMap":"select");
       setStatus(annotated?`Floor ${floor} imported`:"Map imported · generate placement when ready");
@@ -315,7 +317,7 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas beaconEditingDisabled={planner.busy} project={project} onBeaconViewChange={beaconView=>update({...project,beaconView})} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
+      <section className="canvas-area">{importError&&<p className="map-import-error" role="alert">{importError}</p>}<StudioCanvas beaconEditingDisabled={planner.busy||showHtmlDemo} demoBusy={planner.busy} project={showHtmlDemo&&htmlDemo?{...project,beaconPlan:{...project.beaconPlan,beacons:htmlDemo.beacons},coverageAnalysis:null,beaconView:'model',annotatedBeaconsOnly:false,temporaryHtmlDemo:true}:project} htmlDemo={htmlDemo} showHtmlDemo={showHtmlDemo} onShowHtmlDemo={value=>{setShowHtmlDemo(value);setBeaconSelection(null);}} onGenerateHtmlDemo={options=>planner.command("htmlDemo",options)} onBeaconViewChange={beaconView=>update({...project,beaconView,annotatedBeaconsOnly:false})} onAnnotatedBeaconsChange={annotatedBeaconsOnly=>update({...project,annotatedBeaconsOnly})} onOverlayChange={floorPlanOverlay=>update({...project,floorPlanOverlay})} tool={!planner.busy&&["beaconInsert","beaconMove"].includes(tool)?tool:"pan"} poiCategory={poiCategory} selectedId={null} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection}/></section>
 
     </main>
   );

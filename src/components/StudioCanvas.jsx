@@ -7,7 +7,6 @@ import { sourceWaypointGraph } from "../models/sourceWaypoints.js";
 import { beaconCountSummary, beaconLabel, nearbyBeacons, compareAnnotatedBeacons } from "../models/beaconRules.js";
 import WaypointCoverageOverlay from "./WaypointCoverageOverlay.jsx";
 import { overlayPoint, overlayTransform, snapFloorPlanOverlay } from "../models/floorPlanOverlay.js";
-import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boundsOf, moveObject, resizeObject, moveVertex, rotatedPoint, rotationFromCenter } from "../engines/geometry.js";
 import { clientToWorld, fitView, snapPoint, zoomView } from "../engines/coordinates.js";
@@ -106,7 +105,7 @@ function FloorPlan({ project, source }) {
   return <image className={`floor-source ${project.floorAnalysis?.method === "aligned-venue-reference" ? "reference-source" : ""}`} href={source} x="0" y="0" width={width} height={height} preserveAspectRatio="none" />;
 }
 
-export default function StudioCanvas({ beaconEditingDisabled, project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, simulation, onOverlayChange, onBeaconViewChange }) {
+export default function StudioCanvas({ htmlDemo, showHtmlDemo, onShowHtmlDemo, onGenerateHtmlDemo, demoBusy, beaconEditingDisabled, project, tool, poiCategory, selectedId, onSelect, onAdd, onChange, onDelete, graphSelection, setGraphSelection, onGraphAction, route, setBeaconSelection, onBeaconAction, focusLocation, beaconSelection, onOverlayChange, onBeaconViewChange, onAnnotatedBeaconsChange }) {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -166,6 +165,10 @@ export default function StudioCanvas({ beaconEditingDisabled, project, tool, poi
 
   function applyView(view) {
     svgRef.current?.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
+    const markerScale = view.width / (svgRef.current?.getBoundingClientRect().width || 1200);
+    svgRef.current?.querySelectorAll('[data-beacon-symbol], [data-map-screen-symbol]').forEach(symbol => {
+      symbol.setAttribute('transform', `translate(${symbol.dataset.x} ${symbol.dataset.y}) scale(${markerScale})`);
+    });
     const popup = svgRef.current?.querySelector('[data-beacon-popup]');
     if (popup) popup.setAttribute('transform', popupTransform(Number(popup.dataset.x), Number(popup.dataset.y), Number(popup.dataset.height)));
   }
@@ -405,18 +408,49 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
   </g>, [project.graph, project.layers.navigationGraph?.visible, graphNodes, graphSelection, route, project.floorAnalysis?.method, sourceWaypoints]);
 
   const beaconView = project.beaconView === 'both' ? 'both' : 'model';
+  const annotatedBeaconsOnly = project.annotatedBeaconsOnly === true;
+  const showAnnotatedBeacons = annotatedBeaconsOnly || beaconView === 'both';
   const comparison = useMemo(() => {
-    if (beaconView === 'model') return null;
+    if (!showAnnotatedBeacons) return null;
     try { return compareAnnotatedBeacons(project); } catch (error) { return { error: error.message }; }
-  }, [beaconView, project.annotationData, project.annotationAlignment, project.annotationFloor, project.widthMeters, project.heightMeters, project.drawingWidthPixels, project.graph, project.beaconPlan]);
-  const modelBeacons = ['data', 'missing'].includes(beaconView) ? [] : ['differences', 'extra'].includes(beaconView) ? comparison?.extraBeacons || [] : project.beaconPlan?.beacons || [];
+  }, [showAnnotatedBeacons, beaconView, project.annotationData, project.annotationAlignment, project.annotationFloor, project.widthMeters, project.heightMeters, project.drawingWidthPixels, project.graph, project.beaconPlan]);
+  const modelBeacons = annotatedBeaconsOnly || ['data', 'missing'].includes(beaconView) ? [] : ['differences', 'extra'].includes(beaconView) ? comparison?.extraBeacons || [] : project.beaconPlan?.beacons || [];
   const popupBeacon = project.layers.beacons?.visible ? modelBeacons.find(b => b.id === beaconSelection && project.layers[b.enabled === false ? "disabledBeacons" : "navigationBeacons"]?.visible !== false) : null;
-  const popupLines = popupBeacon ? [`Beacon ${beaconLabel(popupBeacon.id)}`, ...nearbyBeacons(popupBeacon, project.beaconPlan.beacons).map(b => `${b.direction}: ${beaconLabel(b.id)} · ${b.meters.toFixed(2)} m`)] : [];
-  if (popupBeacon && popupLines.length === 1) popupLines.push('No nearby beacons on this floor');
-  const popupHeight = popupLines.length * 16 + 12;
-  const referenceBeacons = ['data', 'both'].includes(beaconView) ? comparison?.referenceBeacons || [] : ['differences', 'missing'].includes(beaconView) ? comparison?.missingBeacons || [] : [];
+  
+const popupNeighbors = popupBeacon
+  ? nearbyBeacons(
+      popupBeacon,
+      project.beaconPlan.beacons
+    )
+  : [];
+
+const popupReason = popupBeacon
+  ? popupBeacon.origin === 'manual'
+    ? 'Manual'
+    : popupBeacon.placementRule ||
+      popupBeacon.placementStrategy ||
+      'Automatic'
+  : '';
+
+const popupLines = popupBeacon
+  ? [
+      'Why this beacon is here',
+      popupReason,
+      `Beacon ${beaconLabel(popupBeacon.id)} · distances`,
+      ...(popupNeighbors.length
+        ? popupNeighbors.map(
+            b =>
+              `${b.direction}: ${beaconLabel(b.id)} · ${b.meters.toFixed(2)} m`
+          )
+        : ['No nearby beacons on this floor'])
+    ]
+  : [];
+
+const popupHeight = popupLines.length * 16 + 12;
+
+  const referenceBeacons = showAnnotatedBeacons ? comparison?.referenceBeacons || [] : [];
   const displayedCoverage = useMemo(() => {
-    if (beaconView === 'model') return { project };
+    if (!showAnnotatedBeacons) return { project };
     const profile = project.beaconProfile || BEACON_PROFILES[0];
     const beacons = [...modelBeacons, ...referenceBeacons.map(b => ({ ...b, coverageRadius: profile.coverageRadius, reliableRadius: project.planningSettings?.reliableRadius ?? DEFAULT_PLANNING_SETTINGS.reliableRadius, marginalRadius: project.planningSettings?.marginalRadius ?? DEFAULT_PLANNING_SETTINGS.marginalRadius }))];
     const coverageProject = { ...project, beaconPlan: { beacons }, coverageAnalysis: null };
@@ -424,7 +458,7 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
       coverageProject.coverageAnalysis = analyzeCoverage({ graph: project.graph, floorGeometry: geometryForProject(project), beacons, profile, configuration: { ...DEFAULT_PLANNING_SETTINGS, ...project.planningSettings, graphOnly: true } });
       return { project: coverageProject };
     } catch (error) { return { project: coverageProject, error: error.message }; }
-  }, [project, beaconView, comparison]);
+  }, [project, beaconView, showAnnotatedBeacons, comparison]);
   const missingIds = new Set((comparison?.missingBeacons || []).map(b => b.id));
   const overlappingAnnotations = useMemo(() => overlappingAnnotatedBeaconIds(
     modelBeacons.filter(beacon => project.layers[beacon.enabled === false ? 'disabledBeacons' : 'navigationBeacons']?.visible !== false),
@@ -433,12 +467,14 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
   const warnedBeaconIds = new Set((project.beaconPlan?.warnings || []).flatMap(w => [w.beaconId, ...(w.beaconIds || [])]).filter(Boolean));
   const beaconDrawing = useMemo(() => (project.layers.beacons?.visible && <g className="beacon-layer">
     {modelBeacons.filter(b => project.layers[b.enabled === false ? "disabledBeacons" : "navigationBeacons"]?.visible !== false).map(b => <g key={b.id} data-beacon-id={b.id} opacity={b.enabled === false ? .4 : 1} onPointerDown={e => { if (spacePressed || e.button !== 0 || !["pan", "beaconMove", "select", "move", "delete"].includes(tool)) return; e.stopPropagation(); setBeaconSelection(b.id); onSelect(null); if (beaconSelection !== b.id || beaconEditingDisabled) return; if (b.locked || project.layers.beacons.locked || project.layers[b.enabled === false ? "disabledBeacons" : "navigationBeacons"]?.locked) return; if (tool === "delete") { handlers.current.beaconAction("delete", b); return; } svgRef.current.setPointerCapture(e.pointerId); interaction.current = { mode: "beaconMove", beacon: b, start: worldPoint(e) }; }}>
-      {beaconView !== "both" && project.layers.warnings?.visible && warnedBeaconIds.has(b.id) && <circle cx={b.x} cy={b.y} r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />}
-      <circle cx={b.x} cy={b.y} r={BEACON_DOT_RADIUS} fill={MODEL_BEACON_COLOR} stroke={beaconSelection === b.id ? "#172033" : "white"} strokeWidth={beaconSelection === b.id ? 4 : 2} />
-      {beaconView !== "both" && b.locked && <text x={b.x + 10} y={b.y - 10} fontSize="12">L</text>}
-      {project.beaconLabelsVisible === true && <text className="beacon-id-label" x={b.x + 14} y={b.y - 12} pointerEvents="none">
+      <g data-beacon-symbol="true" data-x={b.x} data-y={b.y} transform={`translate(${b.x} ${b.y}) scale(${viewRef.current.width / (svgRef.current?.getBoundingClientRect().width || 1200)})`}>
+      {beaconView !== "both" && project.layers.warnings?.visible && warnedBeaconIds.has(b.id) && <circle r={12} fill="none" stroke="#dc2626" strokeWidth={2.5} />}
+      <circle r={BEACON_DOT_RADIUS} fill={MODEL_BEACON_COLOR} stroke={beaconSelection === b.id ? "#172033" : "white"} strokeWidth={beaconSelection === b.id ? 4 : 2} />
+      {beaconView !== "both" && b.locked && <text x={10} y={-10} fontSize="12">L</text>}
+      {project.beaconLabelsVisible === true && <text className="beacon-id-label" x={14} y={-12} pointerEvents="none">
         {beaconLabel(b.id)}
       </text>}
+      </g>
       <title>
         {`Beacon ${beaconLabel(b.id)}\n${nearbyBeacons(b, project.beaconPlan.beacons).map(n => `${n.direction}: ${beaconLabel(n.id)} · ${n.meters.toFixed(2)} m`).join("\n")}`}
       </title>
@@ -454,11 +490,11 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
         <span><i className="legend-void" />Void areas</span>
         <span><i className="legend-restricted" />Restricted areas</span>
         <span><i className="legend-boundary" />Boundary</span>
-        <span style={{ color: MODEL_BEACON_COLOR }}>● Model</span>
+        <span style={{ color: MODEL_BEACON_COLOR }}>● {project.temporaryHtmlDemo ? "HTML demo" : "Model"}</span>
         <span style={{ color: ANNOTATED_BEACON_COLOR }}>● Annotated data</span>
       </div>}
 
-      <CoverageSummary project={project} busy={beaconEditingDisabled} />
+      {!project.temporaryHtmlDemo && <CoverageSummary project={project} busy={beaconEditingDisabled} />}
 
       <div className="map-controls">
         <button type="button" onClick={toggleFullscreen}>
@@ -469,12 +505,29 @@ const a = graphNodes.get(edge.source), b = graphNodes.get(edge.target); if (!a |
           <input
             type="checkbox"
             role="switch"
-            checked={beaconView === "both"}
+            disabled={showHtmlDemo} checked={beaconView === "both" && !annotatedBeaconsOnly}
             onChange={event => onBeaconViewChange(event.target.checked ? "both" : "model")}
           />
           <span className="beacon-layout-switch" aria-hidden="true" />
           Both layouts
         </label>
+
+        <label className="beacon-layout-toggle">
+          <input type="checkbox" role="switch" disabled={showHtmlDemo} checked={annotatedBeaconsOnly} onChange={event => onAnnotatedBeaconsChange(event.target.checked)} />
+          <span className="beacon-layout-switch" aria-hidden="true" />
+          Show annotated beacons
+        </label>
+
+        {/* <button type="button" disabled={demoBusy || !project.graph.edges.length} onClick={() => onGenerateHtmlDemo({})}>Generate HTML demo</button>
+        {htmlDemo && <>
+          <label className="beacon-layout-toggle">
+            <input type="checkbox" role="switch" checked={showHtmlDemo} onChange={e=>onShowHtmlDemo(e.target.checked)} />
+            <span className="beacon-layout-switch" aria-hidden="true" />HTML demo placement
+          </label>
+          <small role="status">Model: {htmlDemo.modelCount} · HTML: {htmlDemo.beacons.length} beacons · Demo settings: min {htmlDemo.settings.minD} m / coverage {htmlDemo.settings.maxD} m</small>
+          <button type="button" disabled={demoBusy} onClick={() => onGenerateHtmlDemo({minD:project.planningSettings?.minimumSpacing??6,maxD:project.planningSettings?.maximumSpacing??10})}>Compare using current distances</button>
+          {showHtmlDemo && <small>Temporary preview · model placement retained · waypoint-only · LOS exception enabled{htmlDemo.inferredPriorities ? ' · POI priorities inferred where absent' : ''}</small>}
+        </>} */}
 
         {displayedCoverage.error && <small role="alert">Coverage unavailable: {displayedCoverage.error}</small>}
 
@@ -605,9 +658,9 @@ const top = overlayPoint(overlay, { x: overlay.width / 2, y: 0 }), angle = overl
           })}
         </g>}
 
-        {<WaypointCoverageOverlay project={displayedCoverage.project} />}
+        {!project.temporaryHtmlDemo && !annotatedBeaconsOnly && <WaypointCoverageOverlay project={project} />}
 
-        {beaconView === "model" && project.layers.warnings?.visible && <g pointerEvents="none">
+        {!project.temporaryHtmlDemo && !annotatedBeaconsOnly && beaconView === "model" && project.layers.warnings?.visible && <g pointerEvents="none">
           {(project.beaconPlan?.warnings || []).filter(w => Number.isFinite(w.x)).slice(0, 100).map((w, i) => <circle key={i} cx={w.x} cy={w.y} r="17" fill="none" stroke="#dc2626" strokeDasharray="4 3" strokeWidth="2">
             <title>
               {w.message}
@@ -623,7 +676,6 @@ const top = overlayPoint(overlay, { x: overlay.width / 2, y: 0 }), angle = overl
           ? <polygon className="drawing-preview" points={pointString(draftPath)} />
           : <polyline className="drawing-preview" points={pointString(draftPath)} />)}
 
-        {["model", "both"].includes(beaconView) && <SimulationOverlay simulation={simulation} beacons={project.beaconPlan?.beacons || []} />}
 
         {popupBeacon && <g data-beacon-popup="true" data-x={popupBeacon.x} data-y={popupBeacon.y} data-height={popupHeight} transform={popupTransform(popupBeacon.x, popupBeacon.y, popupHeight)} pointerEvents="none" role="status" aria-label={popupLines.join('. ')}>
 

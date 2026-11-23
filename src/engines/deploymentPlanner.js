@@ -1,13 +1,14 @@
+import { placeByRules } from './rulePlacement.js';
 import { suggestWaypointCoverage } from "./waypointSuggestions.js";
 import { planPoiBeacons } from "./poiPlacement.js";
 import { BEACON_PROFILES, planBeacons, analyzePlacement, snapBeaconToGraph, validatePlacementGraph } from "./beaconPlacement.js";
-import { compileFloorGeometry, beaconGeometryConflict as geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment } from "./floorGeometry.js";
+import { compileFloorGeometry, beaconGeometryConflict as geometryConflict, nearestValidGraphPosition, segmentProjection, visibleGeometrySegment, visibleAcrossPhysicalWalls } from "./floorGeometry.js";
 import { analyzeCoverage } from "./coverage.js";
 import { deploymentQuality } from "./deploymentQuality.js";
 import { TOPOLOGY_DEFAULTS, validateTopologySettings, referenceBeacon, analyzeFloorTopology } from './topologyPlacement.js';
 export const DEFAULT_PLANNING_SETTINGS = {
   ...TOPOLOGY_DEFAULTS,
-  defaultProfileId: BEACON_PROFILES[0].id, spacing: 7, minimumSpacing: 6, maximumSpacing: 10, reliableRadius: 6, marginalRadius: 8,
+  defaultProfileId: BEACON_PROFILES[0].id, spacing: 8, minimumSpacing: 6, maximumSpacing: 10, reliableRadius: 6, marginalRadius: 8,
   planningMode: "hybrid", placementStrategy: "landmarks", coverageThreshold: "reliable", coverageTarget: 90,
   anchorTypes: ["Lift", "Escalator", "Stairs", "Entrance", "Exit"], junctionAnchors: true,
   allowVoidBeacons: false, wallClearance: .3, installationCost: 0, currency: "INR", cellSize: .5, beaconPrefix: "IW", nextBeaconNumber: 1,
@@ -24,7 +25,7 @@ export function validatePlanningSettings(settings, profiles) {
     throw new Error("Invalid next beacon number.");
   if (!profiles.some(p => p.id === settings.defaultProfileId))
     throw new Error("Default beacon profile not found.");
-  const minimum = settings.minimumSpacing ?? 5, maximum = settings.maximumSpacing ?? 6;
+  const minimum = settings.minimumSpacing ?? 6, maximum = settings.maximumSpacing ?? 10;
   if (![minimum, maximum, settings.spacing].every(Number.isFinite) || minimum <= 0 || maximum < minimum || settings.spacing < minimum || settings.spacing > maximum)
     throw new Error(`Spacing must be ${minimum}–${maximum} m.`);
   for (const key of ["reliableRadius", "marginalRadius", "cellSize"])
@@ -231,6 +232,13 @@ export class DeploymentPlanner {
     for (const b of active)
       for (const id of nearbyAnchors(b))
         present.add(id);
+    // Junction diagnostics use the same distance-only maxD rule as generation.
+    for (let i = warnings.length - 1; i >= 0; i--)
+      if (warnings[i].code === 'missing-anchor' && (this.adjacency.get(warnings[i].nodeId)?.length || 0) >= 3) warnings.splice(i, 1);
+    for (const id of required) {
+      const n = this.nodes.get(id);
+      if ((this.adjacency.get(id)?.filter(e => this.nodes.get(e.source).floorId === this.nodes.get(e.target).floorId).length || 0) >= 3 && active.some(b => b.floorId === n.floorId && dist(b, n) <= this.settings.maximumSpacing && visibleAcrossPhysicalWalls({x:b.worldX,y:b.worldY},{x:n.worldX,y:n.worldY},this.floors.get(n.floorId)))) present.add(id);
+    }
     for (const id of required)
       if (!present.has(id))
         warnings.push({ code: "missing-anchor", nodeId: id, message: `Uncovered navigation landmark requiring reliable visible coverage: ${id}.` });
@@ -250,7 +258,7 @@ export class DeploymentPlanner {
         bins.set(key, []);
       bins.get(key).push(b);
     }
-    const minimum = this.settings.minimumSpacing ?? 5, spacingBins = new Map();
+    const minimum = this.settings.minimumSpacing ?? 6, spacingBins = new Map();
     for (const b of active) {
       const x = Math.floor(b.worldX / minimum), y = Math.floor(b.worldY / minimum);
       for (let dx = -1; dx <= 1; dx++)
@@ -280,12 +288,12 @@ export class DeploymentPlanner {
         warnings.push({ code: "too-close-to-wall", beaconId: b.id, message: `${b.id} is within ${this.settings.wallClearance} m of a wall surface.` });
     }
     const duplicateIds = new Set(warnings.filter(w => w.code === "duplicate-beacons").map(w => w.beaconIds[0]));
-    const brokenLinks = samples.filter(g => g > (this.settings.maximumSpacing ?? 6) + 1e-6).length, blocked = warnings.filter(w => w.code === "graph-geometry-conflict").length, localEdgeCount = this.regions.reduce((sum, r) => sum + r.edges.length, 0);
+    const brokenLinks = samples.filter(g => g > (this.settings.maximumSpacing ?? 10) + 1e-6).length, blocked = warnings.filter(w => w.code === "graph-geometry-conflict").length, localEdgeCount = this.regions.reduce((sum, r) => sum + r.edges.length, 0);
     if (brokenLinks)
       warnings.push({ code: "disconnected-beacon-chain", message: `${brokenLinks} beacon chain link(s) exceed maximum spacing.` });
     if (this.settings.placementStrategy !== "pois" && this.componentRatio < 1)
       warnings.push({ code: "disconnected-graph", message: "Navigation graph has disconnected components." });
-    const quality = deploymentQuality({ spacingScore: (samples.length ? 100 * samples.filter(g => g >= (this.settings.minimumSpacing ?? 5) - 1e-6 && g <= (this.settings.maximumSpacing ?? 6) + 1e-6).length / samples.length : active.length ? 100 : 0) * (active.length ? 1 - duplicateIds.size / active.length : 0), connectivityScore: active.length ? 100 * this.componentRatio * (samples.length ? 1 - brokenLinks / samples.length : 1) * (localEdgeCount ? 1 - blocked / localEdgeCount : 1) : 0, anchorPlacementScore: required.length ? 100 * present.size / required.length : active.length ? 100 : 0, geometryFailures });
+    const quality = deploymentQuality({ spacingScore: (samples.length ? 100 * samples.filter(g => g >= (this.settings.minimumSpacing ?? 6) - 1e-6 && g <= (this.settings.maximumSpacing ?? 10) + 1e-6).length / samples.length : active.length ? 100 : 0) * (active.length ? 1 - duplicateIds.size / active.length : 0), connectivityScore: active.length ? 100 * this.componentRatio * (samples.length ? 1 - brokenLinks / samples.length : 1) * (localEdgeCount ? 1 - blocked / localEdgeCount : 1) : 0, anchorPlacementScore: required.length ? 100 * present.size / required.length : active.length ? 100 : 0, geometryFailures });
     const currentById = new Map(this.beacons.map(b => [b.id, b])), previousById = new Map((this.lastBeacons || []).map(b => [b.id, b]));
     const coverageChanges = changed?.filter(b => { const now = currentById.get(b.id), old = previousById.get(b.id); return !now || !old || coverageFields(now) !== coverageFields(old); });
     const coverage = analyzeCoverage({ graph: this.graph, floorGeometry: this.floorGeometry, compiledFloors: this.floors, beacons: this.beacons, profile: this.profile(this.settings.defaultProfileId), placementQuality: quality, configuration: this.settings, previous: this.coverage, changes: coverageChanges });
@@ -419,37 +427,19 @@ export class DeploymentPlanner {
     const profile = this.profile(this.settings.defaultProfileId);
     if (this.settings.planningMode === "manual")
       return this.evaluate();
-    const locked = this.beacons.filter(b => b.locked), manual = this.settings.planningMode === "hybrid" ? this.beacons.filter(b => b.origin === "manual" && !b.locked) : [], preserved = [...locked, ...manual], ids = new Set(preserved.map(b => b.id));
-    const result = this.settings.placementStrategy === "pois" ? planPoiBeacons({ pois: this.pois, floors: this.floors, metersPerPixel: this.floorGeometry.metersPerPixel, radius: this.settings.reliableRadius }) : planBeacons({ graph: this.graph, floorGeometry: { ...this.floorGeometry, allowVoidBeacons: this.settings.allowVoidBeacons }, profile, pois: this.pois, placementRules: this.settings, configuration: { ...this.settings, mode: this.settings.planningMode, spacing: this.settings.spacing, seedBeacons: preserved } });
+    const locked = this.beacons.filter(b => b.locked), manual = this.beacons.filter(b => b.origin === "manual" && !b.locked), preserved = [...locked, ...manual], ids = new Set(preserved.map(b => b.id));
+    const result = this.settings.placementStrategy === "pois"
+      ? planPoiBeacons({ pois: this.pois, floors: this.floors, metersPerPixel: this.floorGeometry.metersPerPixel, radius: this.settings.reliableRadius })
+      : placeByRules({ graph: this.graph, floors: this.floors, settings: this.settings, pois: this.pois, preserved });
     this.topology = result.topology || { edges: [], method: "poi-proximity-with-visible-shared-mounts" };
-    this.topologyWarnings = result.warnings.filter(w => ['topology-candidate-limit', 'topology-route-resolution', 'topology-width-capped', 'unknown-topology', 'poi-no-mount', 'poi-offset', 'poi-spacing-review'].includes(w.code));
+    this.topologyWarnings = result.warnings || [];
     for (const b of preserved)
       if (b.enabled !== false && geometryConflict({ x: b.worldX, y: b.worldY }, this.floors.get(b.floorId)))
-        throw new Error(`${b.id} is inside blocked geometry. Move or unlock it before generating a deployment.`);
+        throw new Error(`${b.id} is inside blocked geometry. Move or unlock it before generating.`);
     const positionKey = b => `${b.floorId}:${b.worldX.toFixed(6)}:${b.worldY.toFixed(6)}`, existing = new Map(this.beacons.map(b => [positionKey(b), b.id]));
-    const activePreserved = preserved.filter(b => b.enabled !== false);
-    const tooClose = (list, b) => list.find(other => other.floorId === b.floorId && other.enabled !== false && dist(other, b) < this.settings.minimumSpacing - 1e-6);
-    for (let i = 0; i < activePreserved.length; i++) {
-      const other = tooClose(activePreserved.slice(0, i), activePreserved[i]);
-      if (other)
-        throw new Error(`${other.id} and ${activePreserved[i].id} are less than ${this.settings.minimumSpacing} m apart. Move or disable one of the preserved beacons before generating a spaced layout.`);
-    }
-    const spaced = [...preserved];
-    let spacingNotice = null;
-    for (const b of result.beacons) {
-      if (tooClose(spaced, b))
-        continue;
-      spaced.push(b);
-    }
-    // Repair gaps using the requested spacing while retaining the minimum separation.
-    if (this.graph.edges.length) {
-      const advice = suggestWaypointCoverage({ graph: this.graph, floorGeometry: this.floorGeometry, beacons: spaced.map(b => ({ ...b, reliableRadius: Math.min(this.settings.maximumSpacing / 2, b.reliableRadius ?? this.settings.reliableRadius) })), profile, configuration: { ...this.settings, coverageThreshold: 'reliable', reliableRadius: Math.min(this.settings.maximumSpacing / 2, this.settings.reliableRadius) }, coverage: null });
-      for (const suggestion of advice.suggestions)
-        if (!tooClose(spaced, suggestion))
-          spaced.push(referenceBeacon({ ...suggestion, reliableRadius: this.settings.reliableRadius, origin: 'automatic' }, this.graph));
-      if (advice.remainingLength > 1e-6)
-        spacingNotice = `${this.settings.minimumSpacing} m separation is enforced. The repair search could not establish the ${this.settings.maximumSpacing} m spacing target on every route section${advice.limitReached ? ' within its 50-position limit' : ''}; review the remaining gaps and landmark coverage.`;
-    }
+    const spaced = result.beacons;
+    const spacingNotice = result.unresolved?.length
+      ? `${result.unresolved.length} route sections exceed the ${this.settings.maximumSpacing} m maximum. Valid geometry and the ${this.settings.minimumSpacing} m separation prevent the current placement from meeting both limits. Review these sections.` : null;
     const preservedSet = new Set(preserved);
     this.beacons = spaced.map(b => {
       if (preservedSet.has(b))
@@ -457,8 +447,11 @@ export class DeploymentPlanner {
         id = this.allocateId(); ids.add(id); return this.normalize({ ...b, id });
     });
     const output = this.evaluate();
-    if (spacingNotice)
-      output.plan.spacingNotice = spacingNotice;
+    output.plan.ruleSummary = {
+      counts: Object.fromEntries([...new Set(this.beacons.map(b => b.placementRule || 'Manual / preserved'))].map(rule => [rule, this.beacons.filter(b => (b.placementRule || 'Manual / preserved') === rule).length])),
+      unresolved: result.unresolved || [], minimumSpacing: this.settings.minimumSpacing, maximumSpacing: this.settings.maximumSpacing,
+    };
+    if (spacingNotice) output.plan.spacingNotice = spacingNotice;
     return output;
   }
   inspector(id) {

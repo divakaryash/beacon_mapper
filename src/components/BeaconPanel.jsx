@@ -17,7 +17,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
   const setting = (field, value) => result ? command("configure", { [field]: value }) : update({ ...project, planningSettings: { ...settings, [field]: value } });
   return <section className="panel-section graph-panel deployment-panel">
 
-    <h2>Beacon placement</h2>
+    {/* <h2>Beacon placement</h2>
 
     {selected && <section className="panel-section" aria-label="Selected beacon properties" aria-live="polite">
 
@@ -35,9 +35,7 @@ export default function BeaconPanel({ project, tool, update, setTool, selection,
 
       {inspector?.nearestPoi && <p>Nearest POI: {inspector.nearestPoi.name || inspector.nearestPoi.id} · {inspector.nearestPoi.distance.toFixed(2)} m</p>}
 
-    </section>}
-
-    {result?.poiSummary && <p>{result.poiSummary.served} / {result.poiSummary.total} POIs assigned · {result.poiSummary.sharedBeacons} shared beacons</p>}
+    </section>} */}
 
     <form id="beacon-placement-form" onSubmit={event => {
       event.preventDefault();

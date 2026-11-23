@@ -110,15 +110,6 @@ Export deployment JSON, beacon CSV, coverage report, quality report or a PNG of 
 
 Run `node scripts/deployment-demo.mjs` for the live-edit demonstration, exported JSON/CSV, version comparison and a 10,201-node / 20,200-edge engine benchmark. Outputs are in `reports/milestone-6-*`. Milestone 6 browser checks used the hand-modelled sample; the L00 upload workflow has since been verified in the browser. No RF simulation, Bluetooth or Flutter integration is implemented.
 
-## Navigation simulation — Milestone 7 (awaiting approval)
-
-Select Start POI and Destination POI, then Prepare simulation. The independent TypeScript engine finds an A* route (Dijkstra is also available through engine configuration), validates sampled route coverage, produces deterministic handovers/events and owns playback state. Play/Pause/Resume/Stop/Replay, 1×/2×/5×/10× speed and timeline seeking visualize the virtual walker, current edge, active/upcoming beacons and visited/remaining route.
-
-Reports include distance, walking time, floors/nodes, handovers, weak sections, dead zones, coverage, reliability/navigation scores and beacon separation. Export the navigation report, event log or saved-version route comparison as JSON. Comparisons require both versions to match the current geometry/calibration/graph and evaluate the same route.
-
-Signal is a dimensionless geometry-proximity score, not RSSI/dBm. Cross-floor connector interiors are conservatively unverified. Off-graph POI approaches are excluded and warned. Validation samples at 0.25 m with exact graph/geometry clipping; narrow RF gaps cannot be certified. The engine runs in a worker; graph and beacon JSX are cached during playback.
-
-Run `npm run check` (TypeScript check, unit tests, production build; Node 22.18+ or 24+ required for native TypeScript test execution) and `node scripts/simulation-demo.mjs`. Sample Main entrance → Lift lobby: 57 m, 42.22 s, 10 handovers, 100% sampled route coverage, score 100. This does not contradict 38.16% floor-area coverage: the chosen corridor is covered while large floor regions are not. Disabling three route beacons exposes a 7.5 m gap and lowers navigation score to 66.93. No Bluetooth scanning, Flutter, live positioning, RSSI calibration, RF propagation or fingerprinting.
 # Beacon identification
 
 New planner beacons use sequential IDs (`IW001`, `IW002`, …). Configure **Beacon ID prefix** in the deployment panel; changes apply only to future IDs. The project saves its next number, deletion never renumbers survivors, and version reload retains the numbering high-water mark. Existing saved IDs are preserved. **Show beacon IDs** toggles map text independently of beacon icons; map tooltips contain IDs, while beacon types remain in the inspector and reports.

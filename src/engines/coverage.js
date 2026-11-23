@@ -1,7 +1,7 @@
-import { compileFloorGeometry, geometryConflict, beaconGeometryConflict, visibleGeometrySegment, validGraphIntervals } from "./floorGeometry.js";
+import { compileFloorGeometry, geometryConflict, visibleGeometrySegment, visibleAcrossPhysicalWalls, validGraphIntervals } from "./floorGeometry.js";
 import { deploymentQuality } from "./deploymentQuality.js";
-export const coverageEngineVersion = 2;
-// Geometric visibility/radius estimates, never RF propagation or signal strengths.
+export const coverageEngineVersion = 4;
+// Same-floor radius with physical-wall visibility. Not an RF simulation.
 export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placementQuality = {}, configuration = {}, previous = null, changes = null, compiledFloors = null }) {
   const requestedCellSize = Number(configuration.cellSize ?? .5), requestedGraphStep = Number(configuration.graphStep ?? .25);
   if (!(requestedCellSize > 0) || !Number.isFinite(requestedCellSize) || !(requestedGraphStep > 0) || !Number.isFinite(requestedGraphStep))
@@ -10,7 +10,7 @@ export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placem
     throw new Error("Coverage radius must be positive and finite.");
   const floors = compiledFloors || compileFloorGeometry({ ...floorGeometry, allowVoidBeacons: configuration.allowVoidBeacons ?? floorGeometry.allowVoidBeacons }), nodes = graph.nodes instanceof Map ? graph.nodes : new Map(graph.nodes.map(n => [n.id, n])), edges = graph.edges instanceof Map ? [...graph.edges.values()] : graph.edges;
   const radiusFor = b => Number(b[configuration.coverageThreshold === "marginal" ? "marginalRadius" : configuration.coverageThreshold === "reliable" ? "reliableRadius" : "coverageRadius"] ?? b.coverageRadius ?? profile.coverageRadius);
-  const incremental = !!(previous && changes && previous.resolution.requestedCellSize === requestedCellSize && previous.resolution.requestedGraphStep === requestedGraphStep && previous.coverageThreshold === (configuration.coverageThreshold || "nominal"));
+  const incremental = !!(previous && previous.method === "physical-wall-distance-radius" && changes && previous.resolution.requestedCellSize === requestedCellSize && previous.resolution.requestedGraphStep === requestedGraphStep && previous.coverageThreshold === (configuration.coverageThreshold || "nominal"));
   const previousEdges = new Map((previous?.graphEdges || []).map(e => [e.edgeId, e])), previousGaps = new Map();
   for (const gap of previous?.gaps || []) {
     if (!previousGaps.has(gap.edgeId))
@@ -24,10 +24,6 @@ export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placem
     const radius = radiusFor(b);
     if (!(radius > 0) || !Number.isFinite(radius) || ![b.worldX, b.worldY].every(Number.isFinite))
       throw new Error("Invalid beacon radius or coordinates.");
-    if (beaconGeometryConflict({ x: b.worldX, y: b.worldY }, floors.get(b.floorId))) {
-      warnings.push({ code: "invalid-coverage-beacon", beaconId: b.id, message: `${b.id} is outside valid installation geometry and excluded from coverage.` });
-      continue;
-    }
     if (!groups.has(b.floorId))
       groups.set(b.floorId, []);
     groups.get(b.floorId).push({ ...b, radius });
@@ -52,7 +48,7 @@ export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placem
     for (let dx = -1; dx <= 1; dx++)
       for (let dy = -1; dy <= 1; dy++)
         for (const b of index.bins.get(`${cx + dx}:${cy + dy}`) || [])
-          if (Math.hypot(point.x - b.worldX, point.y - b.worldY) <= b.radius && visibleGeometrySegment({ x: b.worldX, y: b.worldY }, point, floor))
+          if (Math.hypot(point.x - b.worldX, point.y - b.worldY) <= b.radius && visibleAcrossPhysicalWalls({x:b.worldX,y:b.worldY}, point, floor))
             count++;
     return count;
   }
@@ -177,7 +173,9 @@ export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placem
     }
     for (let i = 1; i < cuts.length; i++) {
       const t = (cuts[i - 1] + cuts[i]) / 2, point = { x: a.worldX + t * (b.worldX - a.worldX), y: a.worldY + t * (b.worldY - a.worldY) };
-      const visibleCount = geometryConflict(point, floors.get(a.floorId)) ? 0 : coverageCount(point, a.floorId);
+      // Escalator and non-walkable outlines do not veto route coverage;
+      // physical wall visibility is checked inside coverageCount.
+      const visibleCount = coverageCount(point, a.floorId);
       const end = { x2: a.x + cuts[i] * (b.x - a.x), y2: a.y + cuts[i] * (b.y - a.y) };
       if (segments.at(-1)?.count === visibleCount)
         Object.assign(segments.at(-1), end);
@@ -206,5 +204,5 @@ export function analyzeCoverage({ graph, floorGeometry, beacons, profile, placem
   if (!totalArea)
     warnings.push({ code: "no-coverage-area", message: "No measurable walkable area. Area coverage is unavailable; zero is not a verified result." });
   const quality = deploymentQuality({ ...placementQuality, coverageScore: Math.min(coveragePercentage, graphCoveragePercentage), geometryFailures: placementQuality.geometryFailures || !totalArea || warnings.some(w => w.code === "invalid-coverage-beacon") ? 1 : 0 });
-  return { method: "geometry-line-of-sight-radius", isRFSimulation: false, coverageThreshold: configuration.coverageThreshold || "nominal", work: { incremental, recomputedCells, recomputedEdges, reusedFloors }, resolution: { cellSize, graphStep, requestedCellSize, requestedGraphStep }, floorReports, deadZones, gaps, coveragePercentage, graphCoveragePercentage, totalArea, coveredArea, deadZoneArea: Math.max(0, totalArea - coveredArea), overlapArea, overlapPercentage: totalArea ? 100 * overlapArea / totalArea : 0, graphCoveredLength, totalGraphLength, graphEdges, quality, warnings: [...warnings, ...quality.warnings] };
+  return { method: "physical-wall-distance-radius", isRFSimulation: false, coverageThreshold: configuration.coverageThreshold || "nominal", work: { incremental, recomputedCells, recomputedEdges, reusedFloors }, resolution: { cellSize, graphStep, requestedCellSize, requestedGraphStep }, floorReports, deadZones, gaps, coveragePercentage, graphCoveragePercentage, totalArea, coveredArea, deadZoneArea: Math.max(0, totalArea - coveredArea), overlapArea, overlapPercentage: totalArea ? 100 * overlapArea / totalArea : 0, graphCoveredLength, totalGraphLength, graphEdges, quality, warnings: [...warnings, ...quality.warnings] };
 }

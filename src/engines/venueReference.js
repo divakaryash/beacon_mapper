@@ -29,7 +29,7 @@ export function analyzeVenueReference(reference, { drawingWidth, drawingHeight, 
     ids.add(feature.id);
     if (!geometry || !['Point', 'Polygon', ...(reference.uploaded ? ['LineString', 'MultiLineString'] : [])].includes(geometry.type))
       throw new Error(`Unsupported reference geometry: ${feature.id}`);
-    const metadata = { sourceId: feature.id, sourceType: type, associatedPolygons: properties.associatedPolygons || [], associatedPoints: properties.associatedPoints || [], entryDirection: properties.entryDirection, ...(reference.uploaded ? { uploadedAnnotation: true } : {}) }, name = properties.outletName ? `${properties.name} · ${properties.outletName}` : properties.name || type;
+    const metadata = { sourceId: feature.id, sourceType: type, ...(properties.pri != null ? { pri: properties.pri } : {}), ...(properties.priority != null ? { priority: properties.priority } : {}), associatedPolygons: properties.associatedPolygons || [], associatedPoints: properties.associatedPoints || [], entryDirection: properties.entryDirection, ...(reference.uploaded ? { uploadedAnnotation: true } : {}) }, name = properties.outletName ? `${properties.name} · ${properties.outletName}` : properties.name || type;
     if (['LineString', 'MultiLineString'].includes(geometry.type)) {
       if (['Wall', 'Beam'].includes(type))
         continue;
