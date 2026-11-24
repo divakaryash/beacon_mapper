@@ -1,3 +1,4 @@
+import {polygonAppearance} from '../models/polygonAppearance.js';
 import SimulationOverlay from "./SimulationOverlay.jsx";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boundsOf, measurements, moveObject, resizeObject, moveVertex, rotatedPoint, rotationFromCenter } from "../engines/geometry.js";
@@ -17,7 +18,8 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   const hasArea = selected && size.area > 0 && Number.isFinite(size.area) && (!["Wall","Void"].includes(object.category) || selected);
   const labelFont = Math.max(2, Math.min(10, bounds.width / 16, bounds.height / 5));
   const extent = `${(bounds.width * metersPerPixel).toFixed(1)} × ${(bounds.height * metersPerPixel).toFixed(1)} m`;
-  const common = { onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object" };
+  const appearance=polygonAppearance(object);
+  const common = { ...(appearance&&object.type!=="buildingBoundary"&&object.type!=="wall"?{style:{fill:appearance.fillColor,fillOpacity:object.type==='walkableArea'?.20:.50}}:{}), onPointerDown: (event) => onPointerDown(event, object), className: "drawing-object" };
   let shape;
 
   if (["rectangle", "room"].includes(object.type) && !object.points) {
@@ -29,8 +31,8 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
   } else if (object.type === "poi") {
     shape = (
       <g {...common}>
-        <circle cx={object.x} cy={object.y} r="12" className={object.origin === "reference" ? "reference-hit-target" : undefined} />
-        <circle className="poi-core" cx={object.x} cy={object.y} r={object.origin === "reference" ? 3 : 4} />
+        <circle cx={object.x} cy={object.y} r="12" style={{r:"var(--poi-radius, 6px)"}} className={object.origin === "reference" ? "reference-hit-target" : undefined} />
+        <circle className="poi-core" style={{r:"var(--poi-core-radius, 2px)"}} cx={object.x} cy={object.y} r={object.origin === "reference" ? 3 : 4} />
         <title>{object.name || object.category} · {object.category}</title>
         {selected && <text x={object.x + 17} y={object.y + 5}>{object.name || object.category}</text>}
       </g>
@@ -41,7 +43,11 @@ const ObjectShape = memo(function ObjectShape({ object, color, selected, onPoint
 
   return (
     <g data-object-id={object.id} data-origin={object.origin} data-object-type={object.type} data-category={object.category} data-source-type={object.metadata?.sourceType} className={`object-group ${selected ? "is-selected" : ""}`} style={{ "--object-color": color }}>
-      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}{hasArea && <text className="polygon-size-label" data-polygon-measurement={object.id} x={center.x} y={center.y-labelFont} textAnchor="middle" fontSize={labelFont} pointerEvents="none">
+      <g transform={`rotate(${object.rotation || 0} ${center.x} ${center.y})`}>{shape}
+        {!selected&&object.type==='room'&&object.name&&!object.name.startsWith('Detected room ')&&<text
+          x={center.x} y={center.y} textAnchor="middle" dominantBaseline="middle" pointerEvents="none"
+          style={{fontSize:`min(${Math.min(labelFont,bounds.width*1.45/Math.max(1,object.name.length))}px, var(--room-label-max, 14px))`,fill:'#203744',stroke:'white',strokeWidth:.7,paintOrder:'stroke'}}>{object.name}</text>}
+        {hasArea && <text className="polygon-size-label" data-polygon-measurement={object.id} x={center.x} y={center.y-labelFont} textAnchor="middle" fontSize={labelFont} pointerEvents="none">
         <title>{object.name || object.type}: {size.area.toFixed(1)} m²; perimeter {size.perimeter.toFixed(1)} m; bounding extent {extent}{scaleAssumed ? "; assumed scale — confirm drawing dimensions" : ""}</title>
         {object.type==="room"&&object.name&&!object.name.startsWith("Detected room ")&&<tspan x={center.x} dy="-1.2em">{object.name}</tspan>}
         <tspan x={center.x} dy={object.type==="room"&&object.name&&!object.name.startsWith("Detected room ")?"1.2em":undefined}>{scaleAssumed ? "≈ " : ""}{size.area.toFixed(1)} m²</tspan>
@@ -63,12 +69,12 @@ function SelectionHandles({ object, onHandleDown }) {
   return (
     <g className="selection-box">
       <rect x={bounds.x} y={bounds.y} width={bounds.width} height={bounds.height} />
-      {object.points&&polygonTools.has(object.type)&&object.points.map((point,index)=>{const p=rotatedPoint(point,{x:centerX,y:bounds.y+bounds.height/2},object.rotation||0);return <circle key={`vertex-${index}`} className="resize-handle" cx={p.x} cy={p.y} r="5" aria-label={`Move vertex ${index+1}`} onPointerDown={event=>onHandleDown(event,"vertex",index)} />;})}
+      {object.points&&polygonTools.has(object.type)&&object.points.map((point,index)=>{const p=rotatedPoint(point,{x:centerX,y:bounds.y+bounds.height/2},object.rotation||0);return <circle key={`vertex-${index}`} className="resize-handle" cx={p.x} cy={p.y} r="5" style={{r:"var(--vertex-radius, 5px)"}} aria-label={`Move vertex ${index+1}`} onPointerDown={event=>onHandleDown(event,"vertex",index)} />;})}
       {!(object.points&&polygonTools.has(object.type))&&Object.entries(handles).map(([handle, [x, y]]) => (
         <rect key={handle} className="resize-handle" x={x - 5} y={y - 5} width="10" height="10" onPointerDown={(event) => onHandleDown(event, "resize", handle)} />
       ))}
       <line x1={centerX} y1={bounds.y} x2={centerX} y2={bounds.y - 28} />
-      <circle className="rotate-handle" cx={centerX} cy={bounds.y - 32} r="6" onPointerDown={(event) => onHandleDown(event, "rotate")} />
+      <circle className="rotate-handle" cx={centerX} cy={bounds.y - 32} r="6" style={{r:"var(--vertex-radius, 5px)"}} onPointerDown={(event) => onHandleDown(event, "rotate")} />
     </g>
   );
 }
@@ -129,7 +135,17 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   useEffect(()=>{const active=interaction.current;if(active?.mode==="beaconMove")svgRef.current.querySelector(`[data-beacon-id="${active.beacon.id}"]`)?.removeAttribute("transform");},[project.beaconPlan]);
 
   function applyView(view) {
-    svgRef.current?.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
+    const svg=svgRef.current;
+    if(!svg)return;
+    const rect=svg.getBoundingClientRect();
+    if(rect.width&&rect.height){
+      const units=Math.max(view.width/rect.width,view.height/rect.height);
+      svg.style.setProperty("--vertex-radius",Math.min(5,5*units)+"px");
+      svg.style.setProperty("--poi-radius",Math.min(12,6*units)+"px");
+      svg.style.setProperty("--poi-core-radius",Math.min(4,2*units)+"px");
+      svg.style.setProperty("--room-label-max",14*units+"px");
+    }
+    svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
   }
 
   function worldPoint(event) {
@@ -264,6 +280,11 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
     setPreviewObject(null);
   }
 
+  useEffect(()=>{
+    const canvas=svgRef.current;
+    canvas.addEventListener('wheel',handleWheel,{passive:false});
+    return ()=>canvas.removeEventListener('wheel',handleWheel);
+  },[]);
   function handleWheel(event) {
     event.preventDefault();
     const anchor = clientToWorld(event, svgRef.current);
@@ -297,7 +318,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
   const beaconDrawing=useMemo(()=>(project.layers.beacons?.visible && <g className="beacon-layer">{(project.beaconPlan?.beacons||[]).filter(b=>project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.visible!==false).map(b=><g key={b.id} data-beacon-id={b.id} opacity={b.enabled===false?.4:1} onPointerDown={e=>{if(spacePressed||e.button===1||!["select","move","delete"].includes(tool))return;e.stopPropagation();setBeaconSelection(b.id);onSelect(null);if(b.locked||project.layers.beacons.locked||project.layers[b.enabled===false?"disabledBeacons":"navigationBeacons"]?.locked)return;if(tool==="delete"){handlers.current.beaconAction("delete",b);return;}svgRef.current.setPointerCapture(e.pointerId);interaction.current={mode:"beaconMove",beacon:b,start:worldPoint(e)};}}><circle cx={b.x} cy={b.y} r={7} fill={b.enabled===false?"#94a3b8":"#0891b2"} stroke={beaconSelection===b.id?"#172033":"white"} strokeWidth={beaconSelection===b.id?4:2}/>{b.locked&&<text x={b.x+10} y={b.y-10} fontSize="12">L</text>}{project.beaconLabelsVisible!==false&&<text className="beacon-id-label" x={b.x+14} y={b.y-12} pointerEvents="none">{b.id}</text>}<title>{b.id}{b.locked?" · locked":""}</title></g>)}</g>),[project.beaconPlan,project.layers,project.beaconLabelsVisible,tool,spacePressed,beaconSelection,onSelect,setBeaconSelection]);
   return (
     <div className={`studio-canvas ${project.floorAnalysis ? "reference-canvas" : ""} ${tool === "pan" || spacePressed ? "is-panning" : ""}`}>
-      {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span>Corridors: navigation paths</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Voids / restricted</span><span><i className="legend-boundary" />Boundary</span></div>}
+      {project.floorAnalysis && <div className="polygon-legend" aria-label="Map colour legend"><span><i className="legend-room" />Rooms / shops</span><span><i className="legend-walkable" />Walkable areas</span><span><i className="legend-wall" />Walls</span><span><i className="legend-void" />Voids / restricted</span><span><i className="legend-boundary" />Boundary</span></div>}
       <button className="fit-button" type="button" onClick={fit}>Fit to screen</button>
       <svg
         ref={svgRef}
@@ -307,7 +328,6 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onDoubleClick={finishPath}
-        onWheel={handleWheel}
       >
         <defs>
           <pattern id="minor-grid" width={project.gridSize} height={project.gridSize} patternUnits="userSpaceOnUse">
@@ -325,7 +345,7 @@ export default function StudioCanvas({ project, tool, poiCategory, selectedId, o
         <CoverageOverlay project={project} scale={Number(project.widthMeters)/Number(project.drawingWidthPixels)}/>
         {LAYERS.filter((layer) => project.layers[layer.id]?.visible && !["floorPlan", "navigationGraph", "beacons", "navigationBeacons","disabledBeacons","warnings","coverage"].includes(layer.id)).map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
-            {displayObjects.filter((object) => object.layerId === layer.id && visibleAnnotation(object)).map((object) => (
+            {displayObjects.filter((object) => object.layerId === layer.id && visibleAnnotation(object,project.layers.floorPlan?.visible!==false&&project.baseMapOpacity>0)).map((object) => (
               <ObjectShape key={object.id} object={object} color={layer.color} selected={object.id === selectedId} onPointerDown={objectDown} metersPerPixel={Number(project.widthMeters)/Number(project.drawingWidthPixels)} scaleAssumed={project.floorAnalysis?.scaleAssumed} />
             ))}
           </g>

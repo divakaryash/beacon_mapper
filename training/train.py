@@ -48,10 +48,16 @@ def evaluate(model,data,device):
 
 def train(steps):
     random.seed(42);np.random.seed(42);torch.manual_seed(42);torch.set_num_threads(4)
-    device=torch.device('mps' if torch.backends.mps.is_available() else 'cpu');meta=json.loads((OUT/'dataset.json').read_text())
+    device=torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu');meta=json.loads((OUT/'dataset.json').read_text())
+    if any(i.get('building') not in {'dlf','agi-hospital','pune'} for i in meta['items']):
+        raise ValueError('Only DLF, AGI and Pune reference data are allowed.')
     if not all(i.get('alignmentReviewed') for i in meta['items']):raise ValueError('Review alignment PNGs and mark alignmentReviewed in dataset.json before training.')
     train_items=[i for i in meta['items'] if i['split']=='train'];val_items=[i for i in meta['items'] if i['split']=='validation']
-    assert train_items and val_items and not {i['building'] for i in train_items}&{i['building'] for i in val_items},'Building leakage between training and validation'
+    if not train_items or not val_items:
+        raise ValueError('Training requires both training and validation floors.')
+    if {i['sha256'] for i in train_items}&{i['sha256'] for i in val_items}:
+        raise ValueError('The same PDF cannot be in training and validation.')
+    building_overlap=bool({i['building'] for i in train_items}&{i['building'] for i in val_items})
     training=[read(i) for i in train_items];validation=[read(i) for i in val_items]
     counts=sum((np.bincount(mask.ravel(),minlength=6) for _,mask in training));weights=np.sqrt(counts.sum()/np.maximum(counts,1));weights=np.clip(weights/weights.mean(),.2,4)
     model=Segmenter().to(device);optimizer=torch.optim.Adam(model.parameters(),lr=.001);loss_fn=nn.CrossEntropyLoss(weight=torch.tensor(weights,dtype=torch.float32,device=device))
@@ -74,17 +80,17 @@ def train(steps):
             metrics=evaluate(model,validation,device);history.append({'step':step,'loss':float(loss.detach().cpu()),**metrics});print(json.dumps({'validation':history[-1]}),flush=True)
             if metrics['foregroundMeanIoU']>best:
                 best=metrics['foregroundMeanIoU'];torch.save({'state':model.cpu().state_dict(),'classes':meta['classes'],'step':step,'validation':metrics},MODELS/'annotation-baseline.pt');model.to(device)
-    report={'device':str(device),'steps':steps,'seconds':time.time()-start,'seed':42,'architecture':'small-unet-groupnorm-v1','loss':'weighted cross entropy plus foreground Dice','classes':meta['classes'],'trainingItems':[i['id'] for i in train_items],'validationItems':[i['id'] for i in val_items],'sourceHashes':{i['id']:i['sha256'] for i in meta['items']},'trainingBuildings':sorted({i['building'] for i in train_items}),'validationBuildings':sorted({i['building'] for i in val_items}),'initialValidation':initial,'history':history,'bestValidationForegroundMeanIoU':best,'limitation':'Small-data baseline. Apollo is validation for checkpoint selection, not an untouched test set. Registration is approximate. Not integrated into the production annotator.'}
+    report={'device':str(device),'steps':steps,'seconds':time.time()-start,'seed':42,'architecture':'small-unet-groupnorm-v1','loss':'weighted cross entropy plus foreground Dice','classes':meta['classes'],'trainingItems':[i['id'] for i in train_items],'validationItems':[i['id'] for i in val_items],'sourceHashes':{i['id']:i['sha256'] for i in meta['items']},'trainingBuildings':sorted({i['building'] for i in train_items}),'validationBuildings':sorted({i['building'] for i in val_items}),'initialValidation':initial,'history':history,'bestValidationForegroundMeanIoU':best,'validationScope':'held-out floors within a training building' if building_overlap else 'held-out buildings','limitation':'Small-data baseline. Validation selects the checkpoint. Registration is approximate. Not integrated into the production annotator.'}
     checkpoint=torch.load(MODELS/'annotation-baseline.pt',map_location='cpu',weights_only=True);model.load_state_dict(checkpoint['state']);model.to(device)
     report['selectedStep']=checkpoint['step'];report['trainingSetMetrics']=evaluate(model,training,device)
     (MODELS/'training-report.json').write_text(json.dumps(report,indent=2)+'\n')
     # Verify serialization and produce a real inference preview from the saved checkpoint.
-    pred=infer(model,validation[0][0],device);cv2.imwrite(str(OUT/'apollo-prediction.png'),cv2.cvtColor(COLORS[pred],cv2.COLOR_RGB2BGR));assert pred.shape==validation[0][1].shape
-    print('Saved model, training report and held-out-building prediction.',flush=True)
+    pred=infer(model,validation[0][0],device);cv2.imwrite(str(OUT/'validation-prediction.png'),cv2.cvtColor(COLORS[pred],cv2.COLOR_RGB2BGR));assert pred.shape==validation[0][1].shape
+    print('Saved model, training report and validation prediction.',flush=True)
 
 def predict(pdf):
     import pymupdf
-    device=torch.device('mps' if torch.backends.mps.is_available() else 'cpu');checkpoint=torch.load(MODELS/'annotation-baseline.pt',map_location='cpu',weights_only=True);model=Segmenter();model.load_state_dict(checkpoint['state']);model.to(device)
+    device=torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu');checkpoint=torch.load(MODELS/'annotation-baseline.pt',map_location='cpu',weights_only=True);model=Segmenter();model.load_state_dict(checkpoint['state']);model.to(device)
     doc=pymupdf.open(pdf);page=doc[0];scale=1200/max(page.rect.width,page.rect.height);pix=page.get_pixmap(matrix=pymupdf.Matrix(scale,scale),colorspace=pymupdf.csGRAY,alpha=False);image=np.frombuffer(pix.samples,np.uint8).reshape(pix.height,pix.width);pred=infer(model,image,device);doc.close()
     features=[]
     for cls in [1,2,3,4]:

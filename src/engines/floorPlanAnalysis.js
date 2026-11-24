@@ -1,19 +1,155 @@
+import {auditoriumCaption,transportLobbyCaption,destinationCategory,isDestinationCaption,hasShopIdentifiers} from '../models/destinationCategory.js';
 import {facilityBlocks} from "./facilityBlocks.js";
-import {simplifyContour,straightenPillarNotches} from "./geometry.js";
+import {polygonArea,simplifyContour,straightenPillarNotches} from "./geometry.js";
 import { segmentProjection,pointInPolygon,selfIntersects,compileFloorGeometry,geometryConflict,validGraphIntervals } from './floorGeometry.js';
 import { NavigationGraph } from './navigationGraph.js';
+import {simplifyNarrowContour,straightenRasterStairs} from './rasterStairs.js';
 
 const rectangle=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
-const category=text=>[/\bescalator/i,'Escalator',/\b(lift|elevator)\b/i,'Lift',/\bstair/i,'Stairs',/\bexit\b/i,'Exit',/\bentrance\b/i,'Entrance',/\batrium\b/i,'Atrium',/\b(shop|store|outlet)\b/i,'Store'].reduce((found,value,i,list)=>found||(i%2===0&&value.test(text)?list[i+1]:null),null);
+
+// Close narrow breaks in the building footprint independently of the room and
+// wall masks. Larger gaps between buildings stay open.
+export function closeFootprint(mask,width,height,radius){
+  function neighborhood(source,erode){
+    const stride=width+1,sum=new Uint32Array(stride*(height+1));
+    for(let y=0;y<height;y++){
+      let row=0;
+      for(let x=0;x<width;x++){
+        row+=source[y*width+x];
+        sum[(y+1)*stride+x+1]=row+sum[y*stride+x+1];
+      }
+    }
+    return source.map((_,i)=>{
+      const x=i%width,y=Math.floor(i/width),left=Math.max(0,x-radius),top=Math.max(0,y-radius);
+      const right=Math.min(width,x+radius+1),bottom=Math.min(height,y+radius+1);
+      const count=sum[bottom*stride+right]-sum[top*stride+right]-sum[bottom*stride+left]+sum[top*stride+left];
+      return erode?count===(right-left)*(bottom-top):count>0;
+    });
+  }
+  return neighborhood(neighborhood(mask,false),true);
+}
+
+function fitRectangularRoom(points,tolerance){
+  if(points.length<5)return points;
+  // The longest face supplies a local orientation, including diagonal wings.
+  let longest=0,ux=1,uy=0;
+  for(const [i,a] of points.entries()){
+    const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+    if(length>longest){longest=length;ux=dx/length;uy=dy/length;}
+  }
+  const local=points.map(p=>({x:p.x*ux+p.y*uy,y:p.y*ux-p.x*uy}));
+  const xs=local.map(p=>p.x),ys=local.map(p=>p.y);
+  const left=Math.min(...xs),top=Math.min(...ys),w=Math.max(...xs)-left,h=Math.max(...ys)-top;
+  if(Math.min(w,h)<6*tolerance||Math.abs(contourArea(points))<.96*w*h)return points;
+  const sides=p=>Math.min(p.x-left,left+w-p.x,p.y-top,top+h-p.y);
+  for(const [i,p] of local.entries()){
+    const q=local[(i+1)%local.length];
+    if(sides(p)>tolerance||sides({x:(p.x+q.x)/2,y:(p.y+q.y)/2})>tolerance)return points;
+  }
+  const box=rectangle(left,top,w,h);
+  if(box.some(c=>!local.some(p=>Math.hypot(c.x-p.x,c.y-p.y)<=1.5*tolerance)))return points;
+  return box.map(p=>({x:p.x*ux-p.y*uy,y:p.x*uy+p.y*ux}));
+}
+const category=text=>transportLobbyCaption.test(text)?'Lobby':[/\bescalator/i,'Escalator',/\b(lift|elevator)\b/i,'Lift',/\bstair/i,'Stairs',/\bexit\b/i,'Exit',/\b(?:entrance|entry)\b/i,'Entrance',/\batrium\b/i,'Atrium',/\b(shop|store|outlet)\b/i,'Store'].reduce((found,value,i,list)=>found||(i%2===0&&value.test(text)?list[i+1]:null),null);
+
+// A thin stroke embedded in one space is weak evidence for a raised partition.
+// Use the original regions for all decisions so growing a floor cannot move a divider.
+function partitionWalls(ink,outside,regions,width,height){
+  const owner=new Int32Array(ink.length);
+  regions.forEach((cells,index)=>{for(const i of cells)owner[i]=index+1;});
+  const walls=new Uint8Array(ink.length),solid=new Uint8Array(ink.length),recover=new Int32Array(ink.length);
+  for(let y=1;y<height-1;y++)for(let x=1;x<width-1;x++){
+    const i=y*width+x;
+    if(!ink[i])continue;
+    let filled=true;
+    for(let dy=-1;dy<=1&&filled;dy++)for(let dx=-1;dx<=1;dx++)if(!ink[i+dy*width+dx]){filled=false;break;}
+    if(filled)for(let dy=-1;dy<=1;dy++)solid.fill(1,i+dy*width-1,i+dy*width+2);
+  }
+  const radius=Math.max(3,Math.min(8,Math.round(Math.max(width,height)/200)));
+  const directions=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  for(let i=0;i<ink.length;i++){
+    if(!ink[i]||outside[i])continue;
+    const x=i%width,y=Math.floor(i/width);
+    let region=0,divider=false,exterior=false;
+    for(const [dx,dy] of directions){
+      for(let step=1;step<=radius;step++){
+        const nx=x+dx*step,ny=y+dy*step;
+        if(nx<0||ny<0||nx>=width||ny>=height){exterior=true;break;}
+        const j=ny*width+nx;
+        if(outside[j]){exterior=true;break;}
+        if(owner[j]){
+          if(region&&region!==owner[j])divider=true;
+          region=owner[j];break;
+        }
+      }
+    }
+    if(solid[i]||region&&(exterior||divider))walls[i]=1;
+    else if(region)recover[i]=region;
+  }
+  // Isolated short remnants of a line are common at hatch intersections.
+  // A compact, filled post still has evidence for a physical footprint.
+  const visited=new Uint8Array(ink.length);
+  for(let i=0;i<walls.length;i++){
+    if(!walls[i]||visited[i])continue;
+    const cells=[i];visited[i]=1;
+    let left=i%width,right=left,top=Math.floor(i/width),bottom=top,core=false;
+    for(let k=0;k<cells.length;k++){
+      const p=cells[k],x=p%width,y=Math.floor(p/width);
+      left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);core||=!!solid[p];
+      for(const j of [p-width,p+width,p-1,p+1]){
+        if(!walls[j]||visited[j]||Math.abs(x-j%width)>1)continue;
+        visited[j]=1;cells.push(j);
+      }
+    }
+    const w=right-left+1,h=bottom-top+1;
+    if(Math.max(w,h)>radius||core&&Math.min(w,h)>=3&&cells.length>=w*h*.75)continue;
+    for(const p of cells)walls[p]=0;
+  }
+  regions.forEach((cells,index)=>{
+    for(let k=0;k<cells.length;k++){
+      const i=cells[k];
+      for(const j of [i-width,i+width,i-1,i+1]){
+        if(recover[j]!==index+1||Math.abs(i%width-j%width)>1)continue;
+        recover[j]=0;cells.push(j);
+      }
+    }
+  });
+  // Recover small enclosed pockets (for example between hatch strokes) only
+  // when every adjoining floor cell belongs to the same retained space.
+  regions.forEach((cells,index)=>{for(const i of cells)owner[i]=index+1;});
+  for(let i=0;i<ink.length;i++){
+    if(owner[i]||ink[i]||outside[i])continue;
+    const pocket=[i];owner[i]=-1;
+    let adjoining=0,ambiguous=false;
+    for(let k=0;k<pocket.length;k++){
+      const cell=pocket[k];
+      for(const j of [cell-width,cell+width,cell-1,cell+1]){
+        if(j<0||j>=ink.length||Math.abs(cell%width-j%width)>1||outside[j])continue;
+        if(owner[j]>0){
+          if(adjoining&&adjoining!==owner[j])ambiguous=true;
+          adjoining=owner[j];
+        }else if(!owner[j]&&!ink[j]){
+          owner[j]=-1;pocket.push(j);
+        }
+      }
+    }
+    if(!ambiguous&&adjoining&&pocket.length<Math.max(9,ink.length*.00035)){
+      for(const cell of pocket)regions[adjoining-1].push(cell);
+    }
+  }
+  return walls;
+}
 
 // shortcut: raster segmentation cannot distinguish every CAD annotation from a wall; review the draft before deployment.
-export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHeight=height,metersPerPixel,labels=[],excludeDrawingFrame=false,crossMarksRemoved=false,annotationOnly=false}) {
+export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHeight=height,metersPerPixel,labels=[],openingSegments=[],doorRooms=[],shopFaces=[],liftBanks=[],vectorWallBands=[],excludeDrawingFrame=false,crossMarksRemoved=false,annotationOnly=false}) {
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<3||width*height>(annotationOnly?1000000:400000)||![drawingWidth,drawingHeight].every(v=>Number.isFinite(v)&&v>0)||!Array.isArray(labels)||data.length!==width*height*4||!(metersPerPixel>0)||!Number.isFinite(metersPerPixel))throw new Error('Invalid analysis raster or scale.');
   const size=width*height,ink=new Uint8Array(size),closed=new Uint8Array(size),outside=new Uint8Array(size),free=new Uint8Array(size),sx=drawingWidth/width,sy=drawingHeight/height;
   const neighbors=i=>[i-width,i+1,i+width,i-1].filter(j=>j>=0&&j<size&&(Math.floor(i/width)===Math.floor(j/width)||i%width===j%width));
   // Pale CAD walls can be bright in luminance while retaining contrast in one colour channel.
   for(let i=0;i<size;i++){const p=i*4,alpha=data[p+3]/255;ink[i]=(Math.min(data[p],data[p+1],data[p+2])*alpha+255*(1-alpha))<235?1:0;}
+  if(annotationOnly)recoverFaintPartitions(data,ink,width,height);
   if(excludeDrawingFrame){
+    stripSheetRules(ink,width,height);
     const columns=[];
     for(let x=0;x<width;x++)if(x<width*.15||x>width*.85){let count=0,branches=0;for(let y=0;y<height;y++)if(ink[y*width+x]){count++;if((x>1&&ink[y*width+x-2])||(x<width-2&&ink[y*width+x+2]))branches++;}if(count>height*.35&&branches<=Math.max(4,height*.025))columns.push(x);}
     const left=columns.find(x=>x<width*.15),right=columns.findLast(x=>x>width*.85);
@@ -47,11 +183,70 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   }
   const facilities=facilityBlocks(ink,width,height,labels,sx,sy);
   for(const block of facilities)for(let y=block.y;y<block.y+block.h;y++)for(let x=block.x;x<block.x+block.w;x++)ink[y*width+x]=1;
+  // Reinstate the measured thickness of paired PDF wall faces. Fill only their
+  // overlapping lengths so real openings remain open in the physical wall mask.
+  for(const band of vectorWallBands){
+    const xs=band.map(p=>p.x/sx),ys=band.map(p=>p.y/sy);
+    const left=Math.max(0,Math.floor(Math.min(...xs))),right=Math.min(width-1,Math.ceil(Math.max(...xs)));
+    const top=Math.max(0,Math.floor(Math.min(...ys))),bottom=Math.min(height-1,Math.ceil(Math.max(...ys)));
+    for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++)
+      if(pointInPolygon({x:(x+.5)*sx,y:(y+.5)*sy},band))ink[y*width+x]=1;
+  }
   // Square closing seals tiny annotation gaps; navigation keeps its original exterior-only closing.
   const closingNeighbors=i=>annotationOnly?[...neighbors(i),...[-width-1,-width+1,width-1,width+1].map(d=>i+d).filter(j=>j>=0&&j<size&&Math.abs(i%width-j%width)===1)]:neighbors(i);
   const dilated=ink.map((v,i)=>v||closingNeighbors(i).some(j=>ink[j])?1:0);
   for(let i=0;i<size;i++)closed[i]=dilated[i]&&closingNeighbors(i).every(j=>dilated[j])?1:0;
-  if(annotationOnly)closeDoorGaps(closed,width,height,Math.min(Math.ceil(2.4/(metersPerPixel*Math.sqrt(sx*sy))),Math.ceil(Math.max(width,height)*.01)));
+  const doorwayGaps=[];
+  if(annotationOnly){
+    const rasterSpan=Math.max(width,height);
+    const metricGap=2.4/(metersPerPixel*Math.sqrt(sx*sy));
+    // Below sampling resolution the scale supplies no usable doorway width.
+    const maxGap=metricGap<1 ? rasterSpan*.006 : Math.min(metricGap,rasterSpan*.01);
+    closeDoorGaps(closed,width,height,Math.ceil(maxGap),(x,y,dx,dy,length)=>{
+      const metres=length*Math.hypot(dx*sx,dy*sy)*metersPerPixel;
+      if(metres>=.65&&metres<=1.8)doorwayGaps.push({x,y,dx,dy});
+    });
+  }
+  const openings=[];
+  if(annotationOnly)for(const segment of openingSegments){
+    const {a,b}=segment;
+    if(!a||!b||![a.x,a.y,b.x,b.y].every(v=>Number.isFinite(v)&&v>=0&&v<1))continue;
+    const ax=a.x*width,ay=a.y*height,dx=b.x*width-ax,dy=b.y*height-ay;
+    const length=Math.hypot(dx,dy);
+    if(length<2||length>Math.max(width,height)*.023)continue;
+    // Close the threshold in the region mask only. The wall polygons retain the opening.
+    const steps=Math.ceil(length*2);
+    // Symbols may end at the jamb centre, between sampled pixels of the wall.
+    for(let n=-2;n<=steps+2;n++){
+      const x=Math.floor(ax+dx*n/steps),y=Math.floor(ay+dy*n/steps);
+      if(x>=0&&x<width&&y>=0&&y<height)closed[y*width+x]=1;
+    }
+    openings.push({x:(ax+dx/2)*sx,y:(ay+dy/2)*sy,radius:length*Math.max(sx,sy),source:segment.source||'door swing and leaf'});
+  }
+  // The four fitted wall faces and swing threshold bound a room even if the
+  // sampling grid lost its jamb. The threshold stays out of the wall mesh.
+  for(const candidate of [...doorRooms,...liftBanks,...shopFaces])for(const [i,a] of candidate.points.entries()){
+    const b=candidate.points[(i+1)%candidate.points.length],ax=a.x/sx,ay=a.y/sy,dx=b.x/sx-ax,dy=b.y/sy-ay;
+    const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)*2));
+    for(let k=0;k<=steps;k++){
+      const x=Math.floor(ax+k*dx/steps),y=Math.floor(ay+k*dy/steps);
+      if(x>=0&&x<width&&y>=0&&y<height)closed[y*width+x]=1;
+    }
+  }
+  const structuralSeeds=new Map();
+  for(const candidate of [...doorRooms,...liftBanks,...shopFaces.filter(f=>f.detailed)]){
+    const ring=candidate.points.map(p=>({x:p.x/sx,y:p.y/sy}));
+    const xs=ring.map(p=>p.x),ys=ring.map(p=>p.y);
+    const x0=Math.max(0,Math.floor(Math.min(...xs))),x1=Math.min(width-1,Math.ceil(Math.max(...xs)));
+    const y0=Math.max(0,Math.floor(Math.min(...ys))),y1=Math.min(height-1,Math.ceil(Math.max(...ys)));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const p={x:x+.5,y:y+.5};
+      if(pointInPolygon(p,ring)&&ring.every((a,i)=>segmentProjection(p,a,ring[(i+1)%ring.length]).distance>1.15))closed[y*width+x]=0;
+    }
+    if(candidate.detailed)continue;
+    const cx=Math.floor((xs[0]+xs[2])/2),cy=Math.floor((ys[0]+ys[2])/2);
+    structuralSeeds.set(cy*width+cx,candidate);
+  }
   const queue=[];
   for(let i=0;i<size;i++)if((i<width||i>=size-width||i%width===0||i%width===width-1)&&!closed[i]){outside[i]=1;queue.push(i);}
   for(let k=0;k<queue.length;k++)for(const j of neighbors(queue[k]))if(!closed[j]&&!outside[j]){outside[j]=1;queue.push(j);}
@@ -59,8 +254,46 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   for(let i=0;i<size;i++)free[i]=!outside[i]&&!(annotationOnly?closed[i]:ink[i])?1:0;
   // Discard text-sized pockets, retaining disconnected rooms for review rather than routing through walls.
   const seen=new Uint8Array(size),regions=[];
-  for(let i=0;i<size;i++)if(free[i]&&!seen[i]){const cells=[i];seen[i]=1;for(let k=0;k<cells.length;k++)for(const j of neighbors(cells[k]))if(free[j]&&!seen[j]){seen[j]=1;cells.push(j);}if(cells.length<Math.max(9,size*.00035))cells.forEach(j=>free[j]=0);else regions.push(cells);}
-  if(!regions.length&&excludeDrawingFrame)return analyzeFloorPlan({data,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,annotationOnly,excludeDrawingFrame:false});
+  const captionCells=new Set(labels.filter(l=>l.source!=='ocr'||l.confidence>=80).filter(l=>
+    destinationCategory(l.text)||/\b(?:room|office|ward|lab|lift|stair|store|pantry)\b/i.test(l.text)).map(l=>
+    Math.floor((l.y-(l.height||0)/2)/sy)*width+Math.floor((l.x+(l.width||0)/2)/sx)));
+  const swingSeeds=new Set();
+  for(const {a,b,swingTip} of openingSegments){
+    if(!swingTip)continue;
+    const x=Math.floor(((a.x+b.x)/2+.45*(swingTip.x-a.x))*width);
+    const y=Math.floor(((a.y+b.y)/2+.45*(swingTip.y-a.y))*height);
+    if(x>=0&&x<width&&y>=0&&y<height)swingSeeds.add(y*width+x);
+  }
+  // Perimeter canopy notes are often plotted just beyond the outline, rotated
+  // along its edge. Test the printed extent rather than only its text centre.
+  const canopyNotes=annotationOnly?labels.filter(l=>/^(?:external |entrance )?canopy(?:$|\s+(?:at|above|over|[+\d]))/i.test(l.text.trim())&&
+    (l.confidence??100)>=85&&l.width>0&&l.height>0).map(l=>({
+      left:l.x/sx,right:(l.x+l.width)/sx,top:(l.y-l.height)/sy,bottom:l.y/sy,
+      vertical:l.height>l.width})): [];
+  function alongsideCanopy(cells){
+    return canopyNotes.some(note=>{
+      const longitudinal=new Set();
+      for(const i of cells){
+        const x=i%width+.5,y=Math.floor(i/width)+.5;
+        const dx=Math.max(0,note.left-x,x-note.right),dy=Math.max(0,note.top-y,y-note.bottom);
+        const peripheral=note.vertical?(note.left<width*.08||note.right>width*.92):(note.top<height*.08||note.bottom>height*.92);
+        if(dx===0&&dy===0||peripheral&&(note.vertical?dy===0&&dx*sx*metersPerPixel<1.35:dx===0&&dy*sy*metersPerPixel<1.35))
+          longitudinal.add(Math.floor(note.vertical?y:x));
+      }
+      return longitudinal.size*(note.vertical?sy:sx)*metersPerPixel>=.55;
+    });
+  }
+  for(let i=0;i<size;i++)if(free[i]&&!seen[i]){
+    const cells=[i];seen[i]=1;
+    for(let k=0;k<cells.length;k++)for(const j of neighbors(cells[k]))if(free[j]&&!seen[j]){
+      seen[j]=1;cells.push(j);
+    }
+    const named=annotationOnly&&cells.some(j=>captionCells.has(j)||structuralSeeds.has(j));
+    const minimum=(named||cells.some(i=>swingSeeds.has(i)))?Math.max(16,size*.00005):Math.max(9,size*.00035);
+    if(cells.length<minimum||(!named&&alongsideCanopy(cells)))cells.forEach(j=>free[j]=0);
+    else regions.push(cells);
+  }
+  if(!regions.length&&excludeDrawingFrame)return analyzeFloorPlan({data,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,openingSegments,doorRooms,shopFaces,liftBanks,vectorWallBands,annotationOnly,excludeDrawingFrame:false});
   if(!regions.length)throw new Error('No enclosed walkable regions detected. Use a clearer wall drawing or correct the building boundary manually.');
   if(!crossMarksRemoved){
     const crosses=crossedEnclosures(regions,width,height);
@@ -91,18 +324,32 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
           }
         }
       }
-      return analyzeFloorPlan({data:cleaned,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,annotationOnly,excludeDrawingFrame,crossMarksRemoved:true});
+      return analyzeFloorPlan({data:cleaned,width,height,drawingWidth,drawingHeight,metersPerPixel,labels,openingSegments,doorRooms,shopFaces,liftBanks,vectorWallBands,annotationOnly,excludeDrawingFrame,crossMarksRemoved:true});
     }
   }
-  const objects=[],add=(type,points,extra={})=>{if(type==='room'){const straight=straightenPillarNotches(points,1.5/metersPerPixel);if(!selfIntersects(straight))points=straight;}objects.push({id:`auto-${type}-${objects.length+1}`,type,points,layerId:type==='walkableArea'?'walkableAreas':type==='room'?'rooms':'walls',floorId:'floor-1',rotation:0,origin:'automatic',...extra});};
+  const wallMask=annotationOnly?partitionWalls(ink,outside,regions,width,height):ink.map((v,i)=>v&&!outside[i]?1:0);
+  const objects=[],add=(type,points,extra={})=>{if(type==='room'&&!extra.holes?.length){const straight=straightenPillarNotches(points,1.5/metersPerPixel);if(!selfIntersects(straight))points=straight;}objects.push({id:`auto-${type}-${objects.length+1}`,type,points,layerId:type==='walkableArea'?'walkableAreas':type==='room'?'rooms':'walls',floorId:'floor-1',rotation:0,origin:'automatic',...extra});};
   const envelope=new Uint8Array(size),interior=regions.flat();
   for(const i of interior)envelope[i]=1;
   // Only include nearby wall thickness, not an entire connected exterior annotation/frame network.
   let border=interior;for(let pass=0;pass<2;pass++){const next=[];for(const i of border)for(const j of neighbors(i))if(!outside[j]&&!envelope[j]){envelope[j]=1;next.push(j);}border=next;}
-  for(const contour of maskContours(envelope,width,height,sx,sy))if(!contour.hole)add('buildingBoundary',contour.points);
+  const shell=annotationOnly?closeFootprint(envelope,width,height,Math.min(4,Math.max(1,Math.round(.5/(metersPerPixel*Math.max(sx,sy)))))):envelope;
+  for(const contour of maskContours(shell,width,height,sx,sy))if(!contour.hole)add('buildingBoundary',contour.points);
   // Smaller enclosed regions are room candidates; use their contours, never their bounding boxes.
   const largest=Math.max(...regions.map(r=>r.length));
+  const sortedAreas=regions.map(cells=>cells.length).sort((a,b)=>a-b);
+  const typicalArea=sortedAreas[Math.floor(sortedAreas.length/2)];
+  const regionSamples=regions.map(([cell])=>({x:(cell%width+.5)*sx,y:(Math.floor(cell/width)+.5)*sy}));
+  const passageLabels=labels.filter(label=>(/\b(?:corridor|passage|hallway)\b/i.test(label.text)||
+    /^\s*(?:parking(?:\s+area)?|(?:stp\s+)?ramp(?:\s|\(|$))/i.test(label.text)&&!/\b(?:office|room|store|shaft)\b/i.test(label.text))&&
+    (label.source!=='ocr'||label.confidence>=75)).map(label=>({
+      x:Math.floor((label.x+(label.width||0)/2)/sx),
+      y:Math.floor((label.y-(label.height||0)/2)/sy),
+    })).filter(p=>p.x>=0&&p.x<width&&p.y>=0&&p.y<height);
+  const regionKind=new Int32Array(size),roomByIndex=[null];
   let roomCount=0;
+  const voidLabels=annotationOnly?labels.filter(l=>(l.confidence??100)>=85&&
+    /^(?:void|open to below)$/i.test(l.text.trim())):[];
   for(const cells of regions) {
     const mask=new Uint8Array(size);for(const i of cells)mask[i]=1;
     let minX=width,maxX=0,minY=height,maxY=0;
@@ -110,32 +357,183 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
     const boxArea=(maxX-minX+1)*(maxY-minY+1);
     const enclosedStore=cells.length/interior.length<.55&&cells.length/boxArea>.65;
     // Door closure can split circulation below the largest shop; size alone must not turn it into a room.
-    const circulation=annotationOnly&&cells.length/boxArea<.5&&(maxX-minX>width*.4||maxY-minY>height*.4);
-    const room=!circulation&&(cells.length<largest*.6||enclosedStore)&&cells.length>=Math.max(16,size*.0001);
-    for(const contour of maskContours(mask,width,height,sx,sy,1.25)){
-      if(!contour.hole)add(room?'room':'walkableArea',contour.points,room?{name:`Detected room ${++roomCount}`,category:'Room',geometryRole:'nonWalkableArea'}:{});
-      else if(!room&&!facilities.some(block=>contour.points.every(p=>p.x>=(block.x-1)*sx&&p.x<=(block.x+block.w+1)*sx&&p.y>=(block.y-1)*sy&&p.y<=(block.y+block.h+1)*sy)))add('nonWalkableArea',contour.points,{category:'Void',layerId:'restrictedAreas'});
+    const largeFragment=cells.length>=4*typicalArea&&regions.length>=6;
+    const fitted=structuralSeeds.get(cells.find(i=>structuralSeeds.has(i)));
+    const fitRatio=fitted?cells.length*sx*sy/polygonArea(fitted.points):0;
+    // The closed car and sill can consume a large part of a small shaft on
+    // the raster. Its repeated crossed vector enclosure gives the full extent.
+    const backed=fitted&&fitRatio>(liftBanks.includes(fitted)?.48:.74)&&fitRatio<1.26&&
+      cells.filter(i=>pointInPolygon({x:(i%width+.5)*sx,y:(Math.floor(i/width)+.5)*sy},fitted.points)).length>cells.length*.90?fitted:null;
+    const circulation=!backed&&annotationOnly&&(
+      (cells.length/boxArea<.5&&(maxX-minX>width*.4||maxY-minY>height*.4))||
+      (largeFragment&&resemblesPassage(cells,width))||
+      passageLabels.some(p=>mask[p.y*width+p.x])
+    );
+    const namedRoom=annotationOnly&&cells.some(i=>captionCells.has(i));
+    let room=!circulation&&(backed||namedRoom||((cells.length<largest*.6||enclosedStore)&&cells.length>=Math.max(16,size*.0001)));
+    const contours=maskContours(mask,width,height,sx,sy,1.25);
+    const holes=annotationOnly?contours.filter(contour=>contour.hole):[];
+    if(annotationOnly&&!room&&cells.length/boxArea>.25&&contours.length-holes.length===1){
+      const outer=contours.find(c=>!c.hole).points;
+      const captions=labels.filter(l=>{
+        if((l.confidence??100)<78)return false;
+        const p={x:l.x+(l.width||0)/2,y:l.y-(l.height||0)/2};
+        return pointInPolygon(p,outer)&&!holes.some(h=>pointInPolygon(p,h.points));
+      });
+      const units=captions.filter(l=>destinationCategory(l.text)==='Shop unit');
+      const tenantText=captions.filter(l=>!units.includes(l)&&/[a-z]{3}/i.test(l.text));
+      // Several far-apart names around a numbered kiosk describe the shared
+      // court. Only use a local caption group to override circulation.
+      const namedTenant=units.length===1&&tenantText.length>0&&tenantText.every(l=>{
+        const u=units[0],dx=l.x+l.width/2-u.x-u.width/2,dy=l.y-l.height/2-u.y+u.height/2;
+        return Math.hypot(dx,dy)<=Math.max(l.height,u.height)*12;
+      });
+      // Dense seating and shelves fragment the free floor into thin runs.
+      // A single enclosed auditorium or storage caption can resolve that
+      // shape ambiguity even on floors with many small neighboring rooms.
+      const enclosedUse=captions.filter(l=>(l.confidence??100)>=85&&
+        (auditoriumCaption.test(l.text)||/^storage(?: room)?$/i.test(l.text.trim())));
+      const namedEnclosure=!units.length&&enclosedUse.length===1&&captions.every(l=>
+        l===enclosedUse[0]||/^TV$/i.test(l.text.trim()));
+      room=((cells.length/boxArea>.38&&units.length===1&&namedTenant)||namedEnclosure)&&
+        !captions.some(l=>/\b(?:corridor|lobby|passage|atrium|exit|stair|lift)\b/i.test(l.text));
+    }
+    for(const contour of contours){
+      if(!contour.hole){
+        // A printed void can look exactly like an enclosed tenant on the plan.
+        // Require the caption inside this face and keep mixed-use faces for review.
+        const coversLabel=l=>{
+          const center={x:l.x+(l.width||0)/2,y:l.y-(l.height||0)/2};
+          return pointInPolygon(center,contour.points)&&!holes.some(h=>pointInPolygon(center,h.points));
+        };
+        if(room&&voidLabels.some(coversLabel)&&!labels.some(l=>
+          !voidLabels.includes(l)&&(l.confidence??100)>=80&&/[a-z]{3}/i.test(l.text)&&coversLabel(l))){
+          add('nonWalkableArea',contour.points,{category:'Void',name:'Void',layerId:'restrictedAreas',
+            holes:holes.filter(h=>pointInPolygon(h.points[0],contour.points)).map(h=>h.points)});
+          continue;
+        }
+        const properties=room?{name:`Detected room ${++roomCount}`,category:'Room',geometryRole:'nonWalkableArea'}:{};
+        const innerRings=holes.filter(hole=>pointInPolygon(hole.points[0],contour.points)).map(hole=>hole.points);
+        if(innerRings.length)properties.holes=innerRings;
+        const points=annotationOnly&&room&&!innerRings.length?fitRectangularRoom(contour.points,Math.min(1.5*Math.min(sx,sy),.22/metersPerPixel)):contour.points;
+        if(backed){
+          const shaft=liftBanks.includes(backed);
+          if(shaft){properties.category='Lift';properties.name='Lift';}
+          properties.metadata={geometrySource:shaft?'Repeated crossed shaft outlines':'PDF doorway and wall faces',needsReview:true};
+        }
+        add(room?'room':'walkableArea',backed?.points||points,properties);
+        if(room)roomByIndex[roomCount]=objects.at(-1);
+        if(annotationOnly){
+          const multipleOutlines=contours.length-holes.length>1;
+          for(const cell of cells){
+            if(multipleOutlines&&!pointInPolygon({x:(cell%width+.5)*sx,y:(Math.floor(cell/width)+.5)*sy},contour.points))continue;
+            regionKind[cell]=room?roomCount:-1;
+          }
+        }
+        continue;
+      }
+      if(room||annotationOnly&&regionSamples.some(point=>pointInPolygon(point,contour.points)))continue;
+      const facilityHole=facilities.some(block=>contour.points.every(p=>
+        p.x>=(block.x-1)*sx&&p.x<=(block.x+block.w+1)*sx&&p.y>=(block.y-1)*sy&&p.y<=(block.y+block.h+1)*sy));
+      if(!facilityHole)add('nonWalkableArea',contour.points,{category:'Void',layerId:'restrictedAreas'});
     }
     if(room)for(const i of cells)free[i]=0;
   }
   for(const object of objects)if(object.type==='room'){
-    const contained=labels.filter(label=>typeof label.text==='string'&&label.text.trim()&&[label.x,label.y].every(Number.isFinite)&&pointInPolygon({x:label.x+(label.width||0)/2,y:label.y-(label.height||0)/2},object.points));
-    const largestCaption=Math.max(0,...contained.map(label=>label.height||0));
-    const names=contained.filter(label=>label.source!=='ocr'||(label.confidence>=75&&(label.height||0)>=largestCaption*.65));
+    const contained=labels.filter(label=>{
+      const center={x:label.x+(label.width||0)/2,y:label.y-(label.height||0)/2};
+      return typeof label.text==='string'&&label.text.trim()&&pointInPolygon(center,object.points)&&
+        !object.holes?.some(hole=>pointInPolygon(center,hole));
+    });
+    const meaningful=contained.filter(label=>/[a-z]{2}/i.test(label.text)&&
+      !/\b(?:cutouts?|retaining wall|electrical cables)\b|^size\b/i.test(label.text.trim())&&
+      !/^(?:[\d., x×-]+(?:mm|m)?|mm (?:wide|height)|f\.?f\.?l\.?|room)$/i.test(label.text.trim()));
+    const largestCaption=Math.max(0,...meaningful.map(label=>label.textHeight||label.height||0));
+    const names=meaningful.filter(label=>label.source!=='ocr'||(label.confidence>=78&&(destinationCategory(label.text)||(label.textHeight||label.height||0)>=largestCaption*.55)));
     if(names.some(label=>['Lift','Stairs','Escalator'].includes(category(label.text)))){object.category=category(names.find(label=>['Lift','Stairs','Escalator'].includes(category(label.text))).text);object.metadata={sourceType:object.category,groupedAssembly:true};}
-    if(names.length)object.name=names.sort((a,b)=>a.y-b.y||a.x-b.x).map(label=>label.text.trim()).join(' ');
+    if(names.length)object.name=names.sort((a,b)=>a.y-b.y||a.x-b.x).map(label=>label.text.trim()).filter((name,index,all)=>all.indexOf(name)===index).join(' ');
   }
-  const wallContours=maskContours(ink.map((v,i)=>v&&!outside[i]?1:0),width,height,sx,sy);
+  const wallContours=maskContours(wallMask,width,height,sx,sy,annotationOnly?1.35:.8);
   const wallPolygons=wallContours.filter(c=>!c.hole).map(c=>({...c,holes:[]}));
   for(const hole of wallContours.filter(c=>c.hole)){
     const containing=wallPolygons.filter(c=>pointInPolygon(hole.points[0],c.points));
     containing.sort((a,b)=>Math.abs(contourArea(a.points))-Math.abs(contourArea(b.points)));
     if(containing[0])containing[0].holes.push(hole.points);
   }
-  for(const wall of wallPolygons)add('nonWalkableArea',wall.points,{category:'Wall',holes:wall.holes});
+  for(const wall of wallPolygons){
+    let interior=0,exterior=0;
+    if(annotationOnly)for(const ring of [wall.points,...wall.holes])for(const p of ring){
+      const x=Math.floor(p.x/sx),y=Math.floor(p.y/sy);
+      for(const [dx,dy] of [[2,0],[-2,0],[0,2],[0,-2]]){
+        const xx=x+dx,yy=y+dy;
+        if(xx<0||yy<0||xx>=width||yy>=height){exterior++;continue;}
+        const i=yy*width+xx;
+        if(outside[i])exterior++;
+        if(regionKind[i]>0)interior++;
+      }
+    }
+    const wallRole=interior>0&&interior>4*exterior?'room partition':'general wall';
+    add('nonWalkableArea',wall.points,{category:'Wall',holes:wall.holes,metadata:{wallRole}});
+  }
   for(const object of objects)if(object.type==='nonWalkableArea'&&!object.category)object.category='Wall';
   for(const block of facilities)add('nonWalkableArea',rectangle(block.x*sx,block.y*sy,block.w*sx,block.h*sy),{category:block.type,name:block.name,metadata:{sourceType:block.type,groupedAssembly:true,needsReview:!!block.needsReview}});
   const graph=annotationOnly?new NavigationGraph():graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel});
+  if(annotationOnly){
+    const pins=[];
+    const retail=hasShopIdentifiers(labels);
+    for(const label of [...labels].sort((a,b)=>(b.confidence||100)-(a.confidence||100))){
+      const type=isDestinationCaption(label.text)&&(category(label.text)||destinationCategory(label.text));
+      if(!type||type==='Store'||(type==='Shop unit'&&!retail)||(label.source==='ocr'&&label.confidence<80))continue;
+      const block=facilities.find(block=>block.label===label);
+      const x=block?(block.x+block.w/2)*sx:label.x+(label.width||0)/2;
+      const y=block?(block.y+block.h/2)*sy:label.y-(label.height||0)/2;
+      if(!(x>=0&&x<drawingWidth&&y>=0&&y<drawingHeight))continue;
+      const room=objects.find(o=>o.type==='room'&&pointInPolygon({x,y},o.points)&&!o.holes?.some(h=>pointInPolygon({x,y},h)));
+      const duplicate=pins.some(p=>p.category===type&&p.name.toLowerCase()===label.text.trim().toLowerCase()&&
+        ((room&&room.id===p.metadata.roomId)||Math.hypot(p.x-x,p.y-y)<2*Math.max(sx,sy)));
+      if(duplicate)continue;
+      const pin={id:`auto-poi-${objects.length}`,type:'poi',layerId:'pois',floorId:'floor-1',x,y,name:label.text.trim(),category:type,origin:'automatic',rotation:0,
+        metadata:{coordinateSource:block?'labeled assembly':label.coordinateSource||'printed label',roomId:room?.id,needsReview:label.source==='ocr'}};
+      pins.push(pin);objects.push(pin);
+    }
+    const rooms=objects.filter(o=>o.type==='room');
+    for(const shaft of rooms.filter(o=>o.category==='Lift'&&o.metadata?.geometrySource==='Repeated crossed shaft outlines')){
+      if(pins.some(p=>p.category==='Lift'&&p.metadata?.roomId===shaft.id))continue;
+      const center={x:(shaft.points[0].x+shaft.points[2].x)/2,y:(shaft.points[0].y+shaft.points[2].y)/2};
+      objects.push({...center,id:'auto-lift-'+shaft.id,type:'poi',layerId:'pois',floorId:shaft.floorId,category:'Lift',
+        name:shaft.name,origin:'automatic',metadata:{roomId:shaft.id,coordinateSource:'Repeated crossed shaft outlines',needsReview:true}});
+    }
+    for(const opening of openings){
+      let closest=null,distance=Infinity;
+      for(const room of rooms)for(const [i,a] of room.points.entries()){
+        const projected=segmentProjection(opening,a,room.points[(i+1)%room.points.length]);
+        if(projected.distance<distance){distance=projected.distance;closest=room;}
+      }
+      if(!closest||distance>Math.max(2*Math.max(sx,sy),opening.radius*.42))continue;
+      objects.push({id:`auto-door-${objects.length}`,type:'poi',layerId:'pois',floorId:'floor-1',x:opening.x,y:opening.y,
+        name:closest.name,category:'Room Door',origin:'automatic',rotation:0,metadata:{coordinateSource:opening.source,roomId:closest.id,needsReview:true}});
+    }
+    const doors=objects.filter(o=>o.category==='Room Door');
+    for(const gap of doorwayGaps){
+      const side=sign=>{
+        for(let d=1;d<=4;d++){
+          const x=Math.floor(gap.x+sign*d*gap.dy),y=Math.floor(gap.y-sign*d*gap.dx);
+          if(x<0||x>=width||y<0||y>=height)break;
+          const i=y*width+x;
+          if(outside[i]||ink[i])break;
+          if(regionKind[i])return regionKind[i];
+        }
+        return 0;
+      };
+      const a=side(1),b=side(-1);
+      if(Math.min(a,b)!==-1||Math.max(a,b)<=0)continue;
+      const room=roomByIndex[Math.max(a,b)],x=gap.x*sx,y=gap.y*sy;
+      if(doors.some(p=>Math.hypot(p.x-x,p.y-y)*metersPerPixel<.9))continue;
+      const pin={id:`auto-door-${objects.length}`,type:'poi',layerId:'pois',floorId:'floor-1',x,y,name:room.name,
+        category:'Room Door',origin:'automatic',rotation:0,metadata:{coordinateSource:'wall gap between room and passage',roomId:room.id,needsReview:true}};
+      doors.push(pin);objects.push(pin);
+    }
+  }
   if(!annotationOnly){
   // Smoothed outlines can shift across a raster route; keep routes inside the final editable geometry.
   const floor=compileFloorGeometry({objects,metersPerPixel}).get('floor-1');
@@ -171,7 +569,7 @@ export function analyzeFloorPlan({data,width,height,drawingWidth=width,drawingHe
   }
   if(!graph.edges.size)throw new Error('Detected regions are too small to generate navigation paths. Use a higher-resolution source.');
   }
-  return {objects,graph:graph.serialize(),analysis:{method:'bounded-raster-topology',contourVersion:3,resolution:{width,height},status:'needs-review',warnings:['Boundaries and regions are traced from structural lines. Closed rooms and voids block beacon placement. Review ambiguous room outlines and door connections.','Lift, escalator, stair, entrance and exit recognition uses PDF/SVG text labels only; unlabeled symbols and raster text require manual confirmation.','Placement is a bounded geometry-based heuristic, not a guaranteed global optimum or RF coverage prediction.'],regions:regions.length,detected:{boundaries:objects.filter(o=>o.type==='buildingBoundary').length,walkableRegions:objects.filter(o=>o.type==='walkableArea').length,walls:objects.filter(o=>o.category==='Wall').length,roomCandidates:objects.filter(o=>o.type==='room').length,labeledLandmarks:objects.filter(o=>o.type==='poi').length}}};
+  return {objects,graph:graph.serialize(),analysis:{method:'bounded-raster-topology',contourVersion:3,resolution:{width,height},status:'needs-review',warnings:['Boundaries and regions are traced from structural lines. Closed rooms and voids block beacon placement. Review ambiguous room outlines and door connections.','Landmark pins use positioned labels. Review unlabeled stair assemblies and doorway locations.','Placement is a bounded geometry-based heuristic, not a guaranteed global optimum or RF coverage prediction.'],regions:regions.length,detected:{boundaries:objects.filter(o=>o.type==='buildingBoundary').length,walkableRegions:objects.filter(o=>o.type==='walkableArea').length,walls:objects.filter(o=>o.category==='Wall').length,roomCandidates:objects.filter(o=>o.type==='room').length,labeledLandmarks:objects.filter(o=>o.type==='poi').length}}};
 }
 
 export function graphFromWalkableMask({free,width,height,drawingWidth,drawingHeight,metersPerPixel}) {
@@ -227,9 +625,17 @@ export function maskContours(mask,width,height,sx=1,sy=1,tolerance=.8) {
       if(split)continue;
     const simplified=loop.filter((p,i)=>{const a=loop[(i+loop.length-1)%loop.length],b=loop[(i+1)%loop.length];return Math.abs((p.x-a.x)*(b.y-p.y)-(p.y-a.y)*(b.x-p.x))>1e-8;});
     if(simplified.length>=3){
-      const signed=contourArea(simplified),smoothed=simplifyContour(simplified,tolerance*Math.min(sx,sy));
+      const signed=contourArea(simplified);
+      const fitted=straightenRasterStairs(simplified,sx,sy);
+      const smoothed=simplifyContour(fitted,tolerance*Math.min(sx,sy));
       // Smoothing narrow CAD recesses must not introduce crossing edges.
-      contours.push({points:selfIntersects(smoothed)?simplified:smoothed,hole:signed<0});
+      const valid=ring=>Math.abs(contourArea(ring)/signed-1)<=.15&&!selfIntersects(ring);
+      let points=smoothed;
+      if(points===fitted||!valid(points)){
+        const local=simplifyNarrowContour(simplified,tolerance*Math.min(sx,sy));
+        points=valid(local)?local:fitted!==simplified&&valid(fitted)?fitted:simplified;
+      }
+      contours.push({points,hole:signed<0});
     }
     }
   }
@@ -287,22 +693,98 @@ function crossedEnclosures(regions,width,height){
   return crosses;
 }
 
-// shortcut: collinear wall ends identify door gaps; angled doors need vector-aware detection.
-export function closeDoorGaps(mask,width,height,maxGap){
-  const source=mask.slice();
+// Some CAD exports draw one dimension rule as several paint operations. At raster
+// resolution it is still a nearly continuous rule spanning a sheet margin.
+function stripSheetRules(ink,width,height){
   for(const vertical of [false,true]){
     const lines=vertical?width:height,span=vertical?height:width;
     for(let line=0;line<lines;line++){
-      const index=position=>vertical?position*width+line:line*width+position;
-      let previousRun=0;
-      for(let position=0;position<span;){
-        if(source[index(position)]){const start=position;while(position<span&&source[index(position)])position++;previousRun=position-start;continue;}
-        const start=position;while(position<span&&!source[index(position)])position++;
-        const gap=position-start,support=Math.max(6,Math.ceil(gap*1.2));
-        if(gap>maxGap||previousRun<support||position===span)continue;
-        let end=position;while(end<span&&source[index(end)])end++;
-        if(end-position>=support)for(let p=start;p<position;p++)mask[index(p)]=1;
+      const fraction=line/lines;
+      if(vertical?fraction>.035&&fraction<.965:fraction>.13&&fraction<.85)continue;
+      const index=p=>vertical?p*width+line:line*width+p;
+      let start=0,last=-5;
+      for(let p=0;p<=span+3;p++){
+        if(p<span&&ink[index(p)]){
+          if(p-last>3)start=p;
+          last=p;
+        }else if(p-last===3&&last-start>span*(vertical?.72:.88)){
+          for(let i=start;i<=last;i++)ink[index(i)]=0;
+        }
       }
     }
+  }
+}
+
+// Measure in the region's orientation so that a rectangular room in a rotated wing
+// stays compact. A branching passage occupies little of even its tightest box.
+function resemblesPassage(cells,width){
+  let minArea=Infinity,aspect=1;
+  for(let angle=0;angle<Math.PI/2-.001;angle+=Math.PI/16){
+    const cos=Math.cos(angle),sin=Math.sin(angle);
+    let minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;
+    for(const i of cells){
+      const x=i%width,y=Math.floor(i/width),u=x*cos+y*sin,v=y*cos-x*sin;
+      minU=Math.min(minU,u);maxU=Math.max(maxU,u);
+      minV=Math.min(minV,v);maxV=Math.max(maxV,v);
+    }
+    const w=maxU-minU+1,h=maxV-minV+1;
+    if(w*h<minArea){minArea=w*h;aspect=Math.max(w/h,h/w);}
+  }
+  return cells.length/minArea<.55||aspect>=5;
+}
+
+export function closeDoorGaps(mask,width,height,maxGap,onGap){
+  const source=mask.slice();
+  function scan(x,y,dx,dy){
+    const step=dy*width+dx,limit=maxGap/Math.hypot(dx,dy);
+    let wall=0,gap=0,supportBefore=0;
+    for(;x>=0&&x<width&&y<height;x+=dx,y+=dy){
+      const i=y*width+x;
+      if(!source[i]){
+        if(wall){supportBefore=wall;gap=0;wall=0;}
+        gap++;
+        continue;
+      }
+      wall++;
+      const required=Math.max(6,Math.ceil(gap*1.2));
+      if(gap>0&&gap<=limit&&supportBefore>=required&&wall===required){
+        onGap?.(x+.5-(wall+(gap-1)/2)*dx,y+.5-(wall+(gap-1)/2)*dy,dx,dy,gap);
+        for(let j=0;j<gap;j++)mask[i-(wall+j)*step]=1;
+      }
+    }
+  }
+  for(let x=0;x<width;x++){scan(x,0,0,1);scan(x,0,1,1);scan(x,0,-1,1);}
+  for(let y=0;y<height;y++){
+    scan(0,y,1,0);
+    if(y>0){scan(0,y,1,1);scan(width-1,y,-1,1);}
+  }
+}
+
+// Follow narrow pale ridges between existing structural strokes. A uniform pale
+// room fill cannot satisfy the cross-line contrast test.
+function recoverFaintPartitions(data,ink,width,height){
+  const tone=new Uint8Array(ink.length);
+  for(let i=0;i<tone.length;i++){
+    const p=4*i,alpha=data[p+3]/255;
+    tone[i]=255-(255-Math.min(data[p],data[p+1],data[p+2]))*alpha;
+  }
+  const strong=ink.slice();
+  for(const [dx,dy] of [[1,0],[0,1],[1,1],[-1,1]]){
+    const step=dy*width+dx,across=2*(dx*width-dy);
+    function scan(x,y){
+      let start=-1,count=0,anchored=false;
+      for(;x>=2&&x<width-2&&y>=2&&y<height-2;x+=dx,y+=dy){
+        const i=y*width+x;
+        if(!strong[i]&&tone[i]<=249&&tone[i]+5<=Math.min(tone[i-across],tone[i+across])){
+          if(!count){start=i;anchored=!!strong[i-step];}
+          count++;
+        }else{
+          if(anchored&&strong[i]&&count>=4)for(let n=0;n<count;n++)ink[start+n*step]=1;
+          count=0;
+        }
+      }
+    }
+    if(dy)for(let x=2;x<width-2;x++)scan(x,2);
+    if(dx)for(let y=dy?3:2;y<height-2;y++)scan(dx>0?2:width-3,y);
   }
 }

@@ -1,51 +1,113 @@
+import {segmentProjection} from '../engines/floorGeometry.js';
+import polygonClipping from 'polygon-clipping';
+import {pinColor,polygonAppearance} from './polygonAppearance.js';
 import {validateFloorPlanSetup,localToGeographic} from "./floorPlanSetup.js";
 import {boundsOf,objectPoints,rotatedPoint,measurements,polygonArea} from '../engines/geometry.js';
 
 // Local drawings have no geographic origin; never invent longitude/latitude for them.
-export function floorGeojson(project,reference=null){
+export function floorGeojson(project,reference=null,{local=false}={}){
   const scale=Number(project.widthMeters)/Number(project.drawingWidthPixels);
   if(!Number.isFinite(scale)||scale<=0)throw new Error('Calibrate the drawing scale before exporting geometry.');
-  const geographicOrigin=project.geographicOrigin;
+  const registration=project.floorAnalysis?.registration;
+  const geographicOrigin=local||registration?null:project.geographicOrigin;
   if(geographicOrigin)validateFloorPlanSetup({...geographicOrigin,widthMeters:project.widthMeters,heightMeters:project.heightMeters});
-  const alignment=geographicOrigin?null:reference?.alignment;
+  const alignment=local||geographicOrigin?null:registration||reference?.alignment;
   const matrix=alignment?.geoToNormalizedPdf;
   const determinant=matrix?matrix[0][0]*matrix[1][1]-matrix[1][0]*matrix[0][1]:null;
   if(matrix&&(!Number.isFinite(determinant)||Math.abs(determinant)<1e-15))throw new Error('Invalid geographic alignment.');
   function coordinate(p){
     if(!Number.isFinite(p.x)||!Number.isFinite(p.y))throw new Error('Cannot export nonfinite coordinates.');
+    if(local&&registration)return [p.x/project.drawingWidthPixels*registration.widthMeters,-p.y/project.drawingHeightPixels*registration.widthMeters*registration.pageAspect];
     if(!matrix)return geographicOrigin?localToGeographic({x:p.x*scale,y:-p.y*scale},geographicOrigin):[p.x*scale,-p.y*scale];
     const x=p.x/project.drawingWidthPixels-matrix[2][0],y=p.y/project.drawingHeightPixels-matrix[2][1];
     return [alignment.origin[0]+(x*matrix[1][1]-y*matrix[1][0])/determinant,alignment.origin[1]+(y*matrix[0][0]-x*matrix[0][1])/determinant];
   }
   const sources=new Map((reference?.features||[]).map(f=>[f.id,f]));
   const features=[];
+  const exportedRegions=new Map();
+  const doorPositions=new Map();
   for(const object of project.objects||[]){
-    if(object.type==='walkableArea'&&['automatic','reference'].includes(object.origin))continue;
+    if(object.id==='reference-public-floor'&&object.origin==='reference')continue;
     if(!['room','rectangle','polygon','buildingBoundary','walkableArea','restrictedArea','nonWalkableArea','wall','poi'].includes(object.type))continue;
-    const source=sources.get(object.metadata?.sourceId),type=object.metadata?.sourceType||object.category||({room:'Store',wall:'Wall',buildingBoundary:'Boundary',walkableArea:'Walkable Area',restrictedArea:'Restricted Area',nonWalkableArea:'Non Walkable'}[object.type])||object.type;
-    const properties={...source?.properties,type,name:object.name||type,floor:reference?.floor??object.floorId??'floor-1',isWalkable:object.type==='poi'?source?.properties?.isWalkable===true:object.type==='walkableArea'&&object.geometryRole!=='restrictedArea'&&object.layerId!=='restrictedAreas'&&!["Wall","Lift","Steps","Stairs","Escalator","Restricted Area","Non Walkable","Green Area"].includes(type),...measurements(object,scale)};
+    const source=sources.get(object.metadata?.sourceId),original=object.metadata?.properties||source?.properties,type=(registration&&object.category)||object.metadata?.sourceType||object.category||({room:'Store',wall:'Wall',buildingBoundary:'Boundary',walkableArea:'Walkable Area',restrictedArea:'Restricted Area',nonWalkableArea:'Non Walkable'}[object.type])||object.type;
+    const properties={...original,type,name:object.name||type,floor:project.floorAnalysis?.referenceFloor??reference?.floor??object.floorId??'floor-1',isWalkable:original&&registration?original.isWalkable===true:object.type==='poi'?original?.isWalkable===true:object.type==='walkableArea'&&object.geometryRole!=='restrictedArea'&&object.layerId!=='restrictedAreas'&&!["Wall","Lift","Steps","Stairs","Escalator","Restricted Area","Non Walkable","Green Area"].includes(type),...measurements(object,scale)};
+    if(type==='Wall'&&object.metadata?.wallRole)properties.wallRole=object.metadata.wallRole;
+    if(object.metadata?.labelSource)Object.assign(properties,{labelSource:object.metadata.labelSource,needsReview:!!object.metadata.needsReview});
+    if(object.metadata?.geometrySource){
+      properties.geometrySource=object.metadata.geometrySource;
+      if(object.metadata.needsReview)properties.needsReview=true;
+    }
+    if(object.origin==='automatic'&&object.type==='poi'){
+      const {roomId,passageId,coordinateSource,needsReview,unitNumber}=object.metadata||{};
+      Object.assign(properties,{roomId,passageId,coordinateSource,needsReview});
+      if(unitNumber)properties.unitNumber=unitNumber;
+    }
     const boundary=object.type==='buildingBoundary',wall=type==='Wall'||object.type==='wall',walkable=properties.isWalkable||type==='Green Area',room=object.type==='room'||['Store','Outlet'].includes(type);
     const fill=wall?'#475569':walkable?'#78e196':room?'#64c3dc':type==='Lift'?'#fad72d':'#d9a97b';
     const stroke=boundary?'#d84b55':wall?'#475569':walkable?'#6ca781':room?'#4193a5':'#ad8061';
     Object.assign(properties,{fill,'fill-opacity':boundary ? 0 : wall ? 0.2 : walkable ? 0.18 : 0.22,stroke,'stroke-opacity':wall?0:1,'stroke-width':boundary ? 1.2 : 0.6});
+    const appearance=polygonAppearance(object);
+    if(appearance)Object.assign(properties,appearance,{fill:appearance.fillColor,'fill-opacity':1,baseHeight:object.baseMeters||0,topHeight:(object.baseMeters||0)+appearance.height});
+    if(object.type==='poi')properties['marker-color']=object.fillColor||pinColor(type);
     const box=boundsOf(object),center={x:box.x+box.width/2,y:box.y+box.height/2};
     const points=objectPoints(object).map(p=>rotatedPoint(p,center,object.rotation||0));
-    if(object.type==='poi'){features.push({type:'Feature',id:object.metadata?.sourceId||object.id,properties,geometry:{type:'Point',coordinates:coordinate(points[0])}});continue;}
+    if(object.type==='poi'){const id=object.metadata?.sourceId||object.id;
+      if(type==='Room Door')doorPositions.set(id,points[0]);
+      features.push({type:'Feature',id:object.metadata?.sourceId||object.id,properties,geometry:{type:'Point',coordinates:coordinate(points[0])}});continue;}
     let polygons=[points];
     if(object.type==='wall'){
       const width=Number(object.thicknessMeters??.2)/scale;
       if(!Number.isFinite(width)||width<=0)throw new Error('Wall thickness must be positive.');
       polygons=points.slice(1).map((b,i)=>{const a=points[i],length=Math.hypot(b.x-a.x,b.y-a.y);if(!length)throw new Error('Wall segment has zero length.');const nx=-(b.y-a.y)*width/(2*length),ny=(b.x-a.x)*width/(2*length);return [{x:a.x+nx,y:a.y+ny},{x:b.x+nx,y:b.y+ny},{x:b.x-nx,y:b.y-ny},{x:a.x-nx,y:a.y-ny}];});
     }
-    for(const [index,polygon] of polygons.entries()){
+    const holes=(object.holes||[]).map(h=>h.map(p=>rotatedPoint(p,center,object.rotation||0)));
+    const parts=polygons.flatMap(polygon=>{
       if(!Number.isFinite(polygonArea(polygon))||polygonArea(polygon)<=0)throw new Error('Polygon must have positive area.');
-      let ring=polygon.map(coordinate);
-      if(ring.length>1&&ring[0][0]===ring.at(-1)[0]&&ring[0][1]===ring.at(-1)[1])ring.pop();
-      if(ring.length<3)throw new Error('Polygon requires at least three vertices.');
-      const signed=ring.reduce((sum,p,i)=>{const q=ring[(i+1)%ring.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
-      if(signed<0)ring.reverse();
-      ring.push([...ring[0]]);
-      features.push({type:'Feature',id:(object.metadata?.sourceId||object.id)+(polygons.length>1?`-${index+1}`:''),properties:object.type==='wall'?{...properties,...measurements({type:'polygon',points:polygon},scale)}:properties,geometry:{type:'Polygon',coordinates:[ring,...(object.holes||[]).map(hole=>{let coordinates=hole.map(p=>coordinate(rotatedPoint(p,center,object.rotation||0)));const area=coordinates.reduce((sum,p,i)=>{const q=coordinates[(i+1)%coordinates.length];return sum+p[0]*q[1]-q[0]*p[1];},0);if(area>0)coordinates.reverse();return [...coordinates,[...coordinates[0]]];})]}});
+      if(!holes.length)return [[polygon]];
+      // Simplification and vertex edits can leave a cutout crossing the shell.
+      // Subtract in drawing space before projecting to longitude/latitude.
+      const shape=ring=>[ring.map(p=>[p.x,p.y])];
+      return polygonClipping.difference(shape(polygon),...holes.map(shape)).map(part=>
+        part.map(ring=>ring.slice(0,-1).filter(([x,y],i)=>{
+          const previous=ring[(i+ring.length-2)%(ring.length-1)];
+          return Math.hypot(x-previous[0],y-previous[1])>1e-8;
+        }).map(([x,y])=>({x,y}))));
+    });
+    if(['room','walkableArea'].includes(object.type)){
+      const baseId=object.metadata?.sourceId||object.id;
+      const targets=parts.map((rings,index)=>({rings,id:parts.length>1?baseId+'-'+(index+1):baseId}));
+      const region={targets,original:holes.length?[points,...holes]:null};
+      exportedRegions.set(object.id,region);
+      if(object.metadata?.sourceId)exportedRegions.set(object.metadata.sourceId,region);
+    }
+    for(const [index,[outer,...interiors]] of parts.entries()){
+      const coordinates=[outer,...interiors].map((points,i)=>{
+        const ring=points.map(coordinate);
+        if(ring.length>1&&ring[0][0]===ring.at(-1)[0]&&ring[0][1]===ring.at(-1)[1])ring.pop();
+        if(ring.length<3)throw new Error('Polygon requires at least three vertices.');
+        if((signedRingArea(ring)<0)===(i===0))ring.reverse();
+        return [...ring,[...ring[0]]];
+      });
+      const id=(object.metadata?.sourceId||object.id)+(parts.length>1?`-${index+1}`:'');
+      const dimensions=measurements({type:'polygon',points:outer,holes:interiors},scale);
+      features.push({type:'Feature',id,properties:{...properties,...dimensions},geometry:{type:'Polygon',coordinates}});
+    }
+  }
+  for(const {id,properties,geometry} of features){
+    if(geometry.type!=='Point'||properties.type!=='Room Door')continue;
+    for(const key of ['roomId','passageId']){
+      if(!properties[key])continue;
+      const {targets=[],original}=exportedRegions.get(properties[key])||{};
+      const point=doorPositions.get(id);
+      const nearBoundary=rings=>point&&rings.some(ring=>ring.some((start,i)=>
+        segmentProjection(point,start,ring[(i+1)%ring.length]).distance*scale<=.6));
+      const checkBoundary=targets.length>1||(original&&nearBoundary(original));
+      const matching=checkBoundary?targets.filter(({rings})=>nearBoundary(rings)):targets;
+      if(matching.length===1)properties[key]=matching[0].id;
+      else{
+        delete properties[key];
+        properties.needsReview=true;
+      }
     }
   }
   const nodes=new Map((project.graph?.nodes||[]).map(node=>[node.id,node]));
@@ -57,4 +119,14 @@ export function floorGeojson(project,reference=null){
   }
   if(!features.length)throw new Error('No floor geometry to export.');
   return {type:'FeatureCollection',name:project.name,coordinateSystem:matrix||geographicOrigin?'WGS84 longitude/latitude':'Local metres; origin at drawing top-left, positive Y points up; not geographic GeoJSON',scaleAssumed:!!project.floorAnalysis?.scaleAssumed,features};
+}
+
+// Subtract a nearby origin before testing winding. With lon/lat, tiny slivers
+// otherwise lose their signed area to cancellation.
+function signedRingArea(ring){
+  const [x,y]=ring[0];
+  return ring.reduce((sum,p,i)=>{
+    const q=ring[(i+1)%ring.length];
+    return sum+(p[0]-x)*(q[1]-y)-(q[0]-x)*(p[1]-y);
+  },0);
 }

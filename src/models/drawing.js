@@ -127,8 +127,8 @@ export function normalizeProject(project) {
 }
 
 
-export function visibleAnnotation(object){
+export function visibleAnnotation(object,sourceVisible=true){
   if(!['automatic','reference'].includes(object.origin))return true;
-  if(object.type==='walkableArea')return false;
-  return !(object.origin==='automatic'&&(object.type==='buildingBoundary'||object.category==='Wall'));
+  if(object.type==='walkableArea')return object.origin==='automatic';
+  return !(sourceVisible&&object.origin==='automatic'&&(object.type==='buildingBoundary'||object.category==='Wall'));
 }

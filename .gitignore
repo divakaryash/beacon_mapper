@@ -11,3 +11,6 @@ __pycache__/
 .venv-training/
 training/generated/
 training/models/
+
+output/
+tests/

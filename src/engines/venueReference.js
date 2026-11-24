@@ -28,7 +28,9 @@ export function analyzeVenueReference(reference,{drawingWidth,drawingHeight,cell
       if(points.length>1&&Math.hypot(points[0].x-points.at(-1).x,points[0].y-points.at(-1).y)<1e-7)points.pop();
       const blocked=['Wall','Store','Outlet','Lift','Escalator','Escalator-up','Escalator-down','Stairs','Steps','Non Walkable','Green Area'].includes(type);
       const role=type==='Restricted Area'?'restrictedArea':!blocked&&properties.isWalkable===true?'walkableArea':'nonWalkableArea';
-      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,name,category:type,layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',metadata});
+      objects.push({id:`reference-${feature.id}`,type:['Store','Outlet'].includes(type)?'room':role,geometryRole:role,points,name,category:type,
+        ...(properties.height!=null&&String(properties.height).trim()&&Number.isFinite(Number(properties.height))&&Number(properties.height)>=0?{extrusionMeters:Number(properties.height),extrusionSource:'reference'}:{}),
+        ...(/^#[0-9a-f]{6}$/i.test(properties.fillColor)?{fillColor:properties.fillColor}:{}),layerId:type==='Wall'?'walls':['Store','Outlet'].includes(type)?'rooms':role==='walkableArea'?'walkableAreas':'restrictedAreas',floorId,origin:'reference',metadata});
       counts[type]=(counts[type]||0)+1;
     }else if(CATEGORIES[type]){
       const position=project(geometry.coordinates),poi={id:`reference-${feature.id}`,type:'poi',layerId:'pois',floorId,name,category:CATEGORIES[type],...position,origin:'reference',metadata:{...metadata,coordinateSource:'API Point geometry; not centroid or stale local coordinates'}};

@@ -12,6 +12,9 @@ import {sampleMall,sampleFloorSvg} from "./samples/sampleMall.js";
 import { isPdf, readFloorPlan, analyzeImportedFloor, matchingFloorReference } from "./models/floorPlanImport.js";
 import {useDeploymentPlanner} from "./hooks/useDeploymentPlanner.js";
 
+import {polygonAppearance} from './models/polygonAppearance.js';
+const FloorModelView=React.lazy(()=>import('./components/FloorModelView.jsx'));
+
 const annotationLayers=LAYERS.filter(layer=>["floorPlan","walls","rooms","walkableAreas","restrictedAreas","pois"].includes(layer.id));
 const annotationTools=TOOLS.filter(([id])=>id!=="walkablePath");
 
@@ -44,19 +47,39 @@ function LayersPanel({ project, update }) {
   );
 }
 
-function Inspector({ object, metersPerPixel, onChange, onDuplicate, onDelete }) {
+function Inspector({ object, objects, metersPerPixel, onChange, onDuplicate, onDelete }) {
   if (!object) return <section className="panel-section inspector-empty"><h2>Properties</h2><p>Select an object to inspect its geometry and edit its details.</p></section>;
   const metrics = measurements(object, metersPerPixel);
+  const appearance=polygonAppearance(object);
   const detailed = object.type === "room" || object.type === "poi";
   const field = (name, value) => onChange({ ...object, [name]: value });
   return (
     <section className="panel-section">
       <div className="section-title"><h2>Properties</h2><span>{object.type}</span></div>
+      {appearance&&<>
+        <label>Extrusion height (m) &middot; {appearance.heightSource}<input type="number" min="0" step="any" value={appearance.height} onChange={e=>{
+          const height=e.target.valueAsNumber;
+          if(Number.isFinite(height)&&height>=0)onChange({...object,extrusionMeters:height,extrusionSource:'user'});
+        }}/></label>
+        <label>Polygon colour<input type="color" value={appearance.fillColor} onChange={e=>field('fillColor',e.target.value)}/></label>
+      </>}
+      {object.metadata?.geometrySource&&<small>{object.metadata.geometrySource}</small>}
+      {object.metadata?.labelCrop&&<figure style={{margin:'8px 0'}}><img src={object.metadata.labelCrop} alt="Source drawing cropped to this room" style={{width:'100%'}}/><figcaption>Room label from the PDF · review transcription</figcaption></figure>}
       <label>ID<input value={object.id} readOnly /></label>
       {detailed && <>
         <label>Name<input value={object.name || ""} onChange={(event) => field("name", event.target.value)} /></label>
         <label>Category<input value={object.category || ""} onChange={(event) => field("category", event.target.value)} /></label>
         <label>Floor<input value={object.floor || ""} onChange={(event) => field("floor", event.target.value)} /></label>
+      </>}
+      {object.category==='Room Door'&&<>
+        {object.metadata?.coordinateSource&&<small>{object.metadata.coordinateSource}</small>}
+        {[['roomId','Room','room'],['passageId','Passage','walkableArea']].map(([key,label,type])=>
+          <label key={key}>{label}<select value={object.metadata?.[key]||''}
+            onChange={e=>field('metadata',{...object.metadata,[key]:e.target.value||undefined,needsReview:true})}>
+            <option value="">Unassigned</option>
+            {objects.filter(o=>o.type===type&&o.floorId===object.floorId).map(o=>
+              <option key={o.id} value={o.id}>{o.name||label} ({o.id})</option>)}
+          </select></label>)}
       </>}
       {object.type === "text" && <label>Text<input value={object.text || ""} onChange={(event) => field("text", event.target.value)} /></label>}
       <label>Rotation<input type="number" value={Math.round(object.rotation || 0)} onChange={(event) => field("rotation", Number(event.target.value))} /></label>
@@ -83,6 +106,7 @@ export default function App() {
   const committedProject = history.project;
   const [liveProject,setLiveProject]=useState(null);
   const project=liveProject||committedProject;
+  const [modelView,setModelView]=useState(false);
   const [tool, setTool] = useState("select");
   const [poiCategory, setPoiCategory] = useState("Store");
   const [selectedId, setSelectedId] = useState(null);
@@ -94,10 +118,10 @@ export default function App() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const importRequest = useRef(0);
-  const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:""});
+  const [uploadSetup,setUploadSetup]=useState({latitude:"",longitude:"",widthMeters:"",heightMeters:"",dimensionUnit:"m"});
   let uploadReady=false;
   try {validateFloorPlanSetup(uploadSetup);uploadReady=true;} catch {}
-  const uploadFields=<div><p><small>Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins.</small></p><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters","Drawing width (m)"],["heightMeters","Drawing height (m)"]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
+  const uploadFields=<div><p><small>Anchor: top-left of the drawing. North is up; east is right. Dimensions cover the entire uploaded drawing, including its margins.</small></p><label>Drawing units<select value={uploadSetup.dimensionUnit} disabled={importing} onChange={e=>setUploadSetup({...uploadSetup,dimensionUnit:e.target.value})}><option value="m">Metres</option><option value="mm">Millimetres</option></select></label><div className="field-grid">{[["latitude","Initial latitude"],["longitude","Initial longitude"],["widthMeters",`Drawing width (${uploadSetup.dimensionUnit})`],["heightMeters",`Drawing height (${uploadSetup.dimensionUnit})`]].map(([key,label])=><label key={key}>{label}<input type="number" step="any" required disabled={importing} value={uploadSetup[key]} onChange={e=>setUploadSetup({...uploadSetup,[key]:e.target.value})}/></label>)}</div></div>;
   const [focusLocation,setFocusLocation]=useState(null);
   const [planningError,setPlanningError]=useState("");
   const committedRef=useRef(committedProject);committedRef.current=committedProject;
@@ -213,7 +237,7 @@ export default function App() {
     const base = { objects: [], graph:{nodes:[],edges:[]}, layers: defaultLayers(), gridSize: 20, snapToGrid: false };
     try {
       const setup=validateFloorPlanSetup(uploadSetup);
-      const imported = await readFloorPlan(file);
+      const imported = await readFloorPlan(file,setStatus);
       const originalHeight=imported.drawingHeightPixels;
       imported.drawingHeightPixels=imported.drawingWidthPixels*setup.heightMeters/setup.widthMeters;
       imported.floorPlanLabels=imported.floorPlanLabels?.map(label=>({...label,y:label.y*imported.drawingHeightPixels/originalHeight,height:label.height*imported.drawingHeightPixels/originalHeight}));
@@ -222,7 +246,7 @@ export default function App() {
       // User dimensions establish scale before annotations are generated.
       const widthMeters=setup.widthMeters,metersPerPixel=widthMeters/imported.drawingWidthPixels;
       let detected;
-      try {detected=await analyzeImportedFloor(imported,metersPerPixel);}
+      try {detected=await analyzeImportedFloor(imported,metersPerPixel,setStatus);}
       catch(error){detected={objects:[],graph:{nodes:[],edges:[]},analysis:{method:"bounded-raster-topology",status:"failed",warnings:[error.message]}};}
       if(request!==importRequest.current)return;
       const detectedNodes=new Map(detected.graph.nodes.map(n=>[n.id,n]));
@@ -238,9 +262,9 @@ export default function App() {
     const current=committedRef.current;if(!current?.file||importing)return;
     const request=++importRequest.current;setImporting(true);setImportError("");
     try{
-      const rendered=await readFloorPlan(current.file);
+      const rendered=await readFloorPlan(current.file,setStatus);
       const imported={...current,...rendered,drawingWidthPixels:current.drawingWidthPixels,drawingHeightPixels:current.drawingHeightPixels,floorPlanLabels:rendered.floorPlanLabels.map(label=>({...label,x:label.x*current.drawingWidthPixels/rendered.drawingWidthPixels,y:label.y*current.drawingHeightPixels/rendered.drawingHeightPixels,width:(label.width||0)*current.drawingWidthPixels/rendered.drawingWidthPixels,height:(label.height||0)*current.drawingHeightPixels/rendered.drawingHeightPixels}))};
-      const detected=await analyzeImportedFloor(imported,Number(current.widthMeters)/current.drawingWidthPixels);
+      const detected=await analyzeImportedFloor(imported,Number(current.widthMeters)/current.drawingWidthPixels,setStatus);
       if(request!==importRequest.current)return;
       if(committedRef.current!==current)throw new Error("The project changed during analysis. Retry to apply annotations to the current project.");
       update(normalizeProject({...imported,objects:[...current.objects.filter(object=>!["automatic","reference"].includes(object.origin)),...detected.objects],floorAnalysis:{...detected.analysis,scaleAssumed:false,scaleSource:current.floorAnalysis?.scaleSource}}));
@@ -272,19 +296,19 @@ export default function App() {
       <header className="app-header">
         <div><p className="eyebrow">Indoor Navigation Planning Studio</p><h1>{project.name || "Untitled floor"}</h1></div>
         <div className="project-stats"><span>{projectStats.rooms} rooms</span><span>{projectStats.pois} POIs</span><span>{projectStats.objects} objects</span>{project.beaconPlan&&<span>{project.beaconPlan.beacons.length} IW beacons</span>}</div>
-        <div className="header-actions"><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
+        <div className="header-actions"><button type="button" aria-pressed={modelView} onClick={()=>setModelView(!modelView)}>{modelView?"Edit in 2D":"View in 3D"}</button><button type="button" disabled={!history.canUndo} onClick={history.undo}>Undo</button><button type="button" disabled={!history.canRedo} onClick={history.redo}>Redo</button><span className="status">{status}</span></div>
       </header>
 
       <nav className="tool-rail" aria-label="Drawing tools">
-        {annotationTools.map(([id, label, shortcut]) => <button key={id} className={tool === id ? "active" : ""} type="button" title={`${label} (${shortcut})`} onClick={() => setTool(id)}><span>{label.slice(0, 2)}</span><small>{label}</small></button>)}
+        {annotationTools.map(([id, label, shortcut]) => <button key={id} className={tool === id ? "active" : ""} type="button" title={`${label} (${shortcut})`} onClick={() => {setModelView(false);setTool(id);}}><span>{label.slice(0, 2)}</span><small>{label}</small></button>)}
       </nav>
 
       <aside className="left-panel">
         <section className="panel-section">
           <div className="section-title"><h2>Floor plan</h2><span>{formatScale(scale)}</span></div>
-          {project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
+          {project.floorAnalysis?.registration?<p><small>This saved project uses its stored geographic registration.</small></p>:project.geographicOrigin&&<p><small>Current anchor: {project.geographicOrigin.latitude}, {project.geographicOrigin.longitude} · top-left, north up</small></p>}{uploadFields}<label className="upload compact"><span>{importing ? "Analyzing floor plan…" : "Replace source"}</span><input disabled={importing||!uploadReady} type="file" accept={acceptedTypes} onChange={importFloorPlan} /></label>
           {project.file&&<button className="secondary" type="button" disabled={importing} title="Replaces detected annotations; use Undo to restore the previous result. Manually drawn objects are preserved." onClick={redetectAnnotations}>{importing?"Analyzing annotations…":"Re-detect annotations"}</button>}
-          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to measure annotations at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.walkableRegions} walkable regions · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"API shops":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
+          {project.floorAnalysis&&<div role="status"><p><strong>{project.floorAnalysis.status==="failed"?"Automatic analysis needs correction":project.floorAnalysis.method==="aligned-venue-reference"?"API reference · review boundary":"Automatic draft · review geometry"}</strong></p>{project.floorAnalysis.scaleAssumed&&<p>Provisional drawing width: 100 m. Enter the actual full drawing width below to measure annotations at the correct scale.</p>}{project.floorAnalysis.detected&&<p><small>{project.floorAnalysis.detected.unclassifiedRegions??project.floorAnalysis.detected.walkableRegions} {project.floorAnalysis.detected.unclassifiedRegions?"unclassified floor regions":"walkable regions"} · {project.floorAnalysis.detected.roomCandidates} {project.floorAnalysis.method==="aligned-venue-reference"?"reference rooms":"room candidates"} · {project.floorAnalysis.detected.walls} {project.floorAnalysis.method==="aligned-venue-reference"?"walls":"wall polygons"} · {project.floorAnalysis.detected.labeledLandmarks} labeled landmarks</small></p>}{project.floorAnalysis.vectorRooms!=null&&<p><small>{project.floorAnalysis.vectorRooms} rooms traced from PDF walls · {project.floorAnalysis.vectorRefinedRooms} room outlines adjusted to wall faces · {project.floorAnalysis.roomOcrLabels??0} labels read inside rooms</small></p>}{project.floorAnalysis.warnings.map((warning,i)=><p key={i}><small>{warning}</small></p>)}</div>}
           {project.pdfPageCount && <small>PDF page 1 of {project.pdfPageCount}. Calibrate using a known drawing dimension.</small>}
           {importError && <p role="alert">{importError}</p>}
           <div className="field-grid">
@@ -301,8 +325,8 @@ export default function App() {
         <button className="reset" type="button" onClick={reset}>Clear local project</button>
       </aside>
 
-      <section className="canvas-area"><StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/></section>
-      <aside className="right-panel"><p><strong>Annotation only</strong><br/><small>Review polygon boundaries and names before planning navigation.</small></p><Inspector object={selected} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
+      <section className="canvas-area">{modelView?<React.Suspense fallback={<p>Loading 3D model...</p>}><FloorModelView project={project} onSelect={setSelectedId}/></React.Suspense>:<StudioCanvas project={project} tool={tool} poiCategory={poiCategory} selectedId={selectedId} onSelect={setSelectedId} onAdd={addObject} onChange={updateObject} onDelete={deleteObject} graphSelection={graphSelection} setGraphSelection={setGraphSelection} onGraphAction={graphAction} route={route} setBeaconSelection={setBeaconSelection} onBeaconAction={beaconAction} focusLocation={focusLocation} beaconSelection={beaconSelection} simulation={simulation}/>}</section>
+      <aside className="right-panel"><p><strong>{modelView?'3D floor model':'Floor annotations'}</strong><br/><small>{modelView?'Select a polygon to edit its colour and extrusion height. Assumed heights use the venue defaults.':'Review polygon boundaries, names and landmark positions.'}</small></p><Inspector object={selected} objects={project.objects} metersPerPixel={scale} onChange={updateObject} onDuplicate={() => duplicateObject(selected)} onDelete={() => deleteObject(selected.id)} /></aside>
     </main>
   );
 }

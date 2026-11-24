@@ -1,8 +1,8 @@
 export function labelsFromRecognition(data,width,height,drawingWidth=width,drawingHeight=height){
   const labels=[];
   for(const block of data.blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[]){
-    const words=(line.words||[]).filter(word=>word.confidence>=65&&/[a-z]/i.test(word.text)&&word.bbox&&Object.values(word.bbox).every(Number.isFinite));
-    if(!words.length)continue;
+    const words=(line.words||[]).filter(word=>word.confidence>=65&&/[a-z0-9]/i.test(word.text)&&word.bbox&&Object.values(word.bbox).every(Number.isFinite));
+    if(!words.some(word=>/[a-z]/i.test(word.text)))continue;
     const x0=Math.min(...words.map(w=>w.bbox.x0)),x1=Math.max(...words.map(w=>w.bbox.x1)),y0=Math.min(...words.map(w=>w.bbox.y0)),y1=Math.max(...words.map(w=>w.bbox.y1));
     if(x1<=x0||y1<=y0||x0<0||y0<0||x1>width||y1>height)continue;
     labels.push({text:words.map(w=>w.text.trim()).join(' '),x:x0*drawingWidth/width,y:y1*drawingHeight/height,width:(x1-x0)*drawingWidth/width,height:(y1-y0)*drawingHeight/height,confidence:Math.min(...words.map(w=>w.confidence)),source:'ocr'});
@@ -28,7 +28,7 @@ export function textRecognitionRaster(data,width,height){
   return result;
 }
 
-export async function recognizeFloorLabels(image,width,height){
+export async function recognizeFloorLabels(image,width,height,recognizeMarkers){
   const source=URL.createObjectURL(image),loaded=new Image();
   try{await new Promise((resolve,reject)=>{loaded.onload=resolve;loaded.onerror=()=>reject(new Error('Could not read image for text recognition'));loaded.src=source;});}finally{URL.revokeObjectURL(source);}
   const ratio=Math.min(1,4096/Math.max(width,height)),canvas=document.createElement('canvas');
@@ -41,6 +41,12 @@ export async function recognizeFloorLabels(image,width,height){
   try{
     await worker.setParameters({tessedit_pageseg_mode:PSM.SPARSE_TEXT});
     const {data}=await worker.recognize(canvas,{}, {blocks:true});
-    return labelsFromRecognition(data,canvas.width,canvas.height,width,height);
+    const labels=labelsFromRecognition(data,canvas.width,canvas.height,width,height);
+    if(recognizeMarkers){
+      for(const label of await recognizeMarkers(worker)){
+        if(!labels.some(other=>other.text.trim().toLowerCase()===label.text.toLowerCase()&&Math.hypot(other.x-label.x,other.y-label.y)<16))labels.push(label);
+      }
+    }
+    return labels;
   }finally{await worker.terminate();}
 }

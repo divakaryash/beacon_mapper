@@ -1,5 +1,5 @@
 """Align local reference polygons to PDFs; save supervised masks and alignment previews."""
-import hashlib,json
+import argparse,hashlib,json
 from pathlib import Path
 import cv2
 import numpy as np
@@ -18,7 +18,7 @@ def label_type(t):
     if t in ['Restricted Area','Non Walkable','Green Area']:return 4
     return 0
 
-def prepare(name,floor,path):
+def prepare(name,floor,path,split):
     doc=pymupdf.open(path);page=doc[0];pix=page.get_pixmap(matrix=pymupdf.Matrix(1200/max(page.rect.width,page.rect.height),1200/max(page.rect.width,page.rect.height)),alpha=False)
     rgb=np.frombuffer(pix.samples,np.uint8).reshape(pix.height,pix.width,pix.n)[:,:,:3].copy();doc.close()
     features=json.loads((ROOT/f'data/annotation-references/{name}.geojson').read_text())['features']
@@ -64,13 +64,31 @@ def prepare(name,floor,path):
     for f,p in zip(features,projected):
         if label_type(f['properties'].get('type')):cv2.polylines(overlay,[p],True,(0,120,220),1)
     stem=f'{name}-{floor}';cv2.imwrite(str(OUT/f'{stem}-image.png'),cv2.cvtColor(rgb,cv2.COLOR_RGB2BGR));cv2.imwrite(str(OUT/f'{stem}-mask.png'),mask);cv2.imwrite(str(OUT/f'{stem}-alignment.png'),cv2.cvtColor(overlay,cv2.COLOR_RGB2BGR))
-    row={'id':stem,'building':name,'floor':floor,'source':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'image':f'{stem}-image.png','mask':f'{stem}-mask.png','alignmentPreview':f'{stem}-alignment.png','meanBoundaryDistancePixels':float(fit.fun),'affine':[a.tolist(),b.tolist()],'split':'validation' if name=='apollo' else 'train','alignmentReviewed':False}
+    row={'id':stem,'building':name,'floor':floor,'source':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'image':f'{stem}-image.png','mask':f'{stem}-mask.png','alignmentPreview':f'{stem}-alignment.png','meanBoundaryDistancePixels':float(fit.fun),'affine':[a.tolist(),b.tolist()],'split':split,'alignmentReviewed':False}
     print(json.dumps({'id':stem,'distancePixels':fit.fun,'initialDistance':score(initial)}),flush=True)
     return row
 
 if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--pair', action='append', nargs=4, required=True,
+                        metavar=('BUILDING','FLOOR','SPLIT','PDF'))
+    args=parser.parse_args()
+    pairs=[]
+    seen=set()
+    for building,floor,split,filename in args.pair:
+        if building not in {'dlf','agi-hospital','pune'}:
+            parser.error('Choose dlf, agi-hospital or pune. Apollo is excluded.')
+        try:
+            floor=int(floor)
+        except ValueError:
+            parser.error('FLOOR must be an integer')
+        path=Path(filename).expanduser().resolve()
+        if split not in {'train','validation'} or not path.is_file():
+            parser.error(f'Invalid split or missing PDF: {filename}')
+        if (building,floor) in seen:
+            parser.error(f'Duplicate floor: {building} {floor}')
+        seen.add((building,floor))
+        pairs.append((building,floor,path,split))
     OUT.mkdir(parents=True,exist_ok=True)
-    folder=Path('/Users/yashdivakar/Downloads/DLF Floor Plans')
-    sources=[('dlf',0,folder/'GROUND FLOOR (L-01) Model (1).pdf'),('dlf',2,folder/'SECOND FLOOR PLAN (L03) Model (1).pdf'),('dlf',3,folder/'THIRD FLOOR PLAN (L04) Model (1).pdf'),('apollo',-1,Path('/Users/yashdivakar/Downloads/B1 (1).pdf'))]
-    rows=[prepare(*source) for source in sources]
+    rows=[prepare(*pair) for pair in pairs]
     (OUT/'dataset.json').write_text(json.dumps({'classes':CLASSES,'items':rows},indent=2)+'\n')

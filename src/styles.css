@@ -173,8 +173,19 @@ input[readonly] { color: #778493; background: #edf1f4; font-size: 0.65rem; }
 .polygon-legend { position: absolute; top: 12px; left: 12px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px 12px; max-width: calc(100% - 140px); padding: 7px 9px; background: rgb(255 255 255 / 94%); border-radius: 5px; color: #334155; font-size: 10px; pointer-events: none; }
 .polygon-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .polygon-legend i { width: 10px; height: 10px; border: 1px solid; }
-.legend-room { background: #d9eff5; border-color: #4193a5 !important; }
-.legend-walkable { background: #e2f7e7; border-color: #6ca781 !important; }
-.legend-wall { background: #cbd0d6; border-color: #64748b !important; }
-.legend-void { background: #f0e2d5; border-color: #ad8061 !important; }
+.legend-room { background: #a4d3df; border-color: #4193a5 !important; }
+.legend-walkable { background: #ffffff; border-color: #6ca781 !important; }
+.legend-wall { background: #767676; border-color: #64748b !important; }
+.legend-void { background: #dd8888; border-color: #ad8061 !important; }
 .legend-boundary { background: transparent; border-color: #d84b55 !important; }
+
+.model-view { position: relative; height: 100%; min-height: 300px; overflow: hidden; }
+.model-viewport { position: absolute; inset: 0; touch-action: none; }
+.model-viewport canvas { display: block; }
+.model-actions, .model-help { position: absolute; left: 14px; background: white; border-radius: 5px; padding: 7px; }
+.model-actions { top: 14px; display: flex; gap: 8px; }
+.model-help { bottom: 8px; font-size: 12px; }
+
+.model-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.model-labels span { position: absolute; transform: translate(-50%,-100%); max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 600 11px/1.3 system-ui,sans-serif; color: #22323c; text-shadow: 0 0 2px white, 1px 1px 2px white, -1px -1px 2px white; }
+.model-poi-label::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 3px; vertical-align: middle; border-radius: 50%; border: 1px solid white; background: var(--pin-color); }

@@ -6,6 +6,10 @@ export function validateFloorPlanSetup(values){
   }
   if(Math.abs(result.latitude)>=89.9||Math.abs(result.longitude)>180)throw new Error('Latitude must be between -89.9 and 89.9; longitude between -180 and 180.');
   if(result.widthMeters<=0||result.heightMeters<=0)throw new Error('Floor-plan dimensions must be positive metres.');
+  if(values.dimensionUnit==='mm'){
+    result.widthMeters/=1000;
+    result.heightMeters/=1000;
+  }
   return result;
 }
 
